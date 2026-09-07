@@ -76,7 +76,7 @@ export class CosmosStore implements Store {
       parameters.push({ name: "@ageBand", value: f.ageBand });
     }
     try {
-      const response = await this.database
+      const iterator = this.database
         .container(f.projectId === null ? "library" : "stories")
         .items.query(
           {
@@ -85,19 +85,34 @@ export class CosmosStore implements Store {
           },
           {
             maxItemCount: f.limit ?? 40,
+            enableQueryControl: true,
+            forceQueryPlan: true,
             continuationToken: f.cursor,
             ...(f.projectId !== undefined
               ? { partitionKey: f.projectId ?? "library" }
               : {}),
           },
+        );
+      while (true) {
+        const response = await iterator.fetchNext();
+        if (
+          response.resources !== undefined &&
+          !Array.isArray(response.resources)
         )
-        .fetchNext();
-      return {
-        items: response.resources.map(deserialize),
-        ...(response.continuationToken
-          ? { cursor: response.continuationToken }
-          : {}),
-      };
+          throw new Error("Invalid Cosmos query resources");
+        const more = iterator.hasMoreResults();
+        if (!response.resources?.length && more) continue;
+        if (more && !response.continuationToken)
+          throw new Error(
+            "Cosmos query cannot be resumed without a continuation token",
+          );
+        return {
+          items: (response.resources ?? []).map(deserialize),
+          ...(response.continuationToken
+            ? { cursor: response.continuationToken }
+            : {}),
+        };
+      }
     } catch (error) {
       storageError(error);
     }

@@ -11,7 +11,8 @@ function fixture(code = 200, operationCode = 200) {
     ],
   });
   const query = vi.fn().mockReturnValue({
-    fetchNext: async () => ({ resources: [], continuationToken: "next" }),
+    fetchNext: async () => ({ resources: [], continuationToken: undefined }),
+    hasMoreResults: () => false,
   });
   const container = vi.fn().mockReturnValue({ items: { batch, query } });
   return {
@@ -95,8 +96,112 @@ describe("Cosmos transaction contract", () => {
     });
     expect(options).toMatchObject({
       partitionKey: "library",
+      enableQueryControl: true,
+      forceQueryPlan: true,
       continuationToken: "opaque",
       maxItemCount: 12,
     });
+  });
+});
+
+describe("Cosmos SDK 4.10 empty query pages", () => {
+  function iterator(
+    pages: {
+      resources?: unknown[];
+      continuationToken?: string;
+      more: boolean;
+    }[],
+  ) {
+    let current = { more: true };
+    return {
+      fetchNext: vi.fn(async () => {
+        const next = pages.shift();
+        if (!next) throw Error("Unexpected fetch");
+        current = next;
+        return next;
+      }),
+      hasMoreResults: () => current.more,
+    };
+  }
+  function storeWith(pages: ReturnType<typeof iterator>) {
+    const query = vi.fn<(spec: unknown, options: unknown) => typeof pages>(
+      () => pages,
+    );
+    const container = vi.fn(() => ({ items: { query } }));
+    return {
+      store: new CosmosStore({ container } as unknown as Database),
+      query,
+    };
+  }
+  it("normalizes only exhausted undefined pages into an empty result", async () => {
+    const pages = iterator([{ resources: undefined, more: false }]);
+    const f = storeWith(pages);
+    expect(await f.store.list({ kind: "story" })).toEqual({ items: [] });
+    expect(pages.fetchNext).toHaveBeenCalledTimes(1);
+  });
+  it("keeps the same iterator through multiple interim empty pages and preserves the data-page cursor", async () => {
+    const pages = iterator([
+      { resources: undefined, more: true },
+      { resources: [], continuationToken: "interim-cursor", more: true },
+      {
+        resources: [{ ...doc, recordType: "head", _etag: "etag" }],
+        continuationToken: "next-page",
+        more: true,
+      },
+    ]);
+    const f = storeWith(pages);
+    const page = await f.store.list({ projectId: null, limit: 1 });
+    expect(page.items.map((d) => d.id)).toEqual([doc.id]);
+    expect(page.cursor).toBe("next-page");
+    expect(f.query).toHaveBeenCalledTimes(1);
+    expect(pages.fetchNext).toHaveBeenCalledTimes(3);
+  });
+  it("can exhaust several empty pages without exposing an intermediate cursor", async () => {
+    const pages = iterator([
+      { resources: undefined, continuationToken: "temporary", more: true },
+      { resources: [], more: true },
+      { resources: undefined, more: false },
+    ]);
+    const f = storeWith(pages);
+    expect(await f.store.list({ kind: "story" })).toEqual({ items: [] });
+    expect(pages.fetchNext).toHaveBeenCalledTimes(3);
+  });
+  it("preserves requested continuation and returns the next logical data page", async () => {
+    const pages = iterator([
+      { resources: undefined, more: true },
+      {
+        resources: [{ ...doc, recordType: "head", _etag: "final" }],
+        more: false,
+      },
+    ]);
+    const f = storeWith(pages);
+    const page = await f.store.list({
+      projectId: null,
+      cursor: "opaque-previous",
+    });
+    expect(f.query.mock.calls[0]?.[1]).toMatchObject({
+      continuationToken: "opaque-previous",
+    });
+    expect(page.items[0]?.revision).toBe("final");
+    expect(page.cursor).toBeUndefined();
+  });
+  it("does not convert a failure after an empty intermediate page into successful exhaustion", async () => {
+    const pages = iterator([{ resources: undefined, more: true }]);
+    const f = storeWith(pages);
+    await expect(f.store.list({ kind: "story" })).rejects.toMatchObject({
+      statusCode: 503,
+    });
+    expect(pages.fetchNext).toHaveBeenCalledTimes(2);
+  });
+  it("rejects nonempty pages that still have data but cannot provide a resumable cursor", async () => {
+    const pages = iterator([
+      {
+        resources: [{ ...doc, recordType: "head", _etag: "etag" }],
+        more: true,
+      },
+    ]);
+    await expect(
+      storeWith(pages).store.list({ kind: "story" }),
+    ).rejects.toMatchObject({ statusCode: 503 });
   });
 });
