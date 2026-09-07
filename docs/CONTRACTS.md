@@ -187,8 +187,10 @@ Web 目录选择仅上传相对路径与文本，不向后端授予本地路径�
 所有业务路由都验证 Bearer；写操作要求 APP_ORIGIN 和 application/json。错误包含安全 message 和可选路径诊断，不记录正文/token。
 正文仍无手工编辑器；Agent 会话、生成与采纳路由见下文 MWT-003 已实现契约。
 
-CCP 配置 Cosmos 索引时保留 `/id/?`、`/recordType/?`、`/kind/?`、`/deleted/?`、`/status/?`、`/content/name/?`、
+CCP 配置 Cosmos 索引时显式保留 `/recordType/?`、`/kind/?`、`/deleted/?`、`/status/?`、`/content/name/?`、
 `/content/genres/[]/?`、`/content/ageBand/?`、`/order/?`、`/updatedAt/?`、`/sourceAssetId/?`、`/conversationId/?`，排除其余路径；
+consistent 模式自动索引系统字段 `id` 和 `_ts`，不在策略 included/excluded paths 中显式覆盖 `/id/?` 或 `/_ts/?`；
+依据 [Cosmos 索引策略](https://learn.microsoft.com/en-us/cosmos-db/indexing-policies#index-size)。
 当前查询不需要多字段 ORDER BY 或 composite index。应用不会创建/改写 container 索引或吞吐配置。
 
 官方接入依据补充：[MSAL v5 redirect bridge](https://learn.microsoft.com/en-us/entra/msal/javascript/browser/redirect-bridge)、
