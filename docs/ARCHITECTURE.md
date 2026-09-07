@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-已实现 React 资产编辑/故事阅读/导入导出页面，Fastify 业务 API、个人认证、Cosmos adapter 与版本事务。
+已实现 React 资产编辑/故事阅读/导入导出及写作侧栏，Fastify 业务 API、个人认证、Cosmos adapter 与版本/采纳事务。
 本地验证使用独立签名测试身份和内存存储，尚无真实 Cosmos/Entra 联调。
 已选择 Azure Cosmos DB 作为业务主存储，并确认故事独立快照与页面感知 Agent 侧栏方向；技术栈、个人认证、数据布局与宿主接口已确定，详见 [首期实现契约](CONTRACTS.md)。实际依赖版本固定于 package.json 与 package-lock.json，尚无云端联调或部署证据。
 
@@ -25,10 +25,10 @@ Mochi 不直接持有或修改正式小说数据，认证共享不挂载给本�
 应用负责组织本次要求、相关角色母版及快照、世界观、选定前文和按需加入的大纲。
 Mochi 执行单 Agent 请求，返回任务事件及结果；应用校验并保存草稿，用户采纳后更新章节。
 首期无需应用工具：由后端提供上下文并接收生成结果，不让模型访问本地路径或执行 shell。
-Mochi 的 MOC-001 最新任务范围为无工具纯对话，剩余会话/任务 API 等待首个 app 联调；
-实现前重新读取该条目与当前契约，不将历史文档状态当作实时实现证明。
+Mochi 的无工具会话/任务 v1 API 已与应用进行本地 HTTP 联调；固定 wire schema 见 [实现契约](CONTRACTS.md)。
+执行历史由服务持有，应用以 app-only token 调用，不借用户身份访问服务。
 
-需要联合固定提交幂等、任务状态查询、取消、事件重连、结果归属、错误处理和输出完整性契约。
+提交前先持久化输入快照；幂等恢复以 request key 查询任务，只有显式重试才再提交同一输入。
 断开页面不代表任务取消；无法确认的中断不自动重复写入。正式内容版本与执行会话分别管理。
 
 ## 页面感知侧栏与宿主适配
@@ -96,7 +96,7 @@ React + TypeScript + Vite 前端，Node.js 24 + TypeScript + Fastify 后端，np
 ## 后续接入条件
 
 设计契约已完成；真实实现与跨项目联调依赖见 [首期实现契约](CONTRACTS.md)。
-MWT-002 已固定依赖、可执行 schema 和本地实现；长期服务登记由 ProjectOps 后续服务管理能力承接，本项以临时端口完成本地验收。MWT-003 联调 Mochi；MWT-004 核对免费名额与云发布。
+MWT-002 已固定依赖、可执行 schema 和本地实现；长期服务登记由 ProjectOps 后续服务管理能力承接，本项以临时端口完成本地验收。MWT-003 已完成本地 Mochi 联调；MWT-004 核对免费名额与云发布。
 尚未创建云数据库或登记长期服务；本地功能实现不等同于云端部署完成。
 
 ## 外部文档入口
@@ -121,8 +121,20 @@ MWT-002 已固定依赖、可执行 schema 和本地实现；长期服务登记�
 | src/server/import.ts、markdown.ts、export.ts | 旧格式与清单格式预检、可重试初始化和当前版本导出 |
 | src/server/filesystem.ts、transfer-cli.ts | 只读本地源、不覆盖目录导出、CLI |
 | src/web | MSAL、资产库、故事阅读、Markdown 渲染与目录导入/ZIP 下载 |
+| src/web/sidebar、WritingHost.tsx | 无业务字段的通用侧栏与小说宿主适配；上下文预览、事件去重与宿主结果操作 |
+| src/server/writing.ts、writing-routes.ts | 引用归属/版本、预算、请求恢复、scope 会话及草稿状态 |
+| src/server/writing-store.ts、mochi-client.ts | 独立 writing records、同分区采纳事务、后端 app-only Mochi HTTP 客户端 |
+| tests/integration/mochi.mjs | 显式跨 Repo 真实 HTTP 与持久服务联调，假 provider，不运行真实模型 |
 | tests/support、tests/e2e/browser | 隔离内存存储、签名测试身份与单独测试页面，不被生产构建引用 |
 
 导入跨分区不承诺事务：先核对完整输入和既有对象冲突，再记录批次、建立 building 故事、写入资料，最后以 etag 发布 ready。
 失败不会回滚已写内容；同批次重试保留对象 ID，未完成故事不对阅读 API 可见。资产版本与 head 在单一 Cosmos 分区事务中保存。
 受控词表保留单一 identity；真实资料与导入产物不会进入 Repo。文件大小限制同时检查源文本和版本事务的持久化对象。
+
+
+写作记录使用 `recordType=writing`，不会被业务 `head` 查询或 Markdown 导出纳入。
+会话关联与草稿分区跟随 scope；全应用幂等绑定单独放在 library，保存摘要和目标分区。
+先绑定键、校验上下文并保存 pending 草稿，再查询/提交 Mochi；崩溃后输入仍可恢复，不存在跨分区事务承诺。
+采纳单次 batch 包含版本 Create、章节 head Create/IfMatch、草稿 accepted IfMatch；失败不返回采纳成功。
+新章节 ID 在首次提交前分配，反馈重写复用该 ID。只有 succeeded 完整文本可采纳，终态片段来自持久事件。
+生产可不配置 Mochi，此时仅写作入口报告不可用，不使阅读服务的 readiness 失败。

@@ -748,3 +748,62 @@ legend {
     padding: 10px 12px;
   }
 }
+
+.agent-sidebar {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  max-width: calc(100vw - 32px);
+}
+.agent-open {
+  top: 16px;
+  bottom: 16px;
+  width: 390px;
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--paper, #faf8f2);
+  border: 1px solid #c8cabe;
+  box-shadow: 0 8px 32px #26392c26;
+  border-radius: 12px;
+}
+.agent-sidebar label {
+  display: block;
+  margin: 10px 0;
+}
+.agent-sidebar textarea,
+.agent-sidebar select,
+.agent-sidebar input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 0;
+}
+.agent-sidebar fieldset {
+  border: 1px solid #d5d8cd;
+  margin: 14px 0;
+  padding: 10px;
+  min-width: 0;
+}
+.agent-sidebar input[type="checkbox"] {
+  margin-right: 8px;
+}
+.agent-sidebar button {
+  margin: 4px 4px 4px 0;
+}
+.agent-result {
+  border-top: 1px solid #d5d8cd;
+  margin-top: 18px;
+  padding-top: 12px;
+  overflow-wrap: anywhere;
+}
+.context-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  max-height: 220px;
+  overflow: auto;
+}
+@media (min-width: 1300px) {
+  .workspace:has(.agent-open) .main-content {
+    margin-right: 415px;
+  }
+}

@@ -1,3 +1,4 @@
+import { WritingHost } from "./WritingHost.js";
 import { useEffect, useMemo, useState } from "react";
 import type { AuthClient } from "./auth.js";
 import { apiClient, message } from "./api.js";
@@ -228,6 +229,7 @@ export function App({
         </div>
       </aside>
       <main className="main-content">{view}</main>
+      <WritingHost api={api} route={route} />
     </div>
   );
 }

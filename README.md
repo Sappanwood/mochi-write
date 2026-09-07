@@ -5,7 +5,8 @@ Agent 执行由 Mochi 提供，云基础设施与部署由 CCP 管理。
 
 ## 当前状态
 
-已实现个人登录接入、角色/世界观编辑、故事阅读及 Markdown 导入导出。
+已实现个人登录接入、角色/世界观编辑、故事阅读、Markdown 导入导出及 Mochi 单 Agent 写作侧栏。
+侧栏支持上下文预览、持续会话、生成/反馈重写、取消/恢复与原子章节采纳。
 本地验收使用隔离存储与签名测试身份；真实 Cosmos/Entra 联调留到 MWT-004。
 长期开发服务登记待 ProjectOps 服务管理能力交付后落实；按用户确认，MWT-002 使用临时端口完成本地验收。
 当前不启动固定端口服务，也没有云部署。
@@ -15,7 +16,7 @@ Agent 执行由 Mochi 提供，云基础设施与部署由 CCP 管理。
 
 - 角色与世界观资产的浏览、检索和 Web 编辑。
 - 作品设定与分章正文阅读；暂不提供故事正文手工编辑器。
-- 后续通过页面感知右侧栏接入单 Agent 写作，按故事持续会话，生成草稿、反馈重写和采纳章节。
+- 页面感知右侧栏接入单 Agent 写作，按故事持续会话，生成草稿、反馈重写和采纳章节。
 - 故事拥有独立的角色与世界观快照；业务主存储已选择 Azure Cosmos DB。
 - 导入既有 Markdown 资料并保留关联，提供 Markdown 导出。
 - 仅个人使用；不实现 planner/narrator、多 Agent 编排或角色扮演。
@@ -51,7 +52,16 @@ npm run test:e2e
 Playwright Chromium，使用临时 loopback 端口。覆盖登录壳、编辑保存/刷新、保存失败、版本冲突与草稿保留、
 故事阅读、快照隔离、Markdown 渲染、目录导入、ZIP 导出与移动端布局。测试身份入口及内存存储仅位于 tests，
 独立构建到 Git 忽略的 .data/browser，不进入生产构建；测试不代表真实 Microsoft 登录或 Cosmos 云端验收。
-sandbox 禁止本地监听时需在允许 loopback 的环境执行。
+sandbox 禁止本地监听时需在允许 loopback 的环境执行。写作浏览器测试还覆盖导航固定目标、反馈重写、刷新恢复、取消和资产库无章节采纳。
+
+显式跨 Repo 联调入口（两个 Repo 先安装依赖，使用真实 HTTP 服务、Pi AgentSession 与本地签名身份，provider 为脱敏测试输出）：
+
+```bash
+MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration
+```
+
+该命令使用临时 loopback 端口和隔离持久存储，验证幂等、游标、采纳、调用方隔离及服务重启恢复；
+不调用真实模型，不替代 Cosmos/Entra 云端联调。它不属于独立 Repo 的默认 `check`。
 
 运行入口为 `npm run dev`（TypeScript 后端）或构建后的 `npm start`；均提供 `dist/web` 静态页面，
 修改前端后需要重新构建。后端要求通过环境传入以下配置，不自动读取 `.env`：
@@ -64,6 +74,7 @@ sandbox 禁止本地监听时需在允许 loopback 的环境执行。
 | `COSMOS_ENDPOINT` | 既有 Cosmos HTTPS endpoint |
 | `COSMOS_DATABASE` | 默认 `mochi-write` |
 | `AZURE_CLIENT_ID` | 可选的 user-assigned Managed Identity client ID |
+| `MOCHI_ORIGIN` / `MOCHI_ENTRA_AUDIENCE` | 可选但必须成对；Mochi 精确 origin 与 Entra API audience UUID |
 | `HOST` / `PORT` | 默认 loopback / 8080；容器显式传 `HOST=0.0.0.0` |
 
 后端目前使用 Managed Identity，不自动创建数据库、container 或 registration。API registration 需签发 v2 access token，
@@ -93,3 +104,34 @@ npm run transfer -- export <尚不存在的目标目录>
 CLI 不提供认证绕过，也不自动创建云资源。源目录只读；仅消费 library、projects，忽略旧库派生 index.md。
 导出在目标目录原子占位后逐个 create-only 写入，manifest 最后写入。失败保留已产生的部分目录供检查；
 重试使用新的目标，不覆盖或自动清理已有内容。文件系统支持边界及具体格式见 [实现契约](docs/CONTRACTS.md)。
+
+
+## 写作与恢复
+
+打开右侧“写作助手”，按故事或资产库恢复最近创建的会话，也可新建会话。
+选择模型、勾选所需资料，预览原文；选区可粘贴并调整。当前对象版本由页面提供，取消勾选会移除该对象正文，
+其位置与版本仍会校验。默认只选一份资料，不发送整部作品。
+故事中选择新章节名称/顺序或当前章节新版本，输入要求，先预览固定内容再确认发送。
+发送后导航不改变目标；反馈重写保持原草稿的目标及预分配章节 ID。
+
+成功完整输出才提供采纳动作，采纳事务同时保存章节版本、当前章节及草稿 accepted；重复点击返回既有结果。
+版本竞争显示冲突并保留草稿，需重新读取当前章节并发起新的生成请求，不能强制覆盖。
+失败/取消/中断的片段仅供查看。页面关闭不取消任务；刷新后打开侧栏可恢复查询。
+提交结果未知时先查询，只有显式“用原请求重试提交”才会使用同一输入及请求键再次提交；不自动重放。
+资产库会话仅提供建议，没有章节采纳动作。聊天历史由 Mochi 保存，应用仅持有输入快照、关联和草稿。
+缓存统计只显示实际返回值，没有统计时显示未知。上下文超出保守预算会阻止发送，需减少资料或新建会话。
+
+未设置 Mochi 配置时写作入口报告不可用，资产阅读与管理仍可使用。后端以 Managed Identity 获取
+`api://<MOCHI_ENTRA_AUDIENCE>/.default` token，不转发浏览器 token，不传递 provider 凭据。
+
+## 容器
+
+```bash
+docker build --platform linux/amd64 -t mochi-write:local .
+docker run --rm --env-file /absolute/path/to/private-runtime.env -p 127.0.0.1::8080 mochi-write:local
+```
+
+镜像使用 Node.js 24、多阶段构建、非 root 用户，监听 `0.0.0.0:8080`，由同一进程提供 Web/API。
+配置文件不进入镜像或 Git；开发 smoke 使用临时映射端口。生产运行仍要求真实身份、Cosmos 与配置，
+镜像没有测试认证后门。`/health/live` 检查进程，`/health/ready` 检查 Cosmos；探针不调用模型。
+本地镜像验证不等于云发布。CCP 管理部署与 digest，真实云端写作验收留到 MWT-004。

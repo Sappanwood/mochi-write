@@ -4,8 +4,9 @@
 
 ## 项目定位与当前状态
 
-个人小说创作 Web app；资产库支持 Web 编辑，故事首期仅阅读，写作通过后续单 Agent 接入。
-MWT-002 已实现资产编辑、故事阅读、导入导出和个人认证接入；本地门禁使用隔离存储及签名测试身份。
+个人小说创作 Web app；资产库支持 Web 编辑，故事支持阅读和单 Agent 草稿采纳，暂无正文手工编辑器。
+MWT-002 已实现资产编辑、故事阅读、导入导出和个人认证接入；MWT-003 已接通写作侧栏与 Mochi 会话/任务 API。
+本地门禁使用隔离存储及签名测试身份；跨 Repo 集成使用真实 HTTP/Pi AgentSession 与假 provider 输出。
 真实云端联调留到 MWT-004。用户确认长期服务登记由 ProjectOps PRO-053 起的后续任务承接，
 MWT-002 使用临时 loopback 端口完成本地验收；不得假定固定端口已分配。
 实现前区分用户确认范围、建议行为与待决策项。
@@ -54,6 +55,8 @@ git diff --check
 npm run check
 npm run test:e2e
 ```
+
+跨 Repo 联调显式执行 `MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration`，要求两个 Repo 依赖就绪及临时 loopback 权限；不自动发现 Repo，不调用真实模型。
 
 纯文档变更检查 ProjectOps、文档链接与 diff。代码已有测试、类型检查和构建入口，
 后续执行覆盖实际变更的项目质量门禁。中高风险行为按共享规则先验证失败用例。

@@ -1,3 +1,8 @@
+import { AppError } from "../shared/model.js";
+import { MochiClient } from "./mochi-client.js";
+import { Writing } from "./writing.js";
+import { CosmosWritingStore } from "./writing-store.js";
+import { registerWriting } from "./writing-routes.js";
 import { CosmosStore } from "./cosmos-store.js";
 import { registerBusiness } from "./routes.js";
 import { resolve } from "node:path";
@@ -25,7 +30,28 @@ try {
       );
     },
   });
-  registerBusiness(app, new CosmosStore(database));
+  const store = new CosmosStore(database);
+  registerBusiness(app, store);
+  const credential = new ManagedIdentityCredential({
+    clientId: config.managedIdentityClientId,
+  });
+  const mochi =
+    config.mochiOrigin && config.mochiAudience
+      ? new MochiClient(config.mochiOrigin, async () => {
+          const token = await credential.getToken(
+            `api://${config.mochiAudience}/.default`,
+          );
+          return token.token;
+        })
+      : {
+          async request(): Promise<never> {
+            throw new AppError(503, "写作服务尚未配置；资产阅读仍可用");
+          },
+        };
+  registerWriting(
+    app,
+    new Writing(store, new CosmosWritingStore(database), mochi),
+  );
   await app.register(fastifyStatic, {
     root: resolve("dist/web"),
     wildcard: false,

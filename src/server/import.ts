@@ -255,6 +255,7 @@ export function preflight(
   checkFiles(files);
   if (!batchId || batchId.length > 200)
     throw new AppError(400, "导入批次 ID 无效");
+  const hasManifest = files.some((f) => f.path === "manifest.json");
   let docs: Entity[];
   try {
     docs = files.some((f) => f.path === "manifest.json")
@@ -303,7 +304,7 @@ export function preflight(
       throw new AppError(400, "快照缺少溯源信息");
     if (doc.kind === "chapter") {
       const key = `${doc.projectId}:${doc.order}`;
-      if (!doc.order || orders.has(key))
+      if (!doc.order || (!hasManifest && orders.has(key)))
         throw new AppError(400, "章节顺序缺失或重复");
       orders.add(key);
     }

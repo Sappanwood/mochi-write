@@ -1,3 +1,7 @@
+import { registerWriting } from "../../src/server/writing-routes.js";
+import { Writing } from "../../src/server/writing.js";
+import { MemoryWritingStore } from "../support/writing-store.js";
+import { FakeMochi } from "../support/fake-mochi.js";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
@@ -13,6 +17,7 @@ import { readBundle } from "../../src/server/filesystem.js";
 import { MemoryStore } from "../support/memory-store.js";
 import type { Document } from "../../src/shared/model.js";
 import { Library } from "../../src/server/library.js";
+let writingRecords: MemoryWritingStore, mochi: FakeMochi;
 let server: FastifyInstance,
   address: string,
   store: MemoryStore,
@@ -51,6 +56,9 @@ test.beforeAll(async () => {
     checkStorage: async () => {},
   });
   registerBusiness(server, store);
+  writingRecords = new MemoryWritingStore(store);
+  mochi = new FakeMochi();
+  registerWriting(server, new Writing(store, writingRecords, mochi));
   server.get("/fixture-token", async (_request, reply) =>
     reply.header("cache-control", "no-store").send({ token }),
   );
@@ -65,6 +73,12 @@ test.afterAll(async () => {
   await server?.close();
 });
 test.beforeEach(async ({ page }) => {
+  writingRecords.values.clear();
+  writingRecords.sessions.clear();
+  writingRecords.requests.clear();
+  mochi.runs.clear();
+  mochi.calls = [];
+  mochi.status = "succeeded";
   store.heads.clear();
   store.history.clear();
   store.failNext = false;
@@ -155,6 +169,12 @@ test("reads ordered chapters, settings and independent snapshots with safe Markd
 test("previews and repeats folder import, then downloads Markdown ZIP", async ({
   page,
 }) => {
+  writingRecords.values.clear();
+  writingRecords.sessions.clear();
+  writingRecords.requests.clear();
+  mochi.runs.clear();
+  mochi.calls = [];
+  mochi.status = "succeeded";
   store.heads.clear();
   store.history.clear();
   await page.getByRole("link", { name: "导入与导出" }).click();
@@ -181,4 +201,134 @@ test("mobile workspace has no horizontal overflow", async ({ page }) => {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test("writing sidebar freezes target through navigation, rewrites and atomically accepts", async ({
+  page,
+}) => {
+  const story = (await store.list({ kind: "story" })).items[0]!;
+  await page.goto(`${address}/#story/${story.id}/chapter`);
+  await page.getByRole("button", { name: "打开写作助手" }).click();
+  await page.getByRole("button", { name: "新建会话", exact: true }).click();
+  await page.getByLabel("新章节名称", { exact: true }).fill("灯塔归途");
+  await page.getByLabel("章节顺序", { exact: true }).fill("3");
+  await page.getByLabel("本次要求", { exact: true }).fill("写灯塔归途");
+  await page.getByRole("button", { name: "预览发送内容" }).click();
+  await expect(
+    page.getByText("目标：灯塔归途", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "确认发送", exact: true }).click();
+  await expect(
+    page.getByText("状态：succeeded", { exact: true }),
+  ).toBeVisible();
+  const first = [...writingRecords.values.values()][0]!;
+  await page.getByRole("button", { name: "设定与关系", exact: true }).click();
+  await expect(
+    page.getByText("状态：succeeded", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "反馈重写", exact: true }).click();
+  await page.getByLabel("本次要求", { exact: true }).fill("更简练");
+  await page.getByRole("button", { name: "预览发送内容" }).click();
+  await page.getByRole("button", { name: "确认发送", exact: true }).click();
+  await expect(page.getByText("状态：succeeded", { exact: true })).toHaveCount(
+    2,
+  );
+  const drafts = [...writingRecords.values.values()];
+  expect(drafts[1]!.targetId).toBe(first.targetId);
+  await page.getByRole("button", { name: "采纳到固定章节" }).last().click();
+  await expect(page.getByText(/已采纳，/)).toBeVisible();
+  expect((await store.get(first.targetId!, story.id))?.content.name).toBe(
+    "灯塔归途",
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "打开写作助手" }).click();
+  await expect(page.getByText("状态：accepted", { exact: true })).toBeVisible();
+});
+test("running task survives refresh and can be cancelled without adoption", async ({
+  page,
+}) => {
+  mochi.status = "running";
+  const story = (await store.list({ kind: "story" })).items[0]!;
+  await page.goto(`${address}/#story/${story.id}/chapter`);
+  await page.getByRole("button", { name: "打开写作助手" }).click();
+  await page.getByRole("button", { name: "新建会话", exact: true }).click();
+  await page.getByLabel("本次要求", { exact: true }).fill("继续");
+  await page.getByRole("button", { name: "预览发送内容" }).click();
+  await page.getByRole("button", { name: "确认发送", exact: true }).click();
+  await expect(page.getByText("状态：running", { exact: true })).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "打开写作助手" }).click();
+  await expect(page.getByText("状态：running", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "取消任务", exact: true }).click();
+  await expect(
+    page.getByText("状态：cancelled", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "采纳到固定章节" }),
+  ).toHaveCount(0);
+});
+test("library conversation supplies context but has no chapter adoption", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "打开写作助手" }).click();
+  await page.getByRole("button", { name: "新建会话", exact: true }).click();
+  await page.getByLabel("本次要求", { exact: true }).fill("总结角色");
+  await page.getByRole("button", { name: "预览发送内容" }).click();
+  await page.getByRole("button", { name: "确认发送", exact: true }).click();
+  await expect(
+    page.getByText("状态：succeeded", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "采纳到固定章节" }),
+  ).toHaveCount(0);
+});
+
+test("editing the target preserves explicitly selected references", async ({
+  page,
+}) => {
+  const story = (await store.list({ kind: "story" })).items[0]!;
+  await page.goto(`${address}/#story/${story.id}/chapter`);
+  await page.getByRole("button", { name: "打开写作助手" }).click();
+  await page.getByRole("button", { name: "新建会话", exact: true }).click();
+  const checks = page.getByRole("checkbox");
+  await checks.first().uncheck();
+  await checks.nth(1).check();
+  await checks.nth(2).check();
+  await page.getByLabel("新章节名称", { exact: true }).fill("保留引用");
+  await page.getByLabel("章节顺序", { exact: true }).fill("5");
+  await page.waitForTimeout(250);
+  await expect(checks.first()).not.toBeChecked();
+  await expect(checks.nth(1)).toBeChecked();
+  await expect(checks.nth(2)).toBeChecked();
+  await page.getByLabel("本次要求", { exact: true }).fill("使用选中资料");
+  const [sent] = await Promise.all([
+    page.waitForRequest((r) => r.url().endsWith("/api/writing/context")),
+    page.getByRole("button", { name: "预览发送内容" }).click(),
+  ]);
+  expect(sent.postDataJSON().attachedRefs).toHaveLength(2);
+  const first = (await store.list({ projectId: story.id, kind: "chapter" }))
+    .items[0]!;
+  expect(
+    sent
+      .postDataJSON()
+      .attachedRefs.some((r: { id: string }) => r.id === first.id),
+  ).toBe(false);
+});
+
+test("returning to a scope restores the explicitly selected older conversation", async ({
+  page,
+}) => {
+  const story = (await store.list({ kind: "story" })).items[0]!;
+  await page.goto(`${address}/#story/${story.id}/chapter`);
+  await page.getByRole("button", { name: "打开写作助手" }).click();
+  await page.getByRole("button", { name: "新建会话", exact: true }).click();
+  const older = await page.getByLabel("会话", { exact: true }).inputValue();
+  await page.getByRole("button", { name: "新建会话", exact: true }).click();
+  await page.getByLabel("会话", { exact: true }).selectOption(older);
+  await page.goto(`${address}/#library/character`);
+  await page.getByRole("button", { name: "打开写作助手" }).click();
+  await expect(page.getByLabel("会话", { exact: true })).toHaveValue("");
+  await page.goto(`${address}/#story/${story.id}/chapter`);
+  await page.getByRole("button", { name: "打开写作助手" }).click();
+  await expect(page.getByLabel("会话", { exact: true })).toHaveValue(older);
 });

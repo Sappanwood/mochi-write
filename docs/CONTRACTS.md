@@ -3,7 +3,7 @@
 ## 状态与适用范围
 
 2026-09-07 按用户确认完成设计基线。本文规定 MWT-002 至 MWT-004 的实现边界。
-MWT-002 已实现工程、个人认证、资产编辑、故事阅读、独立快照和导入导出。
+MWT-002 已实现工程、个人认证、资产编辑、故事阅读、独立快照和导入导出；MWT-003 已实现写作侧栏、Mochi v1 接入、草稿与原子采纳。
 2026-09-07 用户同意以隔离存储和签名测试身份完成本地验收，真实 Cosmos/Entra 联调留到 MWT-004。
 用户确认长期开发服务登记由 ProjectOps 后续服务管理任务承接；本项使用临时 loopback 端口完成本地验收，
 不将临时测试端口视为已完成登记。
@@ -69,7 +69,8 @@ projectId 是小说作品 ID。故事列表可做跨分区分页读取；单故�
 可编辑对象有 currentVersion 正整数与 Cosmos _etag；不可变内容版本有 entityId、version、content 和来源说明。
 API 的 revision 是不透明并发标记；客户端保存必须带读取时 revision，冲突返回 409 并保留未保存内容。
 版本创建与 head 更新在同分区事务中完成，禁止覆盖历史版本；恢复旧内容创建新版本。
-每章独立对象，章节顺序为正整数且允许间隔；展示按 order、id 排序，首期无拖拽重排契约。
+每章独立对象，章节顺序为正整数且允许间隔及并列；展示按 order、id 排序，首期无拖拽重排契约。
+新章节默认顺序为当前最大值加一；用户仍可显式设置正整数。带 manifest 的回导保留稳定 ID 并允许相同顺序，旧 novel 无清单导入仍拒绝重复顺序歧义。
 
 故事快照存完整内容，初始化版本不可变，当前版本独立演变；sourceAssetId/sourceVersion 仅溯源。
 新建故事先捕获各资产版本，再写 building 状态、快照和设定，引用齐全后切为 ready；只展示 ready 故事。
@@ -126,8 +127,8 @@ Mochi 持有消息历史与执行状态，应用仅保存 scope/session 映射�
 | MWT-004 + mochi/MOC-004 | 联合部署与真实写作验收；不能以管理页上线代替 Agent API 可用 |
 | MWT-004 + ccp/CCP-003 基础资源 | 先登记新应用专属 CCP 任务，再落实数据库免费名额、身份、镜像、备份和发布；既有任务不自动扩大范围 |
 
-截至 2026-09-07，MOC-001 与 CCP-003 仍为 in_progress；Mochi 管理服务已部署，业务会话/任务待首个应用接通。
-这些是实现阶段前置条件，不是本设计契约已实现的证据。
+业务会话/任务已与 Mochi 进行本地真实 HTTP 联调；使用签名测试身份、隔离持久存储及假 provider。
+本地接通不是云端身份、真实模型调用或 CCP 发布完成的证据；实时任务状态以 ProjectOps 为准。
 容器契约：linux/amd64、非 root、PORT=8080、0.0.0.0 监听；/health/live 查进程，/health/ready 查应用必需配置与 Cosmos 可用性。
 Mochi 暂不可用不使资产阅读服务整体 unready；写作入口明确显示不可用。探针不调用付费模型。
 CCP 管理镜像 digest 与账户/身份，应用不执行 Terraform apply；实际公网地址与 Entra redirect 在部署时成对配置。
@@ -181,11 +182,75 @@ Web 目录选择仅上传相对路径与文本，不向后端授予本地路径�
 
 列表接受 limit（默认 40，最大 100）及不透明 cursor，返回 `{items,cursor?}`。存储分页按 ID，阅读页面收齐选定范围后按 order、ID 排序。
 所有业务路由都验证 Bearer；写操作要求 APP_ORIGIN 和 application/json。错误包含安全 message 和可选路径诊断，不记录正文/token。
-尚无故事正文修改、Agent 会话、生成或采纳路由，相关段落属于 MWT-003 契约。
+正文仍无手工编辑器；Agent 会话、生成与采纳路由见下文 MWT-003 已实现契约。
 
 CCP 配置 Cosmos 索引时保留 `/id/?`、`/recordType/?`、`/kind/?`、`/deleted/?`、`/status/?`、`/content/name/?`、
-`/content/genres/[]/?`、`/content/ageBand/?`、`/order/?`、`/updatedAt/?`、`/sourceAssetId/?`，排除其余路径；
+`/content/genres/[]/?`、`/content/ageBand/?`、`/order/?`、`/updatedAt/?`、`/sourceAssetId/?`、`/conversationId/?`，排除其余路径；
 当前查询不需要多字段 ORDER BY 或 composite index。应用不会创建/改写 container 索引或吞吐配置。
 
 官方接入依据补充：[MSAL v5 redirect bridge](https://learn.microsoft.com/en-us/entra/msal/javascript/browser/redirect-bridge)、
 [Cosmos JavaScript SDK](https://learn.microsoft.com/en-us/javascript/api/overview/azure/cosmos-readme?view=azure-node-latest)。
+
+
+## MWT-003 写作接入 v1（已实现）
+
+`src/web/sidebar/contracts.ts` 定义应用内 HostAdapter，通用核心只消费标签、引用和任务展示数据。
+`WritingHost.tsx` 负责路由、小说数据、目标章节表单及采纳按钮；侧栏不解析小说模型或扫描 DOM。
+按 scope 切换会话，章节导航不重开；浏览器 sessionStorage 仅保留已选会话 ID，服务端仍校验 scope 归属。
+宿主目标表单变化只使发送预览失效，不重置用户已选资料。位置引用总校验版本，但仅显式 attachedRefs 的正文会发送。
+
+发送 schema 在 `src/shared/writing.ts`：除既有 conversationId/clientRequestId/message/pageContext/attachedRefs，
+还含 provider、model、target 及可选 feedbackDraftId。target 为 `{id,revision,name,order}`，新章 id/revision 为 null，
+资产库 target 为 null。后端为新章预分配 ID；反馈重写保留原草稿 target 与预分配 ID。
+选择最多 20 份引用；每轮构造的 UTF-8 prompt 最多 24000 bytes，超限拒绝。后端根据 Mochi 模型目录检查
+稳定前缀、Mochi 历史及本轮总 UTF-8 bytes，按一 byte 一 token 保守估计，并保留 `min(4096,max_output_tokens)` 输出预算。
+这不是精确 tokenizer 计费值，不自动摘要或调用额外模型。实际输出上限在草稿中固定并发送给 Mochi。
+
+| 应用 API | 行为 |
+|---|---|
+| GET /api/writing/models | 代理 Mochi 模型目录，不返回 provider 凭据 |
+| GET/POST /api/writing/conversations | 按 scope 列出关联 / 创建稳定前缀的会话并保存关联 |
+| GET /api/writing/history | 校验 scope/conversationId 后读取 Mochi 历史 |
+| POST /api/writing/context | 校验发送 schema、归属、版本与本轮预算，返回固定 prompt 预览 |
+| POST /api/writing/submit | 固定输入、登记请求键、保存 pending 草稿、查询/提交同一请求 |
+| GET /api/writing/drafts | 列出当前 scope/conversationId 的草稿 |
+| GET /api/writing/drafts/:draftId | 恢复查询并保存服务端结果；未知请求只查询，不重新提交 |
+| GET /api/writing/drafts/:draftId/events | 按 after 游标读取对应 Mochi 事件页 |
+| POST /api/writing/drafts/:draftId/cancel | 显式取消任务，保留历史和可查看片段 |
+| POST /api/writing/drafts/:draftId/accept | 原子采纳成功完整输出；重复返回原结果 |
+
+GET 参数统一为 `type=story|library&id=<scope ID>`，资产库 id 固定 library；history/drafts 列表需 conversationId，events 可带 after。
+POST conversations 直接提交 scope；submit/context 提交完整发送 schema；cancel/accept 为空 JSON 对象，scope 放 query。
+所有端点沿用本人 Bearer、同源 Origin 与 JSON 边界。未配置 Mochi 时明确返回写作不可用，不影响阅读 readiness。
+
+与 Mochi 固定的 wire 使用 snake_case：
+
+| Mochi API | 请求/响应 |
+|---|---|
+| POST /v1/sessions | `{system_prompt}` → session_id、created_at、system_prompt；前缀创建后不可改 |
+| GET /v1/models | models 含 provider、id、name、auth、context_window、max_output_tokens |
+| GET /v1/sessions/:id/history | messages 含 role、content、run_id，唯一执行历史来源 |
+| POST /v1/sessions/:id/runs | `{idempotency_key,provider,model,prompt,max_output_tokens}` → run |
+| GET /v1/runs/by-key?key=... | 应用范围幂等查询；404 才表示该键未登记 |
+| GET /v1/runs/:id、POST /v1/runs/:id/cancel | run 状态与终态结果；cancel body 为 `{}` |
+| GET /v1/runs/:id/events?after=N | `{events,next_cursor}`，每页最多 100，cursor 从 1 开始 |
+
+run 状态为 queued/running/succeeded/failed/cancelled/interrupted；只有 succeeded 的非空 result.text 是可采纳完整输出。
+非成功终态的 partial 从持久 text_delta 事件分页读取，只供查看（最多 262144 字符），不转为成功结果。
+前端按游标丢弃重复事件，刷新后可从 0 重读；终态可以直接查询，不依赖收齐所有流事件。
+usage 沿用服务的实际 input/output/cache_read/cache_write/total_tokens，无值为 null，不估算价格或保证缓存。
+HTTP 错误转换为安全应用错误，409 保留冲突，未知网络/服务故障为 503；不输出 provider 原始异常或正文日志。
+
+写作记录为 schemaVersion=1、recordType=writing，有独立 kind=conversation/draft/request，创建/更新时间为 UTC。
+业务 head 查询与 Markdown 导出排除这些记录。全应用 `request:<UUID>` 绑定在 library 分区，固定输入摘要和目标分区；
+草稿则保存在 scope 分区，含输入快照、prompt、request ID、session 关联、Mochi run ID、目标/base revision、输出与状态。
+不承诺请求键绑定与故事草稿跨分区原子；先绑定再持久 pending，失败后同输入可重试，不静默改键或改输入。
+
+采纳单次同故事 batch：不可变版本 Create、章节 head Create 或 IfMatch Replace、draft IfMatch accepted/resultVersion。
+任何缺少 operation result、存储失败或 etag 冲突都不能宣称采纳成功。完整事务 JSON 保守限制为 1900 KiB，超限拒绝。
+并发草稿竞争同一基础版本或同一预分配新章 ID 时只允许一个成功；重复采纳读取 accepted 返回既有 ID/版本。
+由其他任务造成的确定性 4xx 提交拒绝会标记失败；网络中断保留 pending，可先查状态后显式以原请求重试。
+
+本地验收命令包括 `npm run check`、`npm run test:e2e` 和显式 `MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration`。
+最后一项启动双方真实 HTTP 服务与 Pi AgentSession，使用隔离存储、本地 RS256 身份和假 provider，验证持久任务及重启恢复。
+不自动发现另一 Repo，不纳入单 Repo 默认门禁，不授权真实云资源、付费模型或私人素材发送。

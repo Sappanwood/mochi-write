@@ -29,6 +29,8 @@ const schema = z.object({
     .string()
     .regex(/^[a-zA-Z0-9-]+$/)
     .default("mochi-write"),
+  MOCHI_ORIGIN: origin.optional(),
+  MOCHI_ENTRA_AUDIENCE: z.uuid().optional(),
   AZURE_CLIENT_ID: z.uuid().optional(),
   HOST: z.enum(["127.0.0.1", "0.0.0.0", "::1"]).default("127.0.0.1"),
   PORT: z
@@ -49,6 +51,8 @@ export function loadConfig(
     );
   }
   const value = result.data;
+  if (Boolean(value.MOCHI_ORIGIN) !== Boolean(value.MOCHI_ENTRA_AUDIENCE))
+    throw new Error("Mochi origin and audience must be configured together");
   return {
     auth: {
       tenantId: value.ENTRA_TENANT_ID,
@@ -60,6 +64,8 @@ export function loadConfig(
     cosmosEndpoint: value.COSMOS_ENDPOINT,
     cosmosDatabase: value.COSMOS_DATABASE,
     managedIdentityClientId: value.AZURE_CLIENT_ID,
+    mochiOrigin: value.MOCHI_ORIGIN,
+    mochiAudience: value.MOCHI_ENTRA_AUDIENCE,
     host: value.HOST,
     port: value.PORT,
   };
