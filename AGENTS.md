@@ -25,6 +25,7 @@ Backlog、Plan、execution、Report、ADR、Research 均由 ProjectOps 管理，
 
 ## 开发边界
 
+- 当前阶段以快速迭代为主，验收覆盖主要 happy path；真实使用中出现的 bug 再针对性处理，不为追求工程完备性主动扩展实现与验收范围。
 - 只服务本人；不引入多人协作、多 Agent 编排或 planner/narrator。
 - 本项目持有正文、角色、设定等业务数据；Mochi 持有 Agent 执行会话与 provider 认证。
 - 浏览器经应用后端调用 Mochi；不向客户端传递 provider 凭据。
