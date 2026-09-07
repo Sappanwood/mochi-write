@@ -1,0 +1,12 @@
+# Private runtime data and credentials
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+coverage/
+.data/
+.imports/
+*.log
+playwright-report/
+test-results/

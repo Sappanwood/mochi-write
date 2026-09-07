@@ -1,0 +1,191 @@
+# Mochi Write 首期实现契约
+
+## 状态与适用范围
+
+2026-09-07 按用户确认完成设计基线。本文规定 MWT-002 至 MWT-004 的实现边界。
+MWT-002 已实现工程、个人认证、资产编辑、故事阅读、独立快照和导入导出。
+2026-09-07 用户同意以隔离存储和签名测试身份完成本地验收，真实 Cosmos/Entra 联调留到 MWT-004。
+用户确认长期开发服务登记由 ProjectOps 后续服务管理任务承接；本项使用临时 loopback 端口完成本地验收，
+不将临时测试端口视为已完成登记。
+用户确认的生态标准为 React + TypeScript + Vite、Node.js 24 + TypeScript + Fastify、npm、同仓库同容器，
+以及个人 Entra ID + MSAL。现有项目在相关改造时逐步对齐；本条不授权重写其他项目或发布共享包。
+
+## 工程与质量
+
+单 package，src/web、src/server、src/shared 分开；web/sidebar 保持宿主适配边界。
+共享模块方向为侧栏、上下文协议、Mochi 客户端、认证接入和基础 UI；第二个真实消费者接入时再提取包。
+共享的是接入机制，各应用的 audience、权限判断和业务操作独立。后端同时提供静态资源和 /api 路由。
+使用普通 CSS 和少量共享组件。首个代码任务固定实际稳定依赖版本及 lockfile，不在设计文档猜测版本号。
+
+当前质量入口已建立，实际版本以 package.json 与 lockfile 为准。src/server/auth.ts 验证签名与个人访问声明，
+config.ts 校验启动配置，app.ts 统一保护已注册的 /api 业务路由；匿名端点限于登录配置和健康检查。
+src/web/auth.ts 使用 MSAL sessionStorage 缓存，登录后以受保护的 /api/session 确认后端授权。
+MSAL v5 popup/silent 响应经同源 /redirect.html 独立 bridge 传回主窗口；Vite 将其作为单独入口构建。
+Entra SPA registration 的 redirect URI 须精确为 APP_ORIGIN/redirect.html；代理不得为该页设置 COOP。
+运行配置与当前可验证范围见 [README](../README.md#开发与验证)。
+
+MWT-002 建立 npm run check（格式/lint、TypeScript、行为测试、构建）和 npm run test:e2e（Playwright）。
+使用 Vitest 验证业务逻辑与 API；外部模型 mock 不替代 MWT-003 的真实服务联调。
+中高风险行为先确认失败用例，再实现；重点为本人认证拒绝、导入引用、快照隔离、版本冲突、重复采纳与导航中任务目标固定。
+Markdown 渲染禁用原始 HTML，链接按允许协议处理；日志不记录正文、提示词、token 和 provider 原始异常。
+
+本地服务登记方案：用户确认登记由 ProjectOps 后续服务管理能力承接。首次启动长期服务前读取 Workspace 端口清单，通过当时活动的开发服务注册入口登记
+mochi-write 的 web/API endpoint，启用 loopback 和 strict-port；不另建 Workspace Control artifact store。
+未完成登记时仅用临时端口测试，不将 Vite 默认端口当作工作区分配。数字端口随真实入口一次登记，当前没有监听服务。
+
+## 个人认证与应用认证
+
+浏览器使用 MSAL Browser 授权码 + PKCE，单租户、精确 redirect URI、独立 SPA/API registration。
+API delegated scope 定义为 Write.Access；后端使用成熟 JWT 库验证签名、允许算法、issuer、audience、有效期、
+tenant、调用 SPA client ID、scope 与本人 oid。拒绝 app-only 用户访问、错误账号和伪造身份 header，不按 email 授权。
+浏览器只拿本应用访问 token，不获得 Cosmos 或 Mochi 凭据。token 使用 MSAL 支持的缓存机制，不自行复制到业务存储。
+只有登录壳、固定静态资源、非敏感登录配置与健康检查可匿名；所有业务 API 从启动起拒绝未认证请求。
+API 使用显式 Bearer，写请求要求同源 Origin 和 JSON，不提供跨域 CORS 或自建密码系统。
+
+后端使用独立 Managed Identity 访问 Cosmos，并获取 Mochi 的 Entra app-only token；不转发用户 token 充当应用身份。
+Cosmos 授权限定应用数据范围，Mochi 登记 app_id=mochi-write 及 client/principal ID 对，角色沿用 Mochi.Invoke。
+CCP 管理 registration、角色及部署配置；客户端可公开配置只含 tenant、SPA client ID、API scope。
+个人认证与 Mochi provider 管理独立，不因侧栏接入自动授予 provider 管理权限。
+
+## Cosmos DB 布局与版本
+
+使用 NoSQL、单区域、Free Tier、手动共享吞吐；一个应用数据库 mochi-write，两个 container 共用数据库吞吐。
+初始请求 400 RU/s；CCP 核对账户现有分配后确保账户合计不超过可用免费额度，不假定本应用独享 1,000 RU/s。
+免费名额被占用时先检查既有账户可否承载，不能自动创建付费替代。免费 25 GB 包含账户已有用量与索引开销。
+
+| Container | 分区路径 | 内容 |
+|---|---|---|
+| library | /scopeId，固定 library | 全局角色、世界观、词表、资产版本、资产库会话关联 |
+| stories | /projectId，故事 UUID | 故事、角色/世界观快照、章节、版本、草稿、故事会话关联及导入状态 |
+
+projectId 是小说作品 ID。故事列表可做跨分区分页读取；单故事操作明确传 projectId。
+用户输入、文档 ID 和来源路径不直接充当数据库访问授权。
+默认 Session consistency；保存后返回服务端确认的当前版本，不能以 UI 乐观更新宣称持久化成功。
+只索引查询字段（kind、标题/名称、标签、状态、顺序、更新时间、关联 ID），正文、原始导入字段与长上下文不纳入普通索引。
+首期名称/标签筛选及分页为主要检索；正文关键词仅对已选范围有界扫描，不引入向量库或全文检索服务。
+
+公共字段：schemaVersion=1、id、kind、分区字段、createdAt、updatedAt；时间为 UTC ISO 8601。
+业务对象使用服务器生成 UUID，名称可改且不承担 identity；持久文档 id 可由 kind、对象 UUID、版本号确定性组合。
+可编辑对象有 currentVersion 正整数与 Cosmos _etag；不可变内容版本有 entityId、version、content 和来源说明。
+API 的 revision 是不透明并发标记；客户端保存必须带读取时 revision，冲突返回 409 并保留未保存内容。
+版本创建与 head 更新在同分区事务中完成，禁止覆盖历史版本；恢复旧内容创建新版本。
+每章独立对象，章节顺序为正整数且允许间隔；展示按 order、id 排序，首期无拖拽重排契约。
+
+故事快照存完整内容，初始化版本不可变，当前版本独立演变；sourceAssetId/sourceVersion 仅溯源。
+新建故事先捕获各资产版本，再写 building 状态、快照和设定，引用齐全后切为 ready；只展示 ready 故事。
+初始化不是跨分区事务，失败保留可重试进度；同一次请求使用稳定初始化 ID，不复制重复故事。
+母版删除不级联删除故事。首期没有母版自动合并能力。
+
+草稿保存目标章节/预分配章节 ID、baseRevision（新章为 null）、请求 ID、Mochi run ID、Markdown 输出和状态。
+成功且完整的输出才可采纳；失败、取消或截断的部分输出仅供查看，不当作完整章节。
+采纳在同故事分区事务中创建版本、更新章节 head、标记草稿 accepted 与结果版本；重复采纳返回既有结果。
+不同草稿竞争同一基础版本时只允许一个成功；新章节用预分配 ID 的 create-only 保护，不以 upsert 覆盖。
+
+## 导入导出 v1
+
+保留 novel 原布局语义：library 下角色/世界观/词表，projects 下故事、大纲、设定、快照和 story 章节。
+导出包根带 manifest.json：schema=mochi-write/export@1、exportedAt、entries。
+每个 entry 含 path、kind、entityId、projectId（全局资产为 null）、version、sha256；路径为包内相对路径。
+文档为 UTF-8 Markdown + YAML frontmatter；未知字段保存在 content.sourceMetadata，原始名称、路径及内容可溯源。
+当前版本导出不含 provider 凭据或执行聊天历史，不声称导出了业务所有历史版本；Cosmos 备份承担数据库恢复。
+有 manifest 的导入保留 ID；无 manifest 的旧 novel 导入为每个源条目创建 ID，并保存 sourcePath/hash 到导入清单。
+同一导入批次重试按清单去重；发现已有对象且内容不同时报冲突，不静默覆盖或合并。
+
+旧快照以母版基础内容加故事增量组成独立故事资料，保留两部分，不调用模型重写合并；无法解释的冲突列入预检诊断。
+预检核对字符编码、frontmatter、重复 ID/路径、引用和章节顺序；未解析引用不得被当作成功导入。
+源文件只读；导出不覆盖已有目标。可信本地 Linux/容器目录边界下拒绝路径逃逸和静态 symlink，
+不承诺恶意同用户 ancestor 替换，无 native helper。限制单文档与批次大小，超限拒绝而非截断；当前限制：单文件 1 MiB、批次 16 MiB、最多 1000 个文件，Markdown 正文最多 262144 字符。
+含溯源的完整持久化对象最多 768 KiB，为同分区版本 + head 事务保留余量；合成快照超限同样拒绝。
+HTTP 导入 JSON 传输额外限制 32 MiB，导出包含 manifest 在内也须满足包限制。
+
+## 侧栏宿主协议 v1
+
+PageContext：schemaVersion=1、scope:{type,id}、location:{type,id,revision}|null、selection:{text}|null。
+首期 scope.type 为 story 或 library，location.type 为应用定义值；通用组件只展示宿主提供的名称，不解析小说字段。
+历史对象引用只包含 ID/版本；正文由后端校验归属后读取。选区为用户输入，不能授权读取其他对象。
+发送请求包含 conversationId、clientRequestId、message、pageContext 与显式 attachedRefs。
+发送时冻结目标与输入版本；版本已变化时返回冲突供用户重发，不静默替换上下文。路由改变只影响下一次发送。
+宿主接口负责 getContext、resolveContext、list/openConversation、submit/cancel、subscribe/resume 和 renderResultActions。
+这是应用内接口边界，不伪装为已发布的 Mochi HTTP schema；Mochi 适配器转换它与双方联调后的 wire protocol。
+
+默认按 scope 恢复最近会话，保留多会话列表并允许主动新建；章节导航不重开会话。
+Mochi 持有消息历史与执行状态，应用仅保存 scope/session 映射、请求快照、草稿和采纳结果。
+稳定前缀不重写，页面内容追加到本轮；同会话串行，上一任务结束前禁止第二次生成。
+提交幂等键为应用范围内 clientRequestId；同键不同内容拒绝，未知提交结果先查询，不生成新键自动重试。
+需要事件游标、终态结果获取与取消；重连按游标去重，终态结果可在没有完整流事件时重新获取。
+页面关闭不取消任务，取消不删除历史；未知中断明确展示，不自动重放有副作用操作。
+上下文预算不足时阻止提交并提示新建会话/减少资料，不自动摘要或自动调用模型。
+缓存统计有则显示、无则未知，不以连续 session 保证命中，不根据未知定价估算费用。
+
+## 接入交付与未满足条件
+
+| 后续任务 | 必须落实的条件 |
+|---|---|
+| MWT-002 | 固定依赖/可执行 schema，质量入口，资产与阅读实现；用户确认以临时端口本地验收，长期登记待 ProjectOps 服务管理交付 |
+| MWT-003 + mochi/MOC-001 | 固定会话/任务 HTTP 与事件 schema，验证上述幂等/恢复/隔离要求，接通真实无工具 API |
+| MWT-004 + mochi/MOC-004 | 联合部署与真实写作验收；不能以管理页上线代替 Agent API 可用 |
+| MWT-004 + ccp/CCP-003 基础资源 | 先登记新应用专属 CCP 任务，再落实数据库免费名额、身份、镜像、备份和发布；既有任务不自动扩大范围 |
+
+截至 2026-09-07，MOC-001 与 CCP-003 仍为 in_progress；Mochi 管理服务已部署，业务会话/任务待首个应用接通。
+这些是实现阶段前置条件，不是本设计契约已实现的证据。
+容器契约：linux/amd64、非 root、PORT=8080、0.0.0.0 监听；/health/live 查进程，/health/ready 查应用必需配置与 Cosmos 可用性。
+Mochi 暂不可用不使资产阅读服务整体 unready；写作入口明确显示不可用。探针不调用付费模型。
+CCP 管理镜像 digest 与账户/身份，应用不执行 Terraform apply；实际公网地址与 Entra redirect 在部署时成对配置。
+最低恢复采用平台 Continuous 7-day，恢复调用收费；保留源资料和手动导出，恢复前查询可恢复时间，
+恢复后核对对象数量/引用/版本及权限再切换应用。无零丢失、固定 RTO 或跨账户灾备承诺。
+
+## 官方依据
+
+- [Cosmos 事务边界](https://learn.microsoft.com/en-us/azure/cosmos-db/transactional-batch)
+- [Free Tier](https://learn.microsoft.com/en-us/azure/cosmos-db/free-tier)
+- [连续备份](https://learn.microsoft.com/en-us/azure/cosmos-db/continuous-backup-restore-introduction)
+- [Entra 授权码与 PKCE](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow)
+
+## 已实现的 v1 数据与 API
+
+`content` 为 `{name, markdown, genres, ageBand, sourceMetadata}`；后者保存 JSON 兼容的完整 frontmatter。
+编辑更新规范化字段及对应 frontmatter 名称/受控字段，保留其他原始字段；导入来源保存在
+`source:{path, hash, raw, base?, delta?}`。base/delta 为导入时母版与原始增量，不依赖后续母版可用性。
+增量快照按“母版（导入时）+ 本故事增量（优先）”原文分段组合，不以模型重写；重复增量源、缺失引用与无法识别路径拒绝。
+world/name 两种世界观名称字段均接受；章节默认从 chNN.md 取正整数顺序，也支持 frontmatter 的 order。
+旧库 `_vocabulary.md` 的 genres/age_band 表格形成单一词表；未导入时沿用初始受控值。
+
+当前对象 head 带 `recordType=head`，ID 为业务 UUID。版本文档使用 `version:<entityId>:<version>`，
+`kind=version`、entityId、version、content 保存该版本完整对象，使用 Create-only。
+Cosmos 事务以 head 的 IfMatch etag 保护更新；409/412 映射为 API 409，其他存储失败返回 503。
+删除资产产生带 deleted 的新版本，不级联。building → ready 是初始化发布元数据变更，仅条件更新 head，不改内容版本。
+旧导入以批次标识和源路径确定 UUID，library 内 `kind=import` 文档冻结批次输入摘要；改动输入时拒绝复用旧批次。
+有 manifest 的重导入以原 ID、版本和内容核对，不需要同一批次标识。不同批次的旧素材可以产生不同 ID，不承诺跨批次内容去重。
+
+导出使用 `library/<kind>/<UUID>.md`、`projects/<story UUID>/<kind>/<UUID>.md`，不以可改名称作 identity。
+清单 entry 在基本字段之外包含 attributes（对象属性与溯源）及 fields（规范化名称、题材、年龄层），使 ID、版本、
+未知字段和完整快照可精确恢复。导出是当前内容快照，不含已删除母版；故事快照的 sourceAssetId 允许只作为历史溯源。
+受信任 Linux 目录导出以 mkdir 占位目标，再逐项 wx 写入，manifest 最后生成；失败保留部分目录，不提供整目录原子发布承诺。
+Web 目录选择仅上传相对路径与文本，不向后端授予本地路径访问；静态 symlink 检查由文件系统 CLI 执行。
+
+| API | 当前行为 |
+|---|---|
+| GET /api/auth-config | 匿名，仅 tenantId、spaClientId、scope |
+| GET /api/session、/api/vocabulary | 验证当前本人访问、读取受控词表 |
+| GET /api/library | 必填 kind=character/world；可选 name、genre、ageBand |
+| POST /api/library | `{kind,content}`，服务器生成 UUID |
+| GET /api/library/:id | 读取未删除资产及 revision |
+| PUT /api/library/:id | `{revision,content}`，保存新版本 |
+| DELETE /api/library/:id | `{revision}`，创建删除版本 |
+| GET /api/stories、/api/stories/:id | 分页故事列表、ready 故事信息 |
+| GET /api/stories/:id/documents | kind=setting/outline/snapshot/chapter，限定故事分区 |
+| GET /api/stories/:id/documents/:documentId | 校验故事与文档归属后读取 |
+| POST /api/stories/:id/snapshots | `{assetId,requestId}`，幂等复制母版当时版本 |
+| POST /api/import/preview、/api/import | `{batchId,files:[{path,text}]}`，预检或写入 |
+| POST /api/export | 空 JSON 对象，返回 `{files}`，浏览器生成 ZIP |
+
+列表接受 limit（默认 40，最大 100）及不透明 cursor，返回 `{items,cursor?}`。存储分页按 ID，阅读页面收齐选定范围后按 order、ID 排序。
+所有业务路由都验证 Bearer；写操作要求 APP_ORIGIN 和 application/json。错误包含安全 message 和可选路径诊断，不记录正文/token。
+尚无故事正文修改、Agent 会话、生成或采纳路由，相关段落属于 MWT-003 契约。
+
+CCP 配置 Cosmos 索引时保留 `/id/?`、`/recordType/?`、`/kind/?`、`/deleted/?`、`/status/?`、`/content/name/?`、
+`/content/genres/[]/?`、`/content/ageBand/?`、`/order/?`、`/updatedAt/?`、`/sourceAssetId/?`，排除其余路径；
+当前查询不需要多字段 ORDER BY 或 composite index。应用不会创建/改写 container 索引或吞吐配置。
+
+官方接入依据补充：[MSAL v5 redirect bridge](https://learn.microsoft.com/en-us/entra/msal/javascript/browser/redirect-bridge)、
+[Cosmos JavaScript SDK](https://learn.microsoft.com/en-us/javascript/api/overview/azure/cosmos-readme?view=azure-node-latest)。

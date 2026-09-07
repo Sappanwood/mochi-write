@@ -1,0 +1,349 @@
+import { useEffect, useState } from "react";
+import type { Document, Page } from "../shared/model.js";
+import { type Api, message } from "./api.js";
+import { Markdown } from "./Markdown.js";
+export function StoriesView({
+  api,
+  navigate,
+}: {
+  api: Api;
+  navigate: (path: string) => void;
+}) {
+  const [page, setPage] = useState<Page>({ items: [] }),
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true);
+  async function more() {
+    try {
+      const next = await api<Page>(
+        `/stories?cursor=${encodeURIComponent(page.cursor!)}`,
+      );
+      setPage((p) => ({ ...next, items: [...p.items, ...next.items] }));
+    } catch (e) {
+      setError(message(e));
+    }
+  }
+  useEffect(() => {
+    let active = true;
+    void api<Page>("/stories")
+      .then((p) => {
+        if (active) setPage(p);
+      })
+      .catch((e) => {
+        if (active) setError(message(e));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [api]);
+  return (
+    <>
+      <header className="page-heading">
+        <div>
+          <p className="eyebrow">故事书架</p>
+          <h1>你的故事</h1>
+          <p>从设定开始，沿着章节回到故事中。</p>
+        </div>
+      </header>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {loading && <p role="status">正在读取…</p>}
+      {!loading && !error && !page.items.length && (
+        <div className="empty">
+          书架上还没有故事。可在导入页面添加 Markdown 资料。
+        </div>
+      )}
+      <div className="story-grid">
+        {page.items.map((s, i) => (
+          <button
+            className="story-card"
+            key={s.id}
+            onClick={() => navigate(`story/${s.id}/chapter`)}
+          >
+            <div className={`book-cover cover-${i % 3}`}>
+              <span>MOCHI WRITE</span>
+              <h2>{s.content.name}</h2>
+              <span>故事 · 阅读</span>
+            </div>
+            <h3>{s.content.name}</h3>
+            <p>设定 / 大纲 / 章节 →</p>
+          </button>
+        ))}
+      </div>
+      {page.cursor && (
+        <button className="secondary" onClick={() => void more()}>
+          加载更多
+        </button>
+      )}
+    </>
+  );
+}
+const labels = {
+  chapter: "章节",
+  setting: "设定与关系",
+  outline: "大纲",
+  snapshot: "故事资产",
+};
+export type StorySection = keyof typeof labels;
+export function StoryReader({
+  api,
+  id,
+  section,
+  documentId,
+  navigate,
+}: {
+  api: Api;
+  id: string;
+  section: StorySection;
+  documentId?: string;
+  navigate: (path: string) => void;
+}) {
+  const [story, setStory] = useState<Document>(),
+    [docs, setDocs] = useState<Document[]>([]),
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true),
+    [adding, setAdding] = useState(false),
+    [generation, setGeneration] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    void (async () => {
+      const story = await api<Document>(`/stories/${id}`);
+      const docs: Document[] = [];
+      let cursor: string | undefined;
+      do {
+        const page: Page = await api<Page>(
+          `/stories/${id}/documents?kind=${section}&limit=100${cursor ? "&cursor=" + encodeURIComponent(cursor) : ""}`,
+        );
+        docs.push(...page.items);
+        cursor = page.cursor;
+        if (docs.length > 1000)
+          throw new Error("当前阅读范围过大，请缩小导入范围");
+      } while (cursor);
+      docs.sort(
+        (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id),
+      );
+      if (active) {
+        setStory(story);
+        setDocs(docs);
+      }
+    })()
+      .catch((e) => {
+        if (active) setError(message(e));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, id, section, generation]);
+  const current = documentId ? docs.find((d) => d.id === documentId) : docs[0];
+  const index = docs.findIndex((d) => d.id === current?.id);
+  return (
+    <>
+      <button className="back-link" onClick={() => navigate("stories")}>
+        ← 返回书架
+      </button>
+      <header className="page-heading">
+        <div>
+          <p className="eyebrow">故事阅读</p>
+          <h1>{story?.content.name ?? "正在读取故事…"}</h1>
+        </div>
+      </header>
+      <nav className="tabs" aria-label="故事内容">
+        {Object.entries(labels).map(([key, label]) => (
+          <button
+            key={key}
+            aria-current={section === key ? "page" : undefined}
+            onClick={() => navigate(`story/${id}/${key}`)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+      {error && (
+        <div role="alert" className="error">
+          {error}
+          <button className="quiet" onClick={() => setGeneration((g) => g + 1)}>
+            重试
+          </button>
+        </div>
+      )}
+      {loading && <p role="status">正在读取…</p>}
+      {section === "snapshot" && (
+        <div className="snapshot-note">
+          <p>故事资产是独立副本，母版修改不会影响这里。</p>
+          <button className="secondary" onClick={() => setAdding(!adding)}>
+            添加资产快照
+          </button>
+        </div>
+      )}
+      {adding && (
+        <SnapshotPicker
+          api={api}
+          storyId={id}
+          onDone={() => {
+            setAdding(false);
+            setGeneration((g) => g + 1);
+          }}
+        />
+      )}
+      {!loading && !error && (
+        <div className="reader-layout">
+          <aside className="chapter-list" aria-label={labels[section] + "目录"}>
+            {docs.map((d) => (
+              <button
+                key={d.id}
+                aria-current={current?.id === d.id ? "page" : undefined}
+                onClick={() => navigate(`story/${id}/${section}/${d.id}`)}
+              >
+                {d.order && <span>{String(d.order).padStart(2, "0")}</span>}
+                {d.content.name}
+              </button>
+            ))}
+          </aside>
+          <div className="reading-pane">
+            {current ? (
+              <>
+                <p className="eyebrow">
+                  {labels[section]}
+                  {current.order ? " · " + current.order : ""}
+                </p>
+                <h2>{current.content.name}</h2>
+                {section === "snapshot" && (
+                  <p className="muted">
+                    从母版第 {current.sourceVersion} 版复制 · 当前故事第{" "}
+                    {current.currentVersion} 版
+                  </p>
+                )}
+                <Markdown text={current.content.markdown} />
+                {section === "chapter" && (
+                  <div className="reader-navigation">
+                    <button
+                      className="secondary"
+                      disabled={index <= 0}
+                      onClick={() =>
+                        navigate(`story/${id}/chapter/${docs[index - 1]!.id}`)
+                      }
+                    >
+                      上一章
+                    </button>
+                    <span>
+                      {index + 1} / {docs.length}
+                    </span>
+                    <button
+                      className="secondary"
+                      disabled={index >= docs.length - 1}
+                      onClick={() =>
+                        navigate(`story/${id}/chapter/${docs[index + 1]!.id}`)
+                      }
+                    >
+                      下一章
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="empty">
+                {documentId
+                  ? "该文档不存在。"
+                  : "这里还没有" + labels[section] + "。"}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+function SnapshotPicker({
+  api,
+  storyId,
+  onDone,
+}: {
+  api: Api;
+  storyId: string;
+  onDone: () => void;
+}) {
+  const [kind, setKind] = useState("character"),
+    [name, setName] = useState(""),
+    [assets, setAssets] = useState<Document[]>([]),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const [request, setRequest] = useState<{ id: string; asset: string }>();
+  useEffect(() => {
+    let active = true;
+    void api<Page>(`/library?${new URLSearchParams({ kind, name })}`)
+      .then((p) => {
+        if (active) setAssets(p.items);
+      })
+      .catch((e) => {
+        if (active) setError(message(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, kind, name]);
+  async function add(asset: string) {
+    setBusy(true);
+    setError("");
+    const req =
+      request?.asset === asset ? request : { id: crypto.randomUUID(), asset };
+    setRequest(req);
+    try {
+      await api(`/stories/${storyId}/snapshots`, {
+        assetId: asset,
+        requestId: req.id,
+      });
+      onDone();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="picker">
+      <h2>从母版复制到故事</h2>
+      <div className="filters">
+        <label>
+          资产类型
+          <select value={kind} onChange={(e) => setKind(e.target.value)}>
+            <option value="character">角色</option>
+            <option value="world">世界观</option>
+          </select>
+        </label>
+        <label>
+          搜索名称
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+      </div>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      <ul>
+        {assets.map((a) => (
+          <li key={a.id}>
+            {a.content.name}
+            <button
+              disabled={busy}
+              className="secondary"
+              onClick={() => void add(a.id)}
+            >
+              复制到故事
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
