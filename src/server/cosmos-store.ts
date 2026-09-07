@@ -59,6 +59,10 @@ export class CosmosStore implements Store {
       "(c.kind != 'story' OR c.status = 'ready')",
     ];
     const parameters: { name: string; value: string }[] = [];
+    if (typeof f.projectId === "string") {
+      clauses.push("c.projectId = @projectId");
+      parameters.push({ name: "@projectId", value: f.projectId });
+    }
     if (f.kind) {
       clauses.push("c.kind = @kind");
       parameters.push({ name: "@kind", value: f.kind });
@@ -86,7 +90,7 @@ export class CosmosStore implements Store {
           {
             maxItemCount: f.limit ?? 40,
             enableQueryControl: true,
-            forceQueryPlan: true,
+            forceQueryPlan: f.projectId === undefined,
             continuationToken: f.cursor,
             ...(f.projectId !== undefined
               ? { partitionKey: f.projectId ?? "library" }
@@ -108,7 +112,7 @@ export class CosmosStore implements Store {
           );
         return {
           items: (response.resources ?? []).map(deserialize),
-          ...(response.continuationToken
+          ...(more && response.continuationToken
             ? { cursor: response.continuationToken }
             : {}),
         };

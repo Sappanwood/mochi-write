@@ -186,9 +186,11 @@ Web 目录选择仅上传相对路径与文本，不向后端授予本地路径�
 | POST /api/export | 空 JSON 对象，返回 `{files}`，浏览器生成 ZIP |
 
 列表接受 limit（默认 40，最大 100）及不透明 cursor，返回 `{items,cursor?}`。存储分页按 ID，阅读页面收齐选定范围后按 order、ID 排序。
-Cosmos SDK 4.10 查询启用 `enableQueryControl` 与 `forceQueryPlan`，以支持跨分区 continuation。
+Cosmos SDK 4.10 查询启用 `enableQueryControl`；仅跨分区列表启用 `forceQueryPlan`，以支持复合 continuation。
+定故事查询以 SQL 的 `projectId` 条件和逻辑 `partitionKey` 双重限定范围；定分区查询不强制 query plan，
+以保留 SDK 的逻辑分区路由与原生 continuation。
 初始或中间物理页可能没有 resources 或 cursor；后端在同一 iterator 上继续读取，直到收到数据或
-`hasMoreResults()` 为 false。仅后者表示空结果终态；数据页的 cursor 原样交还客户端。
+`hasMoreResults()` 为 false。仅后者表示空结果终态；仅迭代器仍有后续结果时交还数据页 cursor，丢弃终态残留 token。
 参数和空页语义遵循 [Azure SDK 分页说明](https://learn.microsoft.com/en-us/javascript/api/overview/azure/cosmos-readme?view=azure-node-latest)。
 所有业务路由都验证 Bearer；写操作要求 APP_ORIGIN 和 application/json。错误包含安全 message 和可选路径诊断，不记录正文/token。
 正文仍无手工编辑器；Agent 会话、生成与采纳路由见下文 MWT-003 已实现契约。

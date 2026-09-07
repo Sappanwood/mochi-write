@@ -97,7 +97,7 @@ describe("Cosmos transaction contract", () => {
     expect(options).toMatchObject({
       partitionKey: "library",
       enableQueryControl: true,
-      forceQueryPlan: true,
+      forceQueryPlan: false,
       continuationToken: "opaque",
       maxItemCount: 12,
     });
@@ -138,6 +138,53 @@ describe("Cosmos SDK 4.10 empty query pages", () => {
     const f = storeWith(pages);
     expect(await f.store.list({ kind: "story" })).toEqual({ items: [] });
     expect(pages.fetchNext).toHaveBeenCalledTimes(1);
+  });
+  it("does not publish a stale SDK token after the iterator is exhausted", async () => {
+    const f = storeWith(
+      iterator([
+        {
+          resources: [{ ...doc, _etag: "last" }],
+          continuationToken: "stale",
+          more: false,
+        },
+      ]),
+    );
+    const result = await f.store.list({ kind: "story" });
+    expect(result).toMatchObject({ items: [{ id: doc.id }] });
+    expect(result.cursor).toBeUndefined();
+    expect(
+      (
+        await storeWith(
+          iterator([
+            { resources: [], continuationToken: "stale", more: false },
+          ]),
+        ).store.list({ kind: "story" })
+      ).cursor,
+    ).toBeUndefined();
+  });
+  it("forces query planning only for cross-partition lists and binds logical scope in SQL", async () => {
+    const scoped = storeWith(iterator([{ resources: [], more: false }]));
+    await scoped.store.list({ projectId: "story-scope" });
+    const [spec, options] = scoped.query.mock.calls[0]!;
+    expect(options).toMatchObject({
+      partitionKey: "story-scope",
+      forceQueryPlan: false,
+    });
+    expect(spec).toMatchObject({
+      parameters: expect.arrayContaining([
+        { name: "@projectId", value: "story-scope" },
+      ]),
+    });
+    expect((spec as { query: string }).query).toContain(
+      "c.projectId = @projectId",
+    );
+    const cross = storeWith(iterator([{ resources: [], more: false }]));
+    await cross.store.list({ kind: "story" });
+    expect(cross.query.mock.calls[0]?.[1]).toMatchObject({
+      enableQueryControl: true,
+      forceQueryPlan: true,
+    });
+    expect(cross.query.mock.calls[0]?.[1]).not.toHaveProperty("partitionKey");
   });
   it("keeps the same iterator through multiple interim empty pages and preserves the data-page cursor", async () => {
     const pages = iterator([
