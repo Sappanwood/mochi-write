@@ -162,7 +162,34 @@ docker run --rm --env-file /absolute/path/to/private-runtime.env -p 127.0.0.1::8
 镜像使用 Node.js 24、多阶段构建、非 root 用户，监听 `0.0.0.0:8080`，由同一进程提供 Web/API。
 配置文件不进入镜像或 Git；开发 smoke 使用临时映射端口。生产运行仍要求真实身份、Cosmos 与配置，
 镜像没有测试认证后门。`/health/live` 检查进程，`/health/ready` 检查 Cosmos；探针不调用模型。
-CCP 管理部署与 digest。当前发布基于代码 `0896327`，镜像 digest 为
+此前由 CCP 发布的版本基于代码 `0896327`，镜像 digest 为
 `sha256:9fbf82c9e9bbf970c8e3d38b336ac4a13ace260a94b3d049a54bc4e7f5d7f1fe`。
 该版本已通过 110 项测试、15 项 E2E 和独立 review；部署后全局 18 故事及选定故事 14 对象的分区范围检查通过，CCP 检查无 drift。
 云端导出内容与元数据语义已核验，ZIP 落盘完整性与收费数据库恢复验收仍需完成。
+
+## GitHub Actions 日常发布
+
+main 的应用相关变更通过质量检查后自动构建、推送并发布 ACA。PR 执行质量检查，不请求 Azure OIDC。纯文档 push 不触发构建或部署。
+
+`.github/workflows/ci.yml` 使用 Node.js 24.14.1、Dockerfile 和 linux/amd64，完成现有质量门禁后，
+通过本 Repo main 的 OIDC 身份推送 `mochia4c005ba3f.azurecr.io/mochi-write`。Actions Summary 和 `image`
+artifact 的 `image.json` 保存 commit、build run ID 和不可变 digest；镜像使用 commit tag，实际发布按 digest。
+
+重新部署：在 Actions → **Deploy verified build** → **Run workflow** 选择 main，填写本 Repo 某次成功
+**CI and image** 的 run ID。入口验证来源为本 Repo main push、workflow 与 commit 相符，再读取其 image artifact。
+回到旧版本时，从上一次成功部署 Summary 找到 build run ID，使用同一入口；不会重新构建或修改 Terraform。
+构建记录和成功部署记录保留 90 天，过期 artifact 不能通过此入口部署，需重新构建。部署失败保留失败日志，不自动回滚。
+
+两个发布入口共用 Repo 内 `production-deploy` concurrency group，不取消正在运行的发布；GitHub 只保留一个 pending job，
+更多排队请求可能替换此前 pending，且不保证排队次序。每次发布后核对 Summary 的 commit/digest/revision。
+发布后检查 ACA ready revision、`/health/live`、`/health/ready`、Web 页面和匿名 `/api/stories` 返回 401。
+
+CCP/Terraform 管理 ACA、身份权限、环境变量、挂载及缩放等非镜像配置；本 Repo 的 workflow 只传入目标容器和 image。
+Terraform 精确忽略 `template[0].container[0].image`，避免基础设施更新回退已发布版本；基础设施操作期间由本人协调暂停应用发布。
+Azure RBAC 的 Container App write 无法限制为单独 image 字段，image-only 是受信任 main workflow 的代码约束。
+
+仓库使用已有 Variables：`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`、`ACR_NAME`。
+不配置 GitHub environment（会改变现有 main OIDC subject），不使用 Azure client secret、跨仓库 PAT 或 GitHub App。
+本地发布脚本行为检查：`python3 -m unittest discover -s scripts -p 'test_*.py'`。
+
+此流程已在代码中准备；本轮新增 ACA 权限与首次真实 Actions 发布尚待实际执行验收，不能用本地测试替代。

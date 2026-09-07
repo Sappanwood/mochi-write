@@ -14,7 +14,7 @@
 |---|---|
 | mochi-write | 个人访问、页面、业务存储、素材检索、写作上下文、草稿与章节采纳 |
 | mochi | provider 认证、模型调用、执行会话、任务状态与事件 |
-| ccp | 云资源、身份权限、持久存储资源、备份、容器部署和镜像 digest |
+| ccp | 云资源、身份权限、持久存储资源、备份和非镜像容器配置 |
 
 Web 后端沿用 Mochi/CCP 已选的 Managed Identity 与 Entra app-only 认证方向；
 个人浏览器登录是独立边界。调用方身份映射和实际 endpoint 由联合接入契约确定。
@@ -144,3 +144,7 @@ MWT-005 已登记 `127.0.0.1:12600` 长期开发服务，尚未启动；云发�
 采纳单次 batch 包含版本 Create、章节 head Create/IfMatch、草稿 accepted IfMatch；失败不返回采纳成功。
 新章节 ID 在首次提交前分配，反馈重写复用该 ID。只有 succeeded 完整文本可采纳，终态片段来自持久事件。
 生产可不配置 Mochi，此时仅写作入口报告不可用，不使阅读服务的 readiness 失败。
+
+## 镜像发布所有权
+
+应用 GitHub Actions 在本仓库 main 通过 OIDC 构建、推送并发布 image digest。CCP 的两个 ACA 资源仅忽略 image 字段，其余配置仍受 Terraform 管理。发布不读取 Terraform state，不调用 CCP workflow；触发与维护边界见 [README](../README.md#github-actions-日常发布)。

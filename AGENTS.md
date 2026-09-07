@@ -29,7 +29,7 @@ Backlog、Plan、execution、Report、ADR、Research 均由 ProjectOps 管理，
 - 只服务本人；不引入多人协作、多 Agent 编排或 planner/narrator。
 - 本项目持有正文、角色、设定等业务数据；Mochi 持有 Agent 执行会话与 provider 认证。
 - 浏览器经应用后端调用 Mochi；不向客户端传递 provider 凭据。
-- CCP 独占管理云资源与部署字段，本项目提供镜像和运行需求。
+- CCP 管理云资源与非镜像部署字段；本项目 GitHub Actions 管理 image digest 和发布，Terraform 仅忽略 image 字段。
 - 不把私人小说素材、凭据、会话或本地运行数据提交到 Git；导入不修改原始素材。
 - 业务主存储已选择 Azure Cosmos DB；React/TypeScript/Vite、Node.js 24/TypeScript/Fastify、npm 与个人 Entra/MSAL 已确定，按首期实现契约开发。
 - 侧栏通过宿主适配接口连接业务，首期应用内独立实现；共享包发布和 ProjectOps 接入留待后续。
@@ -68,3 +68,5 @@ npm run test:e2e
 后续执行覆盖实际变更的项目质量门禁。中高风险行为按共享规则先验证失败用例。
 导入、版本冲突、身份权限与任务恢复需行为测试，不能以文档检查代替。
 完工同步受影响的产品和架构文档；已有 CodeGraph 索引且修改覆盖源码时运行 `codegraph sync`。
+
+应用发布 workflow 与 `scripts/deploy.py` 的修改需运行 Python 发布行为测试，随后执行项目既有质量门禁。日常发布入口与维护边界见 README；不得恢复 CCP 与应用双重管理 image。

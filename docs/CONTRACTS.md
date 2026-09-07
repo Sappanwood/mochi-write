@@ -140,7 +140,7 @@ Mochi 持有消息历史与执行状态，应用仅保存 scope/session 映射�
 云端已验证本人认证与 Cosmos 读取，发布后 CCP 资源检查无 drift；另已验证独立人工测试故事的真实模型生成、采纳与页面断开恢复；跨应用身份隔离、服务进程中断及收费数据库恢复仍待验收。实时任务状态以 ProjectOps 为准。
 容器契约：linux/amd64、非 root、PORT=8080、0.0.0.0 监听；/health/live 查进程，/health/ready 查应用必需配置与 Cosmos 可用性。
 Mochi 暂不可用不使资产阅读服务整体 unready；写作入口明确显示不可用。探针不调用付费模型。
-CCP 管理镜像 digest 与账户/身份，应用不执行 Terraform apply；实际公网地址与 Entra redirect 在部署时成对配置。
+应用 Actions 管理镜像 digest，CCP 管理账户/身份和非镜像配置；应用不执行 Terraform apply；实际公网地址与 Entra redirect 在部署时成对配置。
 最低恢复采用平台 Continuous 7-day，恢复调用收费；保留源资料和手动导出，恢复前查询可恢复时间，
 恢复后核对对象数量/引用/版本及权限再切换应用。无零丢失、固定 RTO 或跨账户灾备承诺。
 
