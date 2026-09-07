@@ -6,7 +6,9 @@
 MWT-002 已实现工程、个人认证、资产编辑、故事阅读、独立快照和导入导出；MWT-003 已实现写作侧栏、Mochi v1 接入、草稿与原子采纳。
 本地验收使用隔离存储和签名测试身份；MWT-004 已完成 Azure Container Apps 发布、本人 Entra 登录及 `/api/stories` HTTP 200 验证。
 首批 18 故事、374 对象已导入云端；同批次重试 created 0、skipped 374，全局 18 故事分页无重复。
-定故事查询范围修复 `0896327` 已通过本地门禁和独立 review，但尚未发布；完整导出语义、真实模型写作和恢复演练尚未验收。
+定故事查询范围修复 `0896327` 已发布并通过云端分区范围核对，CCP 检查无 drift。
+云端导出的 374 份 Markdown hash、全部 manifest attributes/fields、唯一路径与 ID 均匹配期望；
+ZIP 落盘压缩完整性、真实模型写作和恢复演练尚未验收，主入口尚未切换。
 MWT-002 使用临时 loopback 端口完成本地验收；MWT-005 已由 ProjectOps 登记长期开发 endpoint，
 该本地 endpoint 仅完成登记和只读验收、尚未启动；启动须独立准备运行配置与可用 Managed Identity。
 用户确认的生态标准为 React + TypeScript + Vite、Node.js 24 + TypeScript + Fastify、npm、同仓库同容器，
@@ -131,7 +133,7 @@ Mochi 持有消息历史与执行状态，应用仅保存 scope/session 映射�
 | MWT-002 | 固定依赖/可执行 schema，质量入口，资产与阅读实现；用户确认以临时端口本地验收，长期登记已由 MWT-005 完成，尚未启动 |
 | MWT-003 + mochi/MOC-001 | 固定会话/任务 HTTP 与事件 schema，验证上述幂等/恢复/隔离要求，接通真实无工具 API |
 | MWT-004 + mochi/MOC-004 | 联合部署与真实写作验收；不能以管理页上线代替 Agent API 可用 |
-| MWT-004 + ccp/CCP-004 | 已落实数据库、身份、镜像、Continuous 7-day 和发布；首批导入及幂等已验证，导出修复发布、完整导出语义及恢复演练仍待完成 |
+| MWT-004 + ccp/CCP-004 | 已落实数据库、身份、镜像、Continuous 7-day 和发布；首批导入、幂等、导出修复发布及导出内容语义已验证；ZIP 落盘完整性及恢复演练仍待完成 |
 
 业务会话/任务已与 Mochi 进行本地真实 HTTP 联调；使用签名测试身份、隔离持久存储及假 provider。
 云端已验证本人认证与 Cosmos 读取，发布后 CCP 资源检查无 drift；这些检查不替代真实模型和恢复验收。实时任务状态以 ProjectOps 为准。
