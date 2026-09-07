@@ -11,7 +11,8 @@ Agent 执行由 Mochi 提供，云基础设施与部署由 CCP 管理。
 本人 Entra 登录和 `/api/stories` HTTP 200 已验证，CCP 发布后资源检查无 drift。
 首批 18 故事、374 对象已导入云端；同批次重试返回 created 0、skipped 374，全局故事分页共 18 条且无重复。
 云端导出曾因故事分区查询问题返回 HTTP 400；修复已上线，374 份 Markdown hash、全部 manifest attributes/fields、唯一路径及 ID 均与期望一致。
-ZIP 下载文件的压缩完整性、真实模型写作及恢复演练尚未验收；主入口尚未切换。
+独立人工测试故事已完成真实模型生成、采纳及页面断开恢复验证，未使用 18 个旧故事作为模型上下文。
+真实跨应用隔离、服务进程中断恢复、收费数据库恢复及 ZIP 落盘完整性尚未验收，主入口尚未切换。
 本地测试继续使用隔离存储与签名测试身份。
 已通过 ProjectOps 登记长期开发服务 `http://127.0.0.1:12600`，Web/API 共用端口；本次只完成登记，尚未启动服务。
 本地启动仍需独立准备 Entra/Cosmos 配置与可用 Managed Identity；云发布不代表本地开发服务已经运行。
@@ -143,6 +144,11 @@ CLI 不提供认证绕过，也不自动创建云资源。源目录只读；仅�
 资产库会话仅提供建议，没有章节采纳动作。聊天历史由 Mochi 保存，应用仅持有输入快照、关联和草稿。
 缓存统计只显示实际返回值，没有统计时显示未知。上下文超出保守预算会阻止发送，需减少资料或新建会话。
 
+真实云端验收使用独立人工测试故事及 `deepseek-v4-flash`，共 2 个 conversation、2 个 run，每个 run 的 `maxOutputTokens` 为 4096。
+任务 A 完成生成并采纳为章节 v1，刷新后正文一致；任务 B 在 queued 时导航到 `about:blank` 断开页面，重开后查询原 run 成功，没有重新提交。
+API 返回 usage 合计 2015 tokens：input 202、output 1685、cache_read 128；按 API 口径记录，不推算价格。
+该验证覆盖页面断开后的查询恢复，未验证服务进程中断或真实跨应用身份隔离。
+
 未设置 Mochi 配置时写作入口报告不可用，资产阅读与管理仍可使用。后端以 Managed Identity 获取
 `api://<MOCHI_ENTRA_AUDIENCE>/.default` token，不转发浏览器 token，不传递 provider 凭据。
 
@@ -159,4 +165,4 @@ docker run --rm --env-file /absolute/path/to/private-runtime.env -p 127.0.0.1::8
 CCP 管理部署与 digest。当前发布基于代码 `0896327`，镜像 digest 为
 `sha256:9fbf82c9e9bbf970c8e3d38b336ac4a13ace260a94b3d049a54bc4e7f5d7f1fe`。
 该版本已通过 110 项测试、15 项 E2E 和独立 review；部署后全局 18 故事及选定故事 14 对象的分区范围检查通过，CCP 检查无 drift。
-云端导出内容与元数据语义已核验，ZIP 落盘完整性、真实云端写作与恢复验收仍需完成。
+云端导出内容与元数据语义已核验，ZIP 落盘完整性与收费数据库恢复验收仍需完成。

@@ -8,7 +8,8 @@ MWT-002 已实现工程、个人认证、资产编辑、故事阅读、独立快
 首批 18 故事、374 对象已导入云端；同批次重试 created 0、skipped 374，全局 18 故事分页无重复。
 定故事查询范围修复 `0896327` 已发布并通过云端分区范围核对，CCP 检查无 drift。
 云端导出的 374 份 Markdown hash、全部 manifest attributes/fields、唯一路径与 ID 均匹配期望；
-ZIP 落盘压缩完整性、真实模型写作和恢复演练尚未验收，主入口尚未切换。
+独立人工测试故事已通过 2 次真实 `deepseek-v4-flash` 任务验证：章节 v1 采纳并刷新一致；queued 时页面断开，重开后原 run 成功且未重新提交。
+真实跨应用隔离、服务进程中断恢复、收费数据库恢复及 ZIP 落盘完整性尚未验收，主入口尚未切换。
 MWT-002 使用临时 loopback 端口完成本地验收；MWT-005 已由 ProjectOps 登记长期开发 endpoint，
 该本地 endpoint 仅完成登记和只读验收、尚未启动；启动须独立准备运行配置与可用 Managed Identity。
 用户确认的生态标准为 React + TypeScript + Vite、Node.js 24 + TypeScript + Fastify、npm、同仓库同容器，
@@ -136,7 +137,7 @@ Mochi 持有消息历史与执行状态，应用仅保存 scope/session 映射�
 | MWT-004 + ccp/CCP-004 | 已落实数据库、身份、镜像、Continuous 7-day 和发布；首批导入、幂等、导出修复发布及导出内容语义已验证；ZIP 落盘完整性及恢复演练仍待完成 |
 
 业务会话/任务已与 Mochi 进行本地真实 HTTP 联调；使用签名测试身份、隔离持久存储及假 provider。
-云端已验证本人认证与 Cosmos 读取，发布后 CCP 资源检查无 drift；这些检查不替代真实模型和恢复验收。实时任务状态以 ProjectOps 为准。
+云端已验证本人认证与 Cosmos 读取，发布后 CCP 资源检查无 drift；另已验证独立人工测试故事的真实模型生成、采纳与页面断开恢复；跨应用身份隔离、服务进程中断及收费数据库恢复仍待验收。实时任务状态以 ProjectOps 为准。
 容器契约：linux/amd64、非 root、PORT=8080、0.0.0.0 监听；/health/live 查进程，/health/ready 查应用必需配置与 Cosmos 可用性。
 Mochi 暂不可用不使资产阅读服务整体 unready；写作入口明确显示不可用。探针不调用付费模型。
 CCP 管理镜像 digest 与账户/身份，应用不执行 Terraform apply；实际公网地址与 Entra redirect 在部署时成对配置。
