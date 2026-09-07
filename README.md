@@ -8,8 +8,8 @@ Agent 执行由 Mochi 提供，云基础设施与部署由 CCP 管理。
 已实现个人登录接入、角色/世界观编辑、故事阅读、Markdown 导入导出及 Mochi 单 Agent 写作侧栏。
 侧栏支持上下文预览、持续会话、生成/反馈重写、取消/恢复与原子章节采纳。
 本地验收使用隔离存储与签名测试身份；真实 Cosmos/Entra 联调留到 MWT-004。
-长期开发服务登记待 ProjectOps 服务管理能力交付后落实；按用户确认，MWT-002 使用临时端口完成本地验收。
-当前不启动固定端口服务，也没有云部署。
+已通过 ProjectOps 登记长期开发服务 `http://127.0.0.1:12600`，Web/API 共用端口；本次只完成登记，尚未启动服务。
+实际运行仍需真实 Entra/Cosmos 配置与 Managed Identity；MWT-002 的临时端口验收不替代云端联调，当前没有云部署。
 项目 ID 为 `mochi-write`，Backlog 前缀为 `MWT`。
 
 ## 首期范围
@@ -80,7 +80,23 @@ MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration
 后端目前使用 Managed Identity，不自动创建数据库、container 或 registration。API registration 需签发 v2 access token，
 scope 为 `api://<API client ID>/Write.Access`；SPA redirect 为 `APP_ORIGIN/redirect.html`。
 MSAL v5 使用独立 redirect bridge 页面，反向代理不得为该页面设置 COOP header。
-首次启动长期服务前仍须完成工作区开发 endpoint 登记，默认 8080 不是已分配的本地开发端口。
+开发 endpoint 已登记于 workspace `.pops/workspace.json` 的 `projects.mochi-write.dev`：单 `web` endpoint，
+`127.0.0.1:12600`，Repo 相对 cwd `.`，命令 `npm run dev`。ProjectOps 注入 `HOST=127.0.0.1`，
+并通过受限变量将 `WEB_PORT` 映射到 `PORT`、`WEB_ORIGIN` 映射到 `APP_ORIGIN`；默认 8080 不是本工作区分配。
+
+先在 Repo 执行 `npm run build` 生成前端，再为首次启动独立 manager 的环境提供上表真实配置及可用 Managed Identity。
+manager 继承启动时的环境，后续 CLI 不会重新注入调用 shell 的环境；本应用不自动加载 `.env`，
+不要把凭据写进 manifest。配置未就绪时仅运行以下只读检查：
+
+```bash
+pops dev ports --json
+pops dev check mochi-write --json
+pops dev status mochi-write --json
+```
+
+配置就绪后可用 `pops dev start mochi-write` 启动，`pops dev restart mochi-write` 重启，
+`pops dev stop mochi-write` 关闭；Workbench 项目 Overview 的开发服务区提供同一服务的控制与打开入口。
+CLI 可独立工作，关闭 Workbench 不影响该服务。端口检查通过只证明登记与占用检查通过，不证明云端连接可用。
 
 ## 使用与资料迁移
 

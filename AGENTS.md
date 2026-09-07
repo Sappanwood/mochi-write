@@ -7,8 +7,8 @@
 个人小说创作 Web app；资产库支持 Web 编辑，故事支持阅读和单 Agent 草稿采纳，暂无正文手工编辑器。
 MWT-002 已实现资产编辑、故事阅读、导入导出和个人认证接入；MWT-003 已接通写作侧栏与 Mochi 会话/任务 API。
 本地门禁使用隔离存储及签名测试身份；跨 Repo 集成使用真实 HTTP/Pi AgentSession 与假 provider 输出。
-真实云端联调留到 MWT-004。用户确认长期服务登记由 ProjectOps PRO-053 起的后续任务承接，
-MWT-002 使用临时 loopback 端口完成本地验收；不得假定固定端口已分配。
+真实云端联调留到 MWT-004。MWT-005 已通过 ProjectOps 登记 `127.0.0.1:12600` 单端口 Web/API；
+当前仅完成登记，实际启动仍需真实 Entra/Cosmos 配置与 Managed Identity。MWT-002 的临时端口验收不等于云端验收。
 实现前区分用户确认范围、建议行为与待决策项。
 
 ## ProjectOps 路由
@@ -33,7 +33,9 @@ Backlog、Plan、execution、Report、ADR、Research 均由 ProjectOps 管理，
 - 接入外部 API 前查阅最新官方文档。
 - 文件操作先声明边界：默认受信任本地 Linux/容器目录，校验静态 containment 与正常并发冲突；
   不承诺抵抗同用户恶意 ancestor 替换，无 native helper。跨平台支持须另行确定。
-- 尚未登记本地长期服务；需要固定端口时先按 Workspace 规则明确登记方案。
+- 本地长期服务 authority 为 workspace `.pops/workspace.json` 的 `projects.mochi-write.dev`；
+  在 Repo cwd 执行 `npm run dev`，由 ProjectOps 注入 `HOST`、`PORT`、`APP_ORIGIN`。先构建前端，
+  准备 README 要求的真实运行环境，再用 `pops dev check/start/status/stop/restart mochi-write` 管理；不创建 Workspace Control descriptor。
 
 ## 文档路由
 

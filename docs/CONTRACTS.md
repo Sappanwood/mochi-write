@@ -5,8 +5,8 @@
 2026-09-07 按用户确认完成设计基线。本文规定 MWT-002 至 MWT-004 的实现边界。
 MWT-002 已实现工程、个人认证、资产编辑、故事阅读、独立快照和导入导出；MWT-003 已实现写作侧栏、Mochi v1 接入、草稿与原子采纳。
 2026-09-07 用户同意以隔离存储和签名测试身份完成本地验收，真实 Cosmos/Entra 联调留到 MWT-004。
-用户确认长期开发服务登记由 ProjectOps 后续服务管理任务承接；本项使用临时 loopback 端口完成本地验收，
-不将临时测试端口视为已完成登记。
+MWT-002 使用临时 loopback 端口完成本地验收；MWT-005 已由 ProjectOps 登记长期开发 endpoint，
+本次仅完成配置和只读验收，真实运行仍受 MWT-004 的云端配置前置约束。
 用户确认的生态标准为 React + TypeScript + Vite、Node.js 24 + TypeScript + Fastify、npm、同仓库同容器，
 以及个人 Entra ID + MSAL。现有项目在相关改造时逐步对齐；本条不授权重写其他项目或发布共享包。
 
@@ -29,9 +29,12 @@ MWT-002 建立 npm run check（格式/lint、TypeScript、行为测试、构建�
 中高风险行为先确认失败用例，再实现；重点为本人认证拒绝、导入引用、快照隔离、版本冲突、重复采纳与导航中任务目标固定。
 Markdown 渲染禁用原始 HTML，链接按允许协议处理；日志不记录正文、提示词、token 和 provider 原始异常。
 
-本地服务登记方案：用户确认登记由 ProjectOps 后续服务管理能力承接。首次启动长期服务前读取 Workspace 端口清单，通过当时活动的开发服务注册入口登记
-mochi-write 的 web/API endpoint，启用 loopback 和 strict-port；不另建 Workspace Control artifact store。
-未完成登记时仅用临时端口测试，不将 Vite 默认端口当作工作区分配。数字端口随真实入口一次登记，当前没有监听服务。
+本地服务已登记于 workspace `.pops/workspace.json` 的 `projects.mochi-write.dev`，由 ProjectOps 独立 manager 管理。
+单 `web` endpoint 为 `127.0.0.1:12600`，同一进程提供 Web/API；Repo cwd `.` 执行 `npm run dev`，
+通过 `HOST` 和 `PORT=${WEB_PORT}`、`APP_ORIGIN=${WEB_ORIGIN}` 固定监听地址与同源地址。端口冲突时失败，不自动换端口。
+本次登记已核对 Workspace Control 保留端口；不创建其 descriptor 或 artifact store，不迁移其他服务。
+先构建前端并准备真实 Entra/Cosmos 环境与 Managed Identity，才可显式启动。配置、命令与环境继承说明见 README。
+登记和端口检查不证明服务运行或云端连接成功；隔离测试继续使用临时端口。
 
 ## 个人认证与应用认证
 
