@@ -1,3 +1,4 @@
+import { bundleLimits, bundleFileByteLimit } from "../shared/bundle-limits.js";
 import { useState } from "react";
 import { strToU8, zipSync } from "fflate";
 import type { BundleFile } from "../shared/model.js";
@@ -31,12 +32,18 @@ export function Transfer({ api }: { api: Api }) {
           manifest || /^[^/]+\/(library|projects)\//.test(f.webkitRelativePath),
       );
       if (
-        accepted.length > 1000 ||
-        accepted.reduce((n, f) => n + f.size, 0) > 16 * 1024 * 1024 ||
-        accepted.some((f) => f.size > 1024 * 1024)
+        accepted.length > bundleLimits.files ||
+        accepted.reduce((n, f) => n + f.size, 0) > bundleLimits.batchBytes ||
+        accepted.some(
+          (f) =>
+            f.size >
+            bundleFileByteLimit(
+              f.webkitRelativePath.split("/").slice(1).join("/"),
+            ),
+        )
       )
         throw new Error(
-          "超出导入限制：最多 1000 个文件，单文件 1 MiB，批次 16 MiB",
+          "超出导入限制：最多 1000 个文件，Markdown 单篇 1 MiB，清单及整个包均不超过 16 MiB",
         );
       const bundle = await Promise.all(
         accepted.map(async (file) => ({
@@ -153,7 +160,8 @@ export function Transfer({ api }: { api: Api }) {
             />
           </label>
           <p className="muted">
-            仅读取源文件。最多 1000 个文件，单文件 1 MiB，批次 16 MiB。
+            仅读取源文件。最多 1000 个文件，Markdown 单篇 1
+            MiB；清单及整个包均不超过 16 MiB。
           </p>
           {files.length > 0 && (
             <>

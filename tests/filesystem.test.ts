@@ -78,3 +78,33 @@ describe("trusted Linux filesystem boundary", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("manifest file limit", () => {
+  it("reads and writes manifests above 1 MiB without normalizing the bytes", async () => {
+    const root = await temp(),
+      target = join(root, "large-manifest");
+    const text = " ".repeat(1024 * 1024 + 32);
+    const files = [
+      { path: "manifest.json", text },
+      { path: "library/a.md", text: "small" },
+    ];
+    await writeBundle(target, files);
+    expect(await readBundle(target)).toEqual(
+      [...files].sort((a, b) => a.path.localeCompare(b.path)),
+    );
+    expect((await readFile(join(target, "manifest.json"))).length).toBe(
+      Buffer.byteLength(text),
+    );
+  });
+  it("rejects oversized manifests and ordinary Markdown before loading them", async () => {
+    const root = await temp();
+    await writeFile(
+      join(root, "manifest.json"),
+      " ".repeat(16 * 1024 * 1024 + 1),
+    );
+    await expect(readBundle(root)).rejects.toThrow();
+    await writeFile(join(root, "manifest.json"), "{}");
+    await writeFile(join(root, "large.md"), " ".repeat(1024 * 1024 + 1));
+    await expect(readBundle(root)).rejects.toThrow();
+  });
+});

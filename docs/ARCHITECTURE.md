@@ -130,6 +130,8 @@ MWT-002 已固定依赖、可执行 schema 和本地实现；长期服务登记�
 导入跨分区不承诺事务：先核对完整输入和既有对象冲突，再记录批次、建立 building 故事、写入资料，最后以 etag 发布 ready。
 失败不会回滚已写内容；同批次重试保留对象 ID，未完成故事不对阅读 API 可见。资产版本与 head 在单一 Cosmos 分区事务中保存。
 受控词表保留单一 identity；真实资料与导入产物不会进入 Repo。文件大小限制同时检查源文本和版本事务的持久化对象。
+导入/导出的共享大小规则位于 `src/shared/bundle-limits.ts`：普通 Markdown 1 MiB、根清单 16 MiB、总包 16 MiB。
+清单承载各对象溯源，可大于单篇正文；Web 选择、服务端预检和 CLI 安全读取使用相同限制。
 
 
 写作记录使用 `recordType=writing`，不会被业务 `head` 查询或 Markdown 导出纳入。

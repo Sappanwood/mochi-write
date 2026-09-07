@@ -1,3 +1,7 @@
+import {
+  bundleLimits as limits,
+  bundleFileByteLimit,
+} from "../shared/bundle-limits.js";
 import { posix } from "node:path";
 import { parseDocument } from "yaml";
 import {
@@ -6,11 +10,7 @@ import {
   type BundleFile,
   type Content,
 } from "../shared/model.js";
-export const limits = {
-  documentBytes: 1024 * 1024,
-  batchBytes: 16 * 1024 * 1024,
-  files: 1000,
-};
+export { limits };
 export function safePath(path: string) {
   if (
     !path ||
@@ -35,7 +35,7 @@ export function checkFiles(files: BundleFile[]) {
     paths.add(f.path);
     const size = Buffer.byteLength(f.text);
     total += size;
-    if (size > limits.documentBytes || total > limits.batchBytes)
+    if (size > bundleFileByteLimit(f.path) || total > limits.batchBytes)
       throw new AppError(400, "文件或批次大小超限");
     if (f.text.includes("\uFFFD") || f.text.includes("\0"))
       throw new AppError(400, "文档必须是有效 UTF-8 文本");

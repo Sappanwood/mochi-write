@@ -1,3 +1,4 @@
+import { bundleFileByteLimit } from "../shared/bundle-limits.js";
 import { constants } from "node:fs";
 import { lstat, mkdir, open, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, parse, relative, resolve } from "node:path";
@@ -33,7 +34,8 @@ export async function readBundle(input: string): Promise<BundleFile[]> {
     const rel = safePath(relative(root, path));
     if (!rel.endsWith(".md") && rel !== "manifest.json")
       throw new AppError(400, "源目录包含不支持的文件");
-    if (files.length >= limits.files || info.size > limits.documentBytes)
+    const fileLimit = bundleFileByteLimit(rel);
+    if (files.length >= limits.files || info.size > fileLimit)
       throw new AppError(400, "文件数量或大小超限");
     const handle = await open(
       path,
@@ -43,7 +45,7 @@ export async function readBundle(input: string): Promise<BundleFile[]> {
     try {
       if (!(await handle.stat()).isFile())
         throw new AppError(400, "源文件类型已变化");
-      const buffer = Buffer.alloc(limits.documentBytes + 1);
+      const buffer = Buffer.alloc(fileLimit + 1);
       let size = 0;
       while (size < buffer.length) {
         const chunk = await handle.read(
@@ -56,7 +58,7 @@ export async function readBundle(input: string): Promise<BundleFile[]> {
         size += chunk.bytesRead;
       }
       total += size;
-      if (size > limits.documentBytes || total > limits.batchBytes)
+      if (size > fileLimit || total > limits.batchBytes)
         throw new AppError(400, "文件或批次大小超限");
       text = new TextDecoder("utf-8", { fatal: true }).decode(
         buffer.subarray(0, size),

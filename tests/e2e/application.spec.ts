@@ -1,3 +1,9 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { exportFiles } from "../../src/server/export.js";
+import { writeBundle } from "../../src/server/filesystem.js";
+import { entity, hash } from "../../src/server/entities.js";
 import { registerWriting } from "../../src/server/writing-routes.js";
 import { Writing } from "../../src/server/writing.js";
 import { MemoryWritingStore } from "../support/writing-store.js";
@@ -331,4 +337,49 @@ test("returning to a scope restores the explicitly selected older conversation",
   await page.goto(`${address}/#story/${story.id}/chapter`);
   await page.getByRole("button", { name: "打开写作助手" }).click();
   await expect(page.getByLabel("会话", { exact: true })).toHaveValue(older);
+});
+
+test("a provenance manifest larger than 1 MiB can be previewed and reimported in the browser", async ({
+  page,
+}) => {
+  const raw = "synthetic provenance ".repeat(2500);
+  for (let i = 0; i < 30; i++)
+    await store.commit(
+      {
+        ...entity("character", {
+          name: `manifest-fixture-${i}`,
+          markdown: "Synthetic text.",
+          genres: [],
+          ageBand: "",
+          sourceMetadata: {},
+        }),
+        source: {
+          path: `library/characters/manifest-fixture-${i}.md`,
+          hash: hash(raw),
+          raw,
+        },
+      },
+      null,
+    );
+  const files = await exportFiles(store);
+  expect(
+    Buffer.byteLength(files.find((f) => f.path === "manifest.json")!.text),
+  ).toBeGreaterThan(1024 * 1024);
+  const temp = await mkdtemp(join(tmpdir(), "mwt-manifest-browser-"));
+  try {
+    const directory = join(temp, "bundle");
+    await writeBundle(directory, files);
+    await page.goto(`${address}/#transfer`);
+    await page.getByLabel("选择资料目录").setInputFiles(directory);
+    await page.getByRole("button", { name: "预检资料", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: `预检通过 · ${files.length - 1} 项` }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "确认导入", exact: true }).click();
+    await expect(page.getByRole("status")).toHaveText(
+      `导入完成：新增 0 项，已存在 ${files.length - 1} 项。`,
+    );
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
 });
