@@ -192,4 +192,7 @@ Azure RBAC 的 Container App write 无法限制为单独 image 字段，image-on
 不配置 GitHub environment（会改变现有 main OIDC subject），不使用 Azure client secret、跨仓库 PAT 或 GitHub App。
 本地发布脚本行为检查：`python3 -m unittest discover -s scripts -p 'test_*.py'`。
 
-此流程已在代码中准备；本轮新增 ACA 权限与首次真实 Actions 发布尚待实际执行验收，不能用本地测试替代。
+2026-09-07 首次真实发布已通过：[CI / 构建 / 部署运行 34121369312](https://github.com/Sappanwood/mochi-write/actions/runs/34121369312)。
+提交 `746c3c56fbd8f69b854a88f51e222144e5734979`，发布镜像 `mochia4c005ba3f.azurecr.io/mochi-write@sha256:53bd6dc2535f1429d196e7f08de2bb907ca4c019dbf806e4f91fe507f3aba120`，revision `mochi-write--0000003`。
+GitHub runner 完成 OIDC 推送与 ACA 更新，健康、页面和匿名拒绝检查通过；手动入口的 run 来源解析也已对该成功构建验证。
+此证据不包含 Mochi 的业务可用性或真实模型调用。
