@@ -7,9 +7,11 @@ Agent 执行由 Mochi 提供，云基础设施与部署由 CCP 管理。
 
 已实现个人登录接入、角色/世界观编辑、故事阅读、Markdown 导入导出及 Mochi 单 Agent 写作侧栏。
 侧栏支持上下文预览、持续会话、生成/反馈重写、取消/恢复与原子章节采纳。
-本地验收使用隔离存储与签名测试身份；真实 Cosmos/Entra 联调留到 MWT-004。
+已发布至 [Mochi Write](https://mochi-write.whitemeadow-6e32159b.eastus.azurecontainerapps.io)，
+本人 Entra 登录和 `/api/stories` HTTP 200 已验证，CCP 发布后资源检查无 drift。
+真实素材迁移尚未执行，真实模型写作及恢复演练尚未验收；本地测试继续使用隔离存储与签名测试身份。
 已通过 ProjectOps 登记长期开发服务 `http://127.0.0.1:12600`，Web/API 共用端口；本次只完成登记，尚未启动服务。
-实际运行仍需真实 Entra/Cosmos 配置与 Managed Identity；MWT-002 的临时端口验收不替代云端联调，当前没有云部署。
+本地启动仍需独立准备 Entra/Cosmos 配置与可用 Managed Identity；云发布不代表本地开发服务已经运行。
 项目 ID 为 `mochi-write`，Backlog 前缀为 `MWT`。
 
 ## 首期范围
@@ -151,4 +153,6 @@ docker run --rm --env-file /absolute/path/to/private-runtime.env -p 127.0.0.1::8
 镜像使用 Node.js 24、多阶段构建、非 root 用户，监听 `0.0.0.0:8080`，由同一进程提供 Web/API。
 配置文件不进入镜像或 Git；开发 smoke 使用临时映射端口。生产运行仍要求真实身份、Cosmos 与配置，
 镜像没有测试认证后门。`/health/live` 检查进程，`/health/ready` 检查 Cosmos；探针不调用模型。
-本地镜像验证不等于云发布。CCP 管理部署与 digest，真实云端写作验收留到 MWT-004。
+CCP 管理部署与 digest。当前发布基于代码 `8373d43`，镜像 digest 为
+`sha256:dcc2fb81d0c3198fa5433af3d4afeff9d7a5bd49c9bfb477aa4bfd41e88ace87`。
+真实云端写作与恢复验收仍需完成。

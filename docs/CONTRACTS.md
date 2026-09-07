@@ -4,9 +4,10 @@
 
 2026-09-07 按用户确认完成设计基线。本文规定 MWT-002 至 MWT-004 的实现边界。
 MWT-002 已实现工程、个人认证、资产编辑、故事阅读、独立快照和导入导出；MWT-003 已实现写作侧栏、Mochi v1 接入、草稿与原子采纳。
-2026-09-07 用户同意以隔离存储和签名测试身份完成本地验收，真实 Cosmos/Entra 联调留到 MWT-004。
+本地验收使用隔离存储和签名测试身份；MWT-004 已完成 Azure Container Apps 发布、本人 Entra 登录及 `/api/stories` HTTP 200 验证。
+真实素材迁移尚未执行，真实模型写作和恢复演练尚未验收。
 MWT-002 使用临时 loopback 端口完成本地验收；MWT-005 已由 ProjectOps 登记长期开发 endpoint，
-本次仅完成配置和只读验收，真实运行仍受 MWT-004 的云端配置前置约束。
+该本地 endpoint 仅完成登记和只读验收、尚未启动；启动须独立准备运行配置与可用 Managed Identity。
 用户确认的生态标准为 React + TypeScript + Vite、Node.js 24 + TypeScript + Fastify、npm、同仓库同容器，
 以及个人 Entra ID + MSAL。现有项目在相关改造时逐步对齐；本条不授权重写其他项目或发布共享包。
 
@@ -126,13 +127,13 @@ Mochi 持有消息历史与执行状态，应用仅保存 scope/session 映射�
 
 | 后续任务 | 必须落实的条件 |
 |---|---|
-| MWT-002 | 固定依赖/可执行 schema，质量入口，资产与阅读实现；用户确认以临时端口本地验收，长期登记待 ProjectOps 服务管理交付 |
+| MWT-002 | 固定依赖/可执行 schema，质量入口，资产与阅读实现；用户确认以临时端口本地验收，长期登记已由 MWT-005 完成，尚未启动 |
 | MWT-003 + mochi/MOC-001 | 固定会话/任务 HTTP 与事件 schema，验证上述幂等/恢复/隔离要求，接通真实无工具 API |
 | MWT-004 + mochi/MOC-004 | 联合部署与真实写作验收；不能以管理页上线代替 Agent API 可用 |
-| MWT-004 + ccp/CCP-003 基础资源 | 先登记新应用专属 CCP 任务，再落实数据库免费名额、身份、镜像、备份和发布；既有任务不自动扩大范围 |
+| MWT-004 + ccp/CCP-004 | 已落实数据库、身份、镜像、Continuous 7-day 和发布；真实素材迁移及恢复演练仍需验收 |
 
 业务会话/任务已与 Mochi 进行本地真实 HTTP 联调；使用签名测试身份、隔离持久存储及假 provider。
-本地接通不是云端身份、真实模型调用或 CCP 发布完成的证据；实时任务状态以 ProjectOps 为准。
+云端已验证本人认证与 Cosmos 读取，发布后 CCP 资源检查无 drift；这些检查不替代真实模型和恢复验收。实时任务状态以 ProjectOps 为准。
 容器契约：linux/amd64、非 root、PORT=8080、0.0.0.0 监听；/health/live 查进程，/health/ready 查应用必需配置与 Cosmos 可用性。
 Mochi 暂不可用不使资产阅读服务整体 unready；写作入口明确显示不可用。探针不调用付费模型。
 CCP 管理镜像 digest 与账户/身份，应用不执行 Terraform apply；实际公网地址与 Entra redirect 在部署时成对配置。
