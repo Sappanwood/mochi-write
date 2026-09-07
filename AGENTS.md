@@ -8,7 +8,7 @@
 MWT-002 已实现资产编辑、故事阅读、导入导出和个人认证接入；MWT-003 已接通写作侧栏与 Mochi 会话/任务 API。
 本地门禁使用隔离存储及签名测试身份；跨 Repo 集成使用真实 HTTP/Pi AgentSession 与假 provider 输出。
 MWT-004 已发布到 Azure Container Apps，本人 Entra 登录与故事列表 HTTP 200 已验证；
-真实素材迁移、真实模型写作和恢复演练尚未验收。MWT-005 已通过 ProjectOps 登记 `127.0.0.1:12600` 单端口 Web/API；
+首批 18 故事、374 对象已导入，同批次重试及全局分页已验证；导出修复尚未上线，导出语义、真实模型写作和恢复演练尚未验收。MWT-005 已通过 ProjectOps 登记 `127.0.0.1:12600` 单端口 Web/API；
 该本地服务仅完成登记、尚未启动，启动仍需独立准备 Entra/Cosmos 配置与可用 Managed Identity。
 实现前区分用户确认范围、建议行为与待决策项。
 

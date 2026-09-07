@@ -9,7 +9,9 @@ Agent 执行由 Mochi 提供，云基础设施与部署由 CCP 管理。
 侧栏支持上下文预览、持续会话、生成/反馈重写、取消/恢复与原子章节采纳。
 已发布至 [Mochi Write](https://mochi-write.whitemeadow-6e32159b.eastus.azurecontainerapps.io)，
 本人 Entra 登录和 `/api/stories` HTTP 200 已验证，CCP 发布后资源检查无 drift。
-真实素材迁移尚未执行，真实模型写作及恢复演练尚未验收；本地测试继续使用隔离存储与签名测试身份。
+首批 18 故事、374 对象已导入云端；同批次重试返回 created 0、skipped 374，全局故事分页共 18 条且无重复。
+云端导出因故事分区查询问题失败，修复尚未上线，完整导出语义验收仍待完成；真实模型写作及恢复演练尚未验收。
+本地测试继续使用隔离存储与签名测试身份。
 已通过 ProjectOps 登记长期开发服务 `http://127.0.0.1:12600`，Web/API 共用端口；本次只完成登记，尚未启动服务。
 本地启动仍需独立准备 Entra/Cosmos 配置与可用 Managed Identity；云发布不代表本地开发服务已经运行。
 项目 ID 为 `mochi-write`，Backlog 前缀为 `MWT`。
@@ -155,4 +157,6 @@ docker run --rm --env-file /absolute/path/to/private-runtime.env -p 127.0.0.1::8
 镜像没有测试认证后门。`/health/live` 检查进程，`/health/ready` 检查 Cosmos；探针不调用模型。
 CCP 管理部署与 digest。当前发布基于代码 `8373d43`，镜像 digest 为
 `sha256:dcc2fb81d0c3198fa5433af3d4afeff9d7a5bd49c9bfb477aa4bfd41e88ace87`。
-真实云端写作与恢复验收仍需完成。
+故事分区导出修复 `0896327` 已通过 110 项测试、15 项 E2E 和独立 review，并完成候选镜像构建。
+候选镜像推送被自动审批拒绝，等待用户明确授权镜像目的地；该修复尚未发布。
+完整导出语义、真实云端写作与恢复验收仍需完成。
