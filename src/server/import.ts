@@ -56,6 +56,8 @@ function exported(files: BundleFile[]): Entity[] {
     if (!f || used.has(e.path) || hash(f.text) !== e.sha256)
       throw new AppError(400, "导出清单与文件校验不一致");
     used.add(e.path);
+    if (Object.hasOwn(e.attributes, "initializationPending"))
+      throw new AppError(400, "初始化状态仅由服务器维护");
     const parsed = parseMarkdown(f);
     const doc = entitySchema.parse({
       ...e.attributes,
@@ -300,7 +302,10 @@ export function preflight(
       (doc.id !== doc.projectId || doc.status !== "ready")
     )
       throw new AppError(400, "故事状态或身份无效");
-    if (doc.kind === "snapshot" && (!doc.sourceAssetId || !doc.sourceVersion))
+    if (
+      doc.kind === "snapshot" &&
+      Boolean(doc.sourceAssetId) !== Boolean(doc.sourceVersion)
+    )
       throw new AppError(400, "快照缺少溯源信息");
     if (doc.kind === "chapter") {
       const key = `${doc.projectId}:${doc.order}`;
@@ -333,6 +338,7 @@ function equivalent(a: Entity, b: Entity) {
     const result = { ...clean(e) } as Record<string, unknown>;
     delete result.createdAt;
     delete result.updatedAt;
+    delete result.initializationPending;
     if (e.kind === "story") result.status = "ready";
     return result;
   };
@@ -347,6 +353,13 @@ export async function importFiles(
   const previous = new Map<string, Document>();
   for (const doc of docs) {
     const old = await store.get(doc.id, doc.projectId);
+    if (
+      doc.kind === "chapter" &&
+      !old &&
+      doc.projectId &&
+      (await store.get(doc.projectId, doc.projectId))?.initializationPending
+    )
+      throw new AppError(409, "请通过初始化流程保存首章");
     if (old) {
       if (!equivalent(old, doc))
         throw new AppError(409, "已有对象内容不同，导入不会覆盖", [

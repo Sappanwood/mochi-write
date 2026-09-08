@@ -1,5 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import type { ChapterReceipt } from "../shared/creative.js";
+import type {
+  ChapterReceipt,
+  InitializationReceipt,
+} from "../shared/creative.js";
 import {
   callbackSchema,
   toolIdSchema,
@@ -29,6 +32,11 @@ export interface AgentToolOptions {
     args: unknown,
     invocationId: string,
   ) => Promise<{ data: unknown; receipt?: ChapterReceipt }>;
+  initializeStory?: (
+    context: ToolTaskContext,
+    args: unknown,
+    invocationId: string,
+  ) => Promise<{ data: unknown; receipt?: InitializationReceipt }>;
   operation?: (operationId: string) => Promise<unknown>;
 }
 export function registerAgentTools(
@@ -76,36 +84,45 @@ export function registerAgentTools(
           !context.lifecycle
         )
           throw new ToolError("forbidden_scope");
-        if (callback.tool.name === "initialize_story")
+        if (
+          callback.tool.name === "initialize_story" &&
+          !options.initializeStory
+        )
           throw new ToolError("invalid_arguments");
         const result =
-          callback.tool.name === "create_chapter"
-            ? await options.createChapter!(
+          callback.tool.name === "initialize_story"
+            ? await options.initializeStory!(
                 context,
                 callback.arguments,
                 callback.invocation_id,
               )
-            : {
-                data:
-                  callback.tool.name === "library_vocabulary"
-                    ? await options.library!.vocabulary(callback.arguments)
-                    : callback.tool.name === "search_library"
-                      ? await options.library!.search(callback.arguments)
-                      : callback.tool.name === "read_library"
-                        ? await options.library!.read(
-                            context,
-                            callback.arguments,
-                          )
-                        : callback.tool.name === "search_assets"
-                          ? await options.assets.search(
+            : callback.tool.name === "create_chapter"
+              ? await options.createChapter!(
+                  context,
+                  callback.arguments,
+                  callback.invocation_id,
+                )
+              : {
+                  data:
+                    callback.tool.name === "library_vocabulary"
+                      ? await options.library!.vocabulary(callback.arguments)
+                      : callback.tool.name === "search_library"
+                        ? await options.library!.search(callback.arguments)
+                        : callback.tool.name === "read_library"
+                          ? await options.library!.read(
                               context,
                               callback.arguments,
                             )
-                          : await options.assets.read(
-                              context,
-                              callback.arguments,
-                            ),
-              };
+                          : callback.tool.name === "search_assets"
+                            ? await options.assets.search(
+                                context,
+                                callback.arguments,
+                              )
+                            : await options.assets.read(
+                                context,
+                                callback.arguments,
+                              ),
+                };
         const response = { ...base, outcome: "ok" as const, ...result };
         if (Buffer.byteLength(JSON.stringify(response)) > TOOL_RESPONSE_BYTES)
           throw new ToolError("result_too_large");

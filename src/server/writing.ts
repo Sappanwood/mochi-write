@@ -356,6 +356,9 @@ export class Writing {
       return { id: draft.targetId, version: draft.resultVersion };
     if (draft.status !== "succeeded" || !draft.output.trim())
       throw new AppError(409, "仅完整成功输出可采纳");
+    const story = await this.content.get(draft.projectId, draft.projectId);
+    if (story?.initializationPending)
+      throw new AppError(409, "请通过初始化流程保存首章");
     const target = draft.request.target;
     const old = await this.content.get(draft.targetId, draft.projectId);
     if ((old?.revision ?? null) !== target.revision)

@@ -15,6 +15,8 @@ import type { Mochi } from "./mochi-client.js";
 import { hash } from "./entities.js";
 import { CREATIVE_TOOLS } from "./creative-tools.js";
 import { CreativeChapters } from "./creative-chapters.js";
+import { CreativeInitialization } from "./creative-initialization.js";
+import { initializationSummary } from "./initialization-package.js";
 import { CreativeLifecycle } from "./creative-lifecycle.js";
 import { CreativeWorkflow } from "./creative-workflow.js";
 
@@ -25,6 +27,7 @@ const intentSchema = z
       "draft",
       "save_current",
       "create_and_save",
+      "initialize_only",
       "revoke",
       "unclear",
     ]),
@@ -92,6 +95,7 @@ export const activeTask = (task: CreativeTask) =>
   ["interpreting", "pending", "running"].includes(task.status);
 export class Creative {
   private tail: Promise<unknown> = Promise.resolve();
+  readonly initialization: CreativeInitialization;
   readonly lifecycle: CreativeLifecycle;
   readonly chapters: CreativeChapters;
   readonly workflow: CreativeWorkflow;
@@ -101,6 +105,7 @@ export class Creative {
     readonly mochi: Mochi,
     options: { pollMs?: number } = {},
   ) {
+    this.initialization = new CreativeInitialization(this);
     this.lifecycle = new CreativeLifecycle(this);
     this.chapters = new CreativeChapters(this);
     this.workflow = new CreativeWorkflow(this, options.pollMs ?? 1000);
@@ -408,10 +413,25 @@ export class Creative {
           kind: "draft",
           title: draft.title,
           revision: draft.draftRevision,
-          content: draft.body,
+          content:
+            draft.artifactKind === "story_initialization" &&
+            draft.initialization
+              ? JSON.stringify({
+                  title: draft.title,
+                  includes_chapter: Boolean(draft.initialization.chapter),
+                  assets: initializationSummary(draft.initialization),
+                })
+              : draft.body,
         };
       },
     };
+  }
+  initializeStory(
+    context: ToolTaskContext,
+    args: unknown,
+    invocationId: string,
+  ) {
+    return this.initialization.create(context, args, invocationId);
   }
   createChapter(context: ToolTaskContext, args: unknown, invocationId: string) {
     return this.chapters.create(context, args, invocationId);

@@ -202,6 +202,21 @@ Mochi session 派发标记先持久化，未知创建结果中断且不自动重
 同分区事务写入，仅保存 ID、revision、逻辑 version、Content hash 和 scope。后续通过 `Store.getVersion` 点读同一不可变版本，
 保证母版改删后仍能取得已阅读的完整内容。来源不是授权。
 
-新生命周期 session 使用固定七工具快照，旧三工具 session 保持兼容。initialize_story schema 已登记但本切片 handler 拒绝，
-正式初始化、首章相关资料原子写入及页面接入按后续切片完成。检索需要 CCP 登记五项 sourceMetadata 索引，
+新生命周期 session 使用固定七工具快照，旧三工具 session 保持兼容。MWT-017 已实现 initialize_story 正式初始化与首章相关资料原子写入，页面接入按后续切片完成。检索需要 CCP 登记五项 sourceMetadata 索引，
 具体字段、错误、预算和本人 API 见 [创作会话契约](CREATIVE_WORKSPACE.md#生命周期会话与母版检索mwt-016)。
+
+
+## 初始化事务实现（MWT-017）
+
+`CreativeInitialization` 校验 draft/commit 分支、展开已读母版及现有资料，并冻结 `InitializationPackage`。
+`initialization-package` 集中定义输入边界、排序键规范 JSON／hash 和有界摘要；标题先规范化再冻结，正式持久对象与收据 hash 一致。
+`CreativeWorkflow` 向独立意图模型提供是否建立、是否有章及所选草稿类型／含章标志，由服务器生成精确一次性授权。
+新 initialize_only 不保存正文；save_current 绑定整个所选版本，首章直接创作保存绑定包含章节的包。
+
+`initialization-operations` 校验包、授权、收据与三条 creative 条件写入一致，将所有 Entity version/head 加入一次同分区 batch。
+最多 23 operations／1 MiB；head 的 create-only 或 IfMatch 与不可变版本 create 共同保护首次建立、首章及相关资料更新。
+仅建作品时写服务器拥有的 initializationPending；首章提交 CAS story head 清除此标记，旧两条写章入口与既有作品导入均遵守 guard。
+导入不接受该内部字段，导出不携带它，不把内容迁移扩大为执行会话恢复。生成 snapshot 的来源可省略，有来源时 ID 与版本必须配对。
+
+Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通；旧章节收据原样兼容。模型或连接失败不撤销已经提交的成果，
+重试先按原 OP 和精确包核实。新 UI 尚待接入，目前仅完成旧收据消费者的必要分支适配。

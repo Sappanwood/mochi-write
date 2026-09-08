@@ -42,6 +42,7 @@ export async function exportFiles(store: Store): Promise<BundleFile[]> {
     const text = `---\n${stringify(e.content.sourceMetadata)}---\n${e.content.markdown}`;
     files.push({ path, text });
     const { content, ...attributes } = e;
+    delete attributes.initializationPending;
     entries.push({
       path,
       kind: e.kind,

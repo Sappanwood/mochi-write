@@ -5,6 +5,7 @@ import type {
   CreativeDraft,
   CreativeRecord,
   CreativeTask,
+  InitializationPackage,
 } from "../../src/shared/creative.js";
 import {
   creativeOperations,
@@ -83,7 +84,7 @@ export class MemoryCreativeStore implements CreativeStore {
   async transaction(
     storyId: string,
     writes: CreativeWrite[],
-    chapter?: Entity,
+    chapter?: Entity | InitializationPackage,
   ): Promise<CreativeRecord[]> {
     creativeOperations(storyId, writes, chapter);
     const keys = writes.map(({ record }) =>
@@ -93,17 +94,26 @@ export class MemoryCreativeStore implements CreativeStore {
       if ((this.values.get(keys[index]!)?.revision ?? null) !== revision)
         throw new AppError(409, "版本冲突");
     });
-    const nextChapter = chapter
-      ? { ...clean(chapter), revision: randomUUID() }
-      : undefined;
-    const chapterKey = chapter ? `${storyId}:${chapter.id}` : undefined;
-    const versionKey = chapter ? `${chapter.id}:1` : undefined;
-    if (
-      chapter &&
-      (this.content.heads.has(chapterKey!) ||
-        this.content.history.has(versionKey!))
-    )
-      throw new AppError(409, "章节已存在");
+    const business = chapter
+      ? "story" in chapter
+        ? [
+            chapter.story,
+            ...chapter.assets,
+            ...(chapter.chapter ? [chapter.chapter] : []),
+          ]
+        : [{ entity: chapter, baseRevision: null }]
+      : [];
+    for (const write of business) {
+      const old = this.content.heads.get(`${storyId}:${write.entity.id}`);
+      if (
+        (old?.revision ?? null) !== write.baseRevision ||
+        (old && write.entity.currentVersion !== old.currentVersion + 1) ||
+        this.content.history.has(
+          `${write.entity.id}:${write.entity.currentVersion}`,
+        )
+      )
+        throw new AppError(409, "业务对象版本冲突");
+    }
     if (this.content.failNext) {
       this.content.failNext = false;
       throw new AppError(503, "保存失败");
@@ -113,9 +123,15 @@ export class MemoryCreativeStore implements CreativeStore {
       revision: randomUUID(),
     }));
     // No awaits between validation and publication: test storage mirrors one Cosmos batch.
-    if (nextChapter) {
-      this.content.heads.set(chapterKey!, nextChapter);
-      this.content.history.set(versionKey!, clean(nextChapter));
+    for (const { entity: value } of business) {
+      this.content.heads.set(`${storyId}:${value.id}`, {
+        ...clean(value),
+        revision: randomUUID(),
+      });
+      this.content.history.set(
+        `${value.id}:${value.currentVersion}`,
+        clean(value),
+      );
     }
     saved.forEach((record, index) => this.values.set(keys[index]!, record));
     return structuredClone(saved);

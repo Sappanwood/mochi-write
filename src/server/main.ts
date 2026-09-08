@@ -68,6 +68,8 @@ try {
     assets: new AssetTools(store),
     library: new LibraryTools(store),
     resolveTask: (id) => creative.resolveTask(id),
+    initializeStory: (context, args, invocationId) =>
+      creative.initializeStory(context, args, invocationId),
     createChapter: (context, args, invocationId) =>
       creative.createChapter(context, args, invocationId),
     operation: (id) => creative.operation(id),

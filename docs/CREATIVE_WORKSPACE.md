@@ -1,7 +1,7 @@
 # 故事创作会话契约
 
 本模块在已有故事中提供 Agent 自主取材、独立草稿和授权创建新章。MWT-016 另提供未建立作品的生命周期会话 API、
-自然会话母版检索与固定来源；作品初始化事务及新入口 UI 由后续切片接入。正文手工编辑、自动压缩上下文与跨 session
+自然会话母版检索与固定来源；MWT-017 已接入作品初始化事务，新入口 UI 由后续切片接入。正文手工编辑、自动压缩上下文与跨 session
 长期续写不属于本次范围。原有无工具写作侧栏保持独立兼容。
 
 ## 所有权与授权
@@ -17,7 +17,7 @@ Write 持有原始用户消息、故事会话映射、任务、草稿、授权�
 后端严格检查 JSON 字段及 evidence 的 UTF-16 字符区间与原始消息一致。
 这证明引用确实来自用户，不能消除自然语言分类误判；该剩余边界已接受，不用关键词表冒充语义判断。
 
-只有明确的 save_current 或 create_and_save 解释能够创建一次性授权。含糊请求需要澄清，讨论和预览仅能生成草稿。
+明确的 save_current、create_and_save 或 initialize_only 解释能够创建对应的一次性授权。含糊请求需要澄清，讨论和预览仅能生成草稿。
 授权由后端绑定故事、会话、任务、原始消息摘要、操作 ID 和创建新章的单次额度。
 save_current 还绑定用户当前所选草稿 ID、版本与 hash；不重新生成再保存不同文本。
 新消息先暂停旧授权并确认旧运行停止，再处理下一请求；撤回与提交通过同一会话和任务的 CAS 排序。
@@ -133,8 +133,8 @@ node --import tsx tests/integration/creative-smoke.mjs
 生命周期会话固定七工具：旧三项加 `library_vocabulary`、`search_library`、`read_library`、`initialize_story`。
 旧 API 新建会话及旧 session 保持原三工具。Mochi session 创建前持久化派发标记，成功响应后保存 sessionId；
 创建响应未知时任务显示 interrupted，保留记录、不自动创建第二个 session，用户可主动新建会话。
-已绑定 session 后沿用原 run/key/事件恢复机制。MWT-016 中 initialize_story 仅登记完整 schema，处理明确拒绝；
-不能将本切片的预留目标当作已初始化作品或正式保存成果。初始化实现消费 `CreativeLifecycle.target` 返回的 ready head 或 undefined。
+已绑定 session 后沿用原 run/key/事件恢复机制。MWT-017 已启用 initialize_story，只有真实提交收据才能将预留目标视为正式作品。
+初始化实现消费 `CreativeLifecycle.target` 返回的 ready head 或 undefined。
 
 | 工具 | 参数与结果 |
 |---|---|
@@ -154,3 +154,49 @@ limit 默认 10、最多 20；cursor 最多 4096 UTF-8 bytes，封装固定 libr
 同 conversation 后续按已读来源点读不可变版本，核对 canonical Content SHA-256，即使母版更新或软删除也保持原内容；
 未读来源不能任意请求历史版本。单次 Content 与来源 JSON 最多 60 KiB，发现与回调整体仍受 64 KiB 限制，超限拒绝不截断。
 模型将自然条件映射至词表，按词表／摘要筛选／精确全文逐层取材；正文和来源均不能创建保存授权。
+
+## 精确初始化包与首章保存（MWT-017）
+
+`initialize_story` 有 draft/commit 两个根分支。draft 接受 `{mode:"draft",title,body?,assets,chapter?}`：
+body 为作品简介；assets 最多 8 项，每项 kind 为 setting/outline/snapshot，setting 和 outline 各最多 1 项。
+不强制资料齐全。每项只能是以下一种形式，不接受混合字段、重复目标、跨故事或未知字段：
+
+- 新生成资料：`{kind,title,body}`，只归当前故事，snapshot 不要求母版溯源。
+- 更新现有初始资料：`{kind,asset_id,base_revision,title,body}`，固定当前完整 Content 与未修改元数据／来源。
+- 复制已经读取的母版：`{kind:"snapshot",source_id,source_version,source_hash}`；完整 Content 从该 conversation 的不可变来源展开，不接收替换正文。
+
+可选 chapter 为 `{title,body}`，ID 全部由后端分配。标题在冻结前 trim，随后校验最多 200 Unicode 字符和 512 UTF-8 bytes；
+作品简介和每项生成／更新资料正文最多 8 KiB，首章正文最多 48 KiB。草稿参数实际 JSON 最多 120 KiB，
+完整回调仍为 128 KiB；展开后的规范包 JSON 最多 256 KiB。超限拒绝，不截断或暗中分批。
+
+初始化 `CreativeDraft` 保留 title/body，另有 `artifactKind:"story_initialization"`、`inputDigest` 和 `initialization`。
+后者为 `{story,assets,chapter?}`；每个 write 保存 `{entity,baseRevision,source?}`：冻结完整 Entity、生成的新 ID、
+基础 head revision（不存在为 null）及可选母版来源摘要。body 兼容字段为首章正文，无章时为空。
+逻辑 draftRevision 固定为 `"1"`，hash 是对该包的排序键规范 JSON 计算的 SHA-256；标题与实际持久 Content 不再二次改变。
+对话重写生成新 ID，不覆盖旧草稿；同 invocation 同解析输入恢复原版本，异输入 operation_conflict。
+
+工具 draft 响应为 `{draft_id,draft_revision,draft_hash,title,artifact_kind:"story_initialization",includes_chapter,assets}`，
+assets 只有有界新增／更新／来源摘要，不返回展开包。本人草稿 API 返回完整包供阅读；read_asset 读取初始化草稿时也只返回有界清单。
+用户选定引用仍仅为 `{draft_id,draft_revision,draft_hash}`，不能把工具响应的额外展示字段作为 selectedDraft 发送。
+
+commit 只接受 `{mode:"commit",draft_id,draft_revision,draft_hash}`。save_current 绑定所选精确包的类型与 includes_chapter；
+initialize_only 只允许无章包，可绑定所选无章版本；create_and_save 在尚无章的生命周期作品中只允许包含首章的初始化包。
+作品已有章节后使用旧 create_chapter，不允许将 initialize_story 用作通用多资产修改工具。
+仅建作品后，下一轮可在同一 session 生成首章及相关初始资料更新；保存首章默认同时确认本轮关联资料。
+一个用户任务只有一个正式 OP 和一个写槽：先建作品是独立成功，之后失败或取消不回滚此前收据。
+
+同故事 Cosmos batch 一次写入 conversation CAS、task／授权消费／收据、draft 收据，以及每个正式对象的不可变 version 与 head create/IfMatch。
+最大 10 个正式对象、23 operations，实际完整 operations JSON 最多 1 MiB。story、资料基础 revision、章节仍为空及来源完整性均须一致；
+冲突或存储失败不留下部分业务对象。多个后端竞争同一任务或 story head 时只会有一个有效提交；同 OP 同精确包返回原收据，
+不同包拒绝，已保存草稿不能在另一 OP 再建立作品。原 OP 查询统一返回初始化或旧章收据，不以模型最终文本判断成功。
+
+仅建立作品的 ready head 带服务器字段 `initializationPending:true`；保存首章时 story head CAS 同步版本并移除该标记。
+标记存在时旧 create_chapter 正式写、旧 Writing.accept 与向既有故事导入新章节均拒绝，提示使用初始化首章流程；
+旧无标记故事保持兼容。该字段不由普通客户端设置或清除，导出排除、导入显式携带拒绝；导入比较不修改既有 head。
+零章正式作品可列出、阅读及导出；新环境导入是内容恢复，不恢复原生命周期 session。
+
+初始化收据为 `{operation_id,status:"committed",story_id,kind,revision,content_hash,draft_id,draft_revision,draft_hash,assets,chapter?}`。
+kind 为 story_initialized 时禁止 chapter；first_chapter_saved 时必须含 `{chapter_id,revision,content_hash}`。
+assets 每项含 `{asset_id,kind,revision,content_hash}`，资料 hash 对完整 Content；chapter hash 对精确正文。
+顶层 content_hash 与 draft_hash 相同，revision 为结果 story 逻辑版本；旧 ChapterReceipt 无 kind 的形状保持不变。
+最小旧阅读组件已适配收据分支，新生命周期页面与初始化包完整展示仍由下一 UI 切片接入。

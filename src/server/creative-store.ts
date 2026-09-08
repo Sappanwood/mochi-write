@@ -3,6 +3,7 @@ import type {
   CreativeDraft,
   CreativeRecord,
   CreativeTask,
+  InitializationPackage,
 } from "../shared/creative.js";
 import type { Entity } from "../shared/model.js";
 import { AppError } from "../shared/model.js";
@@ -11,6 +12,7 @@ import {
   type Database,
   type OperationInput,
 } from "@azure/cosmos";
+import { appendInitialization } from "./initialization-operations.js";
 import { clean } from "./entities.js";
 
 export interface CreativeWrite {
@@ -32,7 +34,7 @@ export interface CreativeStore {
   transaction(
     storyId: string,
     writes: CreativeWrite[],
-    chapter?: Entity,
+    chapter?: Entity | InitializationPackage,
   ): Promise<CreativeRecord[]>;
 }
 
@@ -107,7 +109,7 @@ function deserialize(
 export function creativeOperations(
   storyId: string,
   writes: CreativeWrite[],
-  input?: Entity,
+  input?: Entity | InitializationPackage,
 ): OperationInput[] {
   if (
     !writes.length ||
@@ -133,17 +135,27 @@ export function creativeOperations(
           resourceBody: raw(record),
         },
   );
+  if (input && "story" in input) {
+    appendInitialization(ops, storyId, writes, input);
+    return ops;
+  }
   if (input) {
     const chapter = clean(input);
     const taskWrite = writes.find(
       ({ record }) =>
-        record.kind === "task" && record.receipt?.chapter_id === chapter.id,
+        record.kind === "task" &&
+        record.receipt &&
+        "chapter_id" in record.receipt &&
+        record.receipt.chapter_id === chapter.id,
     );
     const task =
       taskWrite?.record.kind === "task" ? taskWrite.record : undefined;
     const draftWrite = writes.find(
       ({ record }) =>
-        record.kind === "draft" && record.receipt?.chapter_id === chapter.id,
+        record.kind === "draft" &&
+        record.receipt &&
+        "chapter_id" in record.receipt &&
+        record.receipt.chapter_id === chapter.id,
     );
     const draft =
       draftWrite?.record.kind === "draft" ? draftWrite.record : undefined;
@@ -322,7 +334,7 @@ export class CosmosCreativeStore implements CreativeStore {
   async transaction(
     storyId: string,
     writes: CreativeWrite[],
-    chapter?: Entity,
+    chapter?: Entity | InitializationPackage,
   ): Promise<CreativeRecord[]> {
     const ops = creativeOperations(storyId, writes, chapter);
     try {

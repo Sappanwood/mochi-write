@@ -321,4 +321,19 @@ name/genres/ageBand 复用规范 Content 字段；补充 `sourceMetadata.gender/
 CCP 索引策略须追加 `/content/sourceMetadata/gender/?`、`/content/sourceMetadata/occupation/?`、
 `/content/sourceMetadata/era/?`、`/content/sourceMetadata/traits/[]/?`、`/content/sourceMetadata/tags/[]/?`；不索引完整 sourceMetadata 或正文。
 不可变 version 点读校验 entityId/version/分区及 Content hash；只有当前 conversation 已读来源可继续引用历史版本。
-本切片只登记 initialize_story schema，尚未启用正式初始化；七工具云配置与初始化收据能力须在后续发布前一起验证。
+MWT-017 已启用 initialize_story，精确包、授权与双分支收据见创作会话契约；七工具云配置须在后续发布前一起验证。
+
+
+## 精确初始化数据与兼容（MWT-017）
+
+`CreativeReceipt` 是旧 ChapterReceipt 与 InitializationReceipt 的联合；初始化收据携带精确 draft 引用、资料列表及可选首章，
+content_hash 等于整个规范包的 draft_hash。初始化 draft 的 `artifactKind` 与包字段、输入／输出／事务字节上限见
+[创作会话契约](CREATIVE_WORKSPACE.md#精确初始化包与首章保存mwt-017)。write callback 只保存服务端冻结的完整包，不接收新 ID 或替换正文。
+
+业务 `initializationPending?:true` 仅由初始化事务管理，普通内容导出排除该字段，导入清单显式携带时拒绝；
+导入同一零章作品只核实其内容，不清除既有标记，也不允许借导入添加首章。
+新导入的独立作品沿用既有故事行为，不作为原 session 恢复。snapshot 无母版来源时是合法原创快照；存在来源则 sourceAssetId/sourceVersion 必须同时给出。
+新保存成果仍只以 head/version 进入导出，creative task/draft/conversation 不混入业务内容。
+
+新增行为验收覆盖仅建立、整包首章、精确旧版本、关联资料 CAS、完整来源复制、only 与含章授权隔离、双提交竞争、取消、丢响应、
+实际 JSON 预算，以及原创快照／零章作品导入导出。沿用 check、浏览器与显式跨 Repo integration 入口，不调用真实模型作为单 Repo 门禁。

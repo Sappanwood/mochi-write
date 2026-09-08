@@ -1,3 +1,4 @@
+import type { Entity } from "./model.js";
 import type { AssetSource } from "./creative-tools.js";
 
 export interface DraftRef {
@@ -13,6 +14,43 @@ export interface ChapterReceipt {
   revision: string;
   content_hash: string;
 }
+export interface InitializationWrite {
+  entity: Entity;
+  baseRevision: string | null;
+  source?: AssetSource;
+}
+export interface InitializationPackage {
+  story: InitializationWrite;
+  assets: InitializationWrite[];
+  chapter?: InitializationWrite;
+}
+export type InitializationReceipt = {
+  operation_id: string;
+  status: "committed";
+  story_id: string;
+  revision: string;
+  content_hash: string;
+  draft_id: string;
+  draft_revision: string;
+  draft_hash: string;
+  assets: {
+    asset_id: string;
+    kind: "setting" | "outline" | "snapshot";
+    revision: string;
+    content_hash: string;
+  }[];
+} & (
+  | { kind: "story_initialized"; chapter?: never }
+  | {
+      kind: "first_chapter_saved";
+      chapter: { chapter_id: string; revision: string; content_hash: string };
+    }
+);
+export type CreativeReceipt = ChapterReceipt | InitializationReceipt;
+export type DraftArtifact = DraftRef & {
+  artifact_kind?: "story_initialization";
+  includes_chapter?: boolean;
+};
 interface RecordBase {
   id: string;
   storyId: string;
@@ -39,6 +77,7 @@ export type CreativeIntent =
   | "draft"
   | "save_current"
   | "create_and_save"
+  | "initialize_only"
   | "revoke"
   | "unclear";
 export interface CreativeTask extends RecordBase {
@@ -56,7 +95,8 @@ export interface CreativeTask extends RecordBase {
   authorization?: {
     id: string;
     status: "active" | "paused" | "revoked" | "consumed";
-    action: "create_chapter";
+    action: "create_chapter" | "initialize_story";
+    includesChapter?: boolean;
     maxCreates: 1;
     draftRef?: DraftRef;
   };
@@ -83,9 +123,9 @@ export interface CreativeTask extends RecordBase {
   output: string;
   error?: string;
   sources: AssetSource[];
-  artifacts: DraftRef[];
+  artifacts: DraftArtifact[];
   draftInvocations: Record<string, string>;
-  receipt?: ChapterReceipt;
+  receipt?: CreativeReceipt;
   commitDigest?: string;
   usage?: {
     input: number;
@@ -101,9 +141,12 @@ export interface CreativeDraft extends RecordBase {
   taskId: string;
   title: string;
   body: string;
+  artifactKind?: "story_initialization";
+  initialization?: InitializationPackage;
+  inputDigest?: string;
   draftRevision: "1";
   hash: string;
-  receipt?: ChapterReceipt;
+  receipt?: CreativeReceipt;
 }
 export type CreativeRecord =
   CreativeConversation | CreativeTask | CreativeDraft;

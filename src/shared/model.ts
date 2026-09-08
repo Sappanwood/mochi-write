@@ -44,6 +44,7 @@ export const entitySchema = z
     order: z.number().int().positive().optional(),
     status: z.enum(["building", "ready"]).optional(),
     deleted: z.boolean().optional(),
+    initializationPending: z.literal(true).optional(),
     sourceAssetId: z.uuid().optional(),
     sourceVersion: z.number().int().positive().optional(),
     source: z

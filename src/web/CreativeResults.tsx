@@ -1,9 +1,24 @@
 import { useEffect, useState } from "react";
-import type { CreativeDraft, CreativeTaskView } from "../shared/creative.js";
+import type {
+  CreativeDraft,
+  CreativeTaskView,
+  CreativeReceipt,
+} from "../shared/creative.js";
 import type { AssetSource } from "../shared/creative-tools.js";
 import type { Document } from "../shared/model.js";
 import { type Api, ApiError, message } from "./api.js";
 import { Markdown } from "./Markdown.js";
+
+function savedPath(receipt: CreativeReceipt) {
+  const chapterId =
+    "chapter_id" in receipt ? receipt.chapter_id : receipt.chapter?.chapter_id;
+  return chapterId
+    ? `story/${receipt.story_id}/chapter/${chapterId}`
+    : `story/${receipt.story_id}`;
+}
+function onlyStory(receipt: CreativeReceipt) {
+  return "kind" in receipt && receipt.kind === "story_initialized";
+}
 
 export interface ToolProgress {
   id: string;
@@ -172,19 +187,18 @@ export function CreativeResults({
         )}
         {saved && (
           <div className="notice creative-receipt">
-            <strong>章节已保存</strong>
+            <strong>
+              {onlyStory(task.receipt!) ? "作品已建立" : "章节已保存"}
+            </strong>
             <p>
-              正式章节第 {task.receipt!.revision} 版，保存结果已由后端确认。
+              {onlyStory(task.receipt!) ? "作品" : "正式章节"}第{" "}
+              {task.receipt!.revision} 版，保存结果已由后端确认。
             </p>
             <button
               className="secondary"
-              onClick={() =>
-                navigate(
-                  `story/${task.storyId}/chapter/${task.receipt!.chapter_id}`,
-                )
-              }
+              onClick={() => navigate(savedPath(task.receipt!))}
             >
-              打开章节
+              {onlyStory(task.receipt!) ? "打开作品" : "打开章节"}
             </button>
           </div>
         )}
@@ -283,7 +297,9 @@ export function CreativeDraftReader({
               <h1>{draft.title}</h1>
               <p>
                 {draft.receipt
-                  ? "此版本已有正式章节。"
+                  ? onlyStory(draft.receipt)
+                    ? "此版本已建立作品。"
+                    : "此版本已有正式章节。"
                   : "草稿尚未加入章节目录。"}
               </p>
             </div>
@@ -293,14 +309,8 @@ export function CreativeDraftReader({
           </article>
           <div className="creative-draft-actions">
             {draft.receipt ? (
-              <button
-                onClick={() =>
-                  navigate(
-                    `story/${storyId}/chapter/${draft.receipt!.chapter_id}`,
-                  )
-                }
-              >
-                打开章节
+              <button onClick={() => navigate(savedPath(draft.receipt!))}>
+                {onlyStory(draft.receipt!) ? "打开作品" : "打开章节"}
               </button>
             ) : (
               <button

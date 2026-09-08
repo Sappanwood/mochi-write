@@ -65,7 +65,12 @@ export class CreativeChapters {
           : undefined;
         if (priorId) {
           const prior = await this.host.records.draft(storyId, priorId);
-          if (!prior || prior.body !== args.body || prior.title !== args.title)
+          if (
+            !prior ||
+            prior.artifactKind ||
+            prior.body !== args.body ||
+            prior.title !== args.title
+          )
             throw new ToolError("operation_conflict");
           return { data: this.data(prior) };
         }
@@ -110,6 +115,7 @@ export class CreativeChapters {
       const draft = await this.host.records.draft(storyId, args.draft_id);
       if (
         !draft ||
+        draft.artifactKind ||
         draft.conversationId !== task.conversationId ||
         draft.draftRevision !== args.draft_revision ||
         draft.hash !== args.draft_hash ||
@@ -126,7 +132,7 @@ export class CreativeChapters {
         }),
       );
       if (task.receipt) {
-        if (task.commitDigest !== digest)
+        if ("kind" in task.receipt || task.commitDigest !== digest)
           throw new ToolError("operation_conflict");
         return this.committed(task.receipt);
       }
@@ -158,6 +164,8 @@ export class CreativeChapters {
         throw new ToolError("draft_conflict");
       if (task.commitDigest && task.commitDigest !== digest)
         throw new ToolError("operation_conflict");
+      const story = await this.host.scope(storyId);
+      if (story.initializationPending) throw new ToolError("forbidden_scope");
       let cursor: string | undefined;
       let order = 0;
       let pages = 0;
@@ -218,7 +226,11 @@ export class CreativeChapters {
       } catch (error) {
         if (error instanceof AppError && error.statusCode === 409) {
           const latest = await this.host.requireTask(storyId, taskId);
-          if (latest.receipt && latest.commitDigest === digest)
+          if (
+            latest.receipt &&
+            !("kind" in latest.receipt) &&
+            latest.commitDigest === digest
+          )
             return this.committed(latest.receipt);
           throw new ToolError(
             latest.authorization?.status === "revoked"
