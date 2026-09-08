@@ -44,7 +44,7 @@ export function StoriesView({
         <div>
           <p className="eyebrow">故事书架</p>
           <h1>你的故事</h1>
-          <p>从设定开始，沿着章节回到故事中。</p>
+          <p>回到故事会话，让下一章继续发生。</p>
         </div>
       </header>
       {error && (
@@ -63,15 +63,15 @@ export function StoriesView({
           <button
             className="story-card"
             key={s.id}
-            onClick={() => navigate(`story/${s.id}/chapter`)}
+            onClick={() => navigate(`story/${s.id}/creative`)}
           >
             <div className={`book-cover cover-${i % 3}`}>
               <span>MOCHI WRITE</span>
               <h2>{s.content.name}</h2>
-              <span>故事 · 阅读</span>
+              <span>故事 · 创作会话</span>
             </div>
             <h3>{s.content.name}</h3>
-            <p>设定 / 大纲 / 章节 →</p>
+            <p>进入会话 · 继续故事 →</p>
           </button>
         ))}
       </div>
@@ -156,6 +156,12 @@ export function StoryReader({
           <p className="eyebrow">故事阅读</p>
           <h1>{story?.content.name ?? "正在读取故事…"}</h1>
         </div>
+        <button
+          className="secondary"
+          onClick={() => navigate(`story/${id}/creative`)}
+        >
+          返回创作会话
+        </button>
       </header>
       <nav className="tabs" aria-label="故事内容">
         {Object.entries(labels).map(([key, label]) => (

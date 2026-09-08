@@ -22,6 +22,12 @@ Mochi 不直接持有或修改正式小说数据，认证共享不挂载给本�
 
 ## 单 Agent 写作
 
+已有故事的主要入口为 `CreativeWorkspace`。浏览器只提交自然语言消息、模型选择和可选的精确草稿引用，
+Write 生成有限授权与故事 scope；Mochi 保存固定工具快照并执行自主取材、草稿和新章工具。
+Write 持久 task 的原始消息与最终文字构成 UI 会话时间线，Mochi 完整 Pi 历史仍是后续模型回合的权威上下文，
+前端不导入或重建可执行模型历史。草稿与正式章节分别阅读，保存只由业务收据确认。
+
+以下无工具 Writing 链路继续保留在阅读与资产页面的侧栏。
 应用负责组织本次要求、相关角色母版及快照、世界观、选定前文和按需加入的大纲。
 Mochi 执行单 Agent 请求，返回任务事件及结果；应用校验并保存草稿，用户采纳后更新章节。
 首期无需应用工具：由后端提供上下文并接收生成结果，不让模型访问本地路径或执行 shell。
@@ -126,6 +132,7 @@ MWT-005 已登记 `127.0.0.1:12600` 长期开发服务，尚未启动；云发�
 | src/server/filesystem.ts、transfer-cli.ts | 只读本地源、不覆盖目录导出、CLI |
 | src/web | MSAL、资产库、故事阅读、Markdown 渲染与目录导入/ZIP 下载 |
 | src/web/sidebar、WritingHost.tsx | 无业务字段的通用侧栏与小说宿主适配；上下文预览、事件去重与宿主结果操作 |
+| src/web/CreativeWorkspace.tsx、CreativeResults.tsx | 故事会话主入口、原任务轮询与工具游标去重、精确来源核对、独立草稿阅读及收据成果 |
 | src/server/writing.ts、writing-routes.ts | 引用归属/版本、预算、请求恢复、scope 会话及草稿状态 |
 | src/server/writing-store.ts、mochi-client.ts | 独立 writing records、同分区采纳事务、后端 app-only Mochi HTTP 客户端 |
 | src/shared/creative-tools.ts、src/server/asset-tools.ts | callback wire v1 与故事分区关键词检索、版本绑定分页、精确全文读取及真实来源记录接口 |
@@ -150,11 +157,11 @@ MWT-005 已登记 `127.0.0.1:12600` 长期开发服务，尚未启动；云发�
 MWT-010 已提供故事自主取材工具及反向 callback 注册器，独立于旧无工具 Writing 链路。
 应用固定故事范围后，Mochi 才能调用 search_assets/read_asset；发现列表只含元数据和有界命中片段，全文按精确 revision 获取。
 搜索每次最多扫描 1000 对象/8 MiB/50 页，HMAC cursor 绑定条件与当前资料版本摘要；重启失效后重新检索。
-成功读取通过注入接口持久记录实际 ID/revision，后续 UI 据此展示来源；权限不能从资料或模型输出取得。
+成功读取通过注入接口持久记录实际 ID/revision，创作 UI 据此展示来源；权限不能从资料或模型输出取得。
 Cosmos 对正文进行有界应用内扫描，跨范围检测仅作 ID→projectId 元数据查询，不从其他故事读取正文。
 具体参数、错误和预算见 [CONTRACTS](CONTRACTS.md#已实现的故事资产工具边界mwt-010)。
-此阶段生产 main 未注册工具 callback；Mochi app-only 验证虽已具备，仍须 MWT-011 接上持久任务/session/story/run 绑定、草稿与授权事务，
-并由后续切片接入工具会话、真实来源 UI 和跨 Repo HTTP 验证。新增角色授权和云发布仍是独立部署事项。
+MWT-011 已在本地 main 接上持久任务/session/story/run 绑定、草稿与授权事务，MWT-012 已接入创作会话与真实来源 UI。
+新增角色授权和云发布仍是独立部署事项；完整跨 Repo 与真实模型验收由 MWT-013 完成。
 
 ## 镜像发布所有权
 
@@ -173,4 +180,11 @@ Cosmos 对正文进行有界应用内扫描，跨范围检测仅作 ID→project
 后台驱动不依赖浏览器连接。提交标记与稳定 key 持久化，未知结果只能查询原 key／操作，不能自动重新生成。
 Mochi 保存完整 Pi 工具历史，后续创作回合复用同一执行会话；Write 显示的消息、草稿和收据来自自己的持久任务。
 详细授权、安全与恢复规则见 [故事创作会话契约](CREATIVE_WORKSPACE.md)。此模块已接入本地 main，
-完整浏览器工作区及真实模型工具链验收由后续切片完成，不宣称已发布云端工具角色与配置。
+浏览器工作区已接入，真实模型工具链验收由后续切片完成，不宣称已发布云端工具角色与配置。
+
+浏览器 `story/:id/creative/:conversationId` 保持会话路由，`story/:id/draft/:draftId` 独立加载草稿；旧章节阅读路由继续有效。
+任务轮询和按 after 游标查询的工具事件只恢复已有状态，不自动发送新请求。工具进展按 invocation 更新单项状态，
+重复游标事件不能重复增加进展；草稿来自 Write 持久数据，模型文字或工具事件文本不直接创建「已保存」标识。
+来源查看先读当前文档并比对本轮 opaque revision，变更／删除时说明原版本不可展示，不引入历史正文读取接口。
+提交响应未知时在当前页面保留完整请求，以其 clientRequestId 查询原 task，显式重试也使用原输入和原键。
+同故事最近会话选择保存于 sessionStorage；消息、草稿和授权的权威数据仍由后端持有。

@@ -17,7 +17,7 @@
     "format": "prettier --write .",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "transfer": "node --import tsx src/server/transfer-cli.ts",
-    "test:integration": "node --import tsx tests/integration/mochi.mjs"
+    "test:integration": "node --import tsx tests/integration/run.mjs"
   },
   "dependencies": {
     "@azure/cosmos": "4.10.0",

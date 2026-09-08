@@ -1,4 +1,6 @@
 import { WritingHost } from "./WritingHost.js";
+import { CreativeWorkspace } from "./CreativeWorkspace.js";
+import { CreativeDraftReader } from "./CreativeResults.js";
 import { useEffect, useMemo, useState } from "react";
 import type { AuthClient } from "./auth.js";
 import { apiClient, message } from "./api.js";
@@ -123,7 +125,7 @@ export function App({
         <footer>MOCHI WRITE · 个人小说创作工作台</footer>
       </main>
     );
-  const [area, id, section, documentId] = route.split("/");
+  const [area, id, section, documentId, selectedDraftId] = route.split("/");
   let view;
   if (area === "library" && (id === "character" || id === "world"))
     view = <LibraryView key={route} api={api} kind={id} navigate={navigate} />;
@@ -151,6 +153,27 @@ export function App({
     );
   else if (area === "stories")
     view = <StoriesView api={api} navigate={navigate} />;
+  else if (area === "story" && id && section === "creative")
+    view = (
+      <CreativeWorkspace
+        key={`${id}:${documentId ?? ""}`}
+        api={api}
+        storyId={id}
+        conversationId={documentId}
+        selectedDraftId={selectedDraftId}
+        navigate={navigate}
+      />
+    );
+  else if (area === "story" && id && section === "draft" && documentId)
+    view = (
+      <CreativeDraftReader
+        key={`${id}:${documentId}`}
+        api={api}
+        storyId={id}
+        draftId={documentId}
+        navigate={navigate}
+      />
+    );
   else if (
     area === "story" &&
     id &&
@@ -229,7 +252,10 @@ export function App({
         </div>
       </aside>
       <main className="main-content">{view}</main>
-      <WritingHost api={api} route={route} />
+      {!(
+        area === "story" &&
+        (section === "creative" || section === "draft")
+      ) && <WritingHost api={api} route={route} />}
     </div>
   );
 }
