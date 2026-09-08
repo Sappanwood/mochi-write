@@ -164,10 +164,10 @@ limit 默认 10、最多 20；cursor 最多 4096 UTF-8 bytes，封装固定 libr
 
 `initialize_story` 有 draft/commit 两个根分支。draft 接受 `{mode:"draft",title,body?,assets,chapter?}`：
 body 为作品简介；assets 最多 8 项，每项 kind 为 setting/outline/snapshot，setting 和 outline 各最多 1 项。
-不强制资料齐全。每项只能是以下一种形式，不接受混合字段、重复目标、跨故事或未知字段：
+不强制资料齐全。assets 表示本轮新增或修改集合；既有零章作品传 `assets:[]` 会保留全部既有资料及其版本。每项只能是以下一种形式，不接受混合字段、重复目标、跨故事或未知字段：
 
 - 新生成资料：`{kind,title,body}`，只归当前故事，snapshot 不要求母版溯源。
-- 更新现有初始资料：`{kind,asset_id,base_revision,title,body}`，固定当前完整 Content 与未修改元数据／来源。
+- 更新现有初始资料：`{kind,asset_id,base_revision,title,body}`，固定当前完整 Content 与未修改元数据／来源；base_revision 使用 search_assets/read_asset 的不透明 revision，不使用收据中的逻辑版本号。
 - 复制已经读取的母版：`{kind:"snapshot",source_id,source_version,source_hash}`；完整 Content 从该 conversation 的不可变来源展开，不接收替换正文。
 
 可选 chapter 为 `{title,body}`，ID 全部由后端分配。标题在冻结前 trim，随后校验最多 200 Unicode 字符和 512 UTF-8 bytes；
