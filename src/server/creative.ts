@@ -15,6 +15,7 @@ import type { Mochi } from "./mochi-client.js";
 import { hash } from "./entities.js";
 import { CREATIVE_TOOLS } from "./creative-tools.js";
 import { CreativeChapters } from "./creative-chapters.js";
+import { CreativeLifecycle } from "./creative-lifecycle.js";
 import { CreativeWorkflow } from "./creative-workflow.js";
 
 const intentSchema = z
@@ -91,6 +92,7 @@ export const activeTask = (task: CreativeTask) =>
   ["interpreting", "pending", "running"].includes(task.status);
 export class Creative {
   private tail: Promise<unknown> = Promise.resolve();
+  readonly lifecycle: CreativeLifecycle;
   readonly chapters: CreativeChapters;
   readonly workflow: CreativeWorkflow;
   constructor(
@@ -99,6 +101,7 @@ export class Creative {
     readonly mochi: Mochi,
     options: { pollMs?: number } = {},
   ) {
+    this.lifecycle = new CreativeLifecycle(this);
     this.chapters = new CreativeChapters(this);
     this.workflow = new CreativeWorkflow(this, options.pollMs ?? 1000);
   }
@@ -169,28 +172,36 @@ export class Creative {
     ]);
     return saved as CreativeConversation;
   }
+  startConversation(input: unknown) {
+    return this.lifecycle.start(input);
+  }
+  lifecycleConversations() {
+    return this.lifecycle.list();
+  }
+  lifecycleConversation(id: string) {
+    return this.lifecycle.get(id);
+  }
   async conversations(storyId: string) {
     await this.scope(storyId);
     return this.records.conversations(storyId);
   }
   async tasks(storyId: string, conversationId: string) {
-    await this.scope(storyId);
-    await this.requireConversation(storyId, conversationId);
+    await this.lifecycle.target(storyId, conversationId);
     return this.records.tasks(storyId, conversationId);
   }
   async task(storyId: string, id: string) {
-    await this.scope(storyId);
-    return this.requireTask(storyId, id);
+    const task = await this.requireTask(storyId, id);
+    await this.lifecycle.target(storyId, task.conversationId);
+    return task;
   }
   async drafts(storyId: string, conversationId: string) {
-    await this.scope(storyId);
-    await this.requireConversation(storyId, conversationId);
+    await this.lifecycle.target(storyId, conversationId);
     return this.records.drafts(storyId, conversationId);
   }
   async draft(storyId: string, draftId: string) {
-    await this.scope(storyId);
     const draft = await this.records.draft(storyId, draftId);
     if (!draft) throw new AppError(404, "草稿不存在");
+    await this.lifecycle.target(storyId, draft.conversationId);
     return draft;
   }
   async selected(
@@ -211,7 +222,7 @@ export class Creative {
   }
   async submit(storyId: string, raw: unknown) {
     const input = submitSchema.parse(raw);
-    await this.scope(storyId);
+    await this.lifecycle.target(storyId, input.conversationId);
     const digest = hash(JSON.stringify({ storyId, ...input }));
     const existing = await this.records.task(storyId, input.clientRequestId);
     if (existing) {
@@ -291,7 +302,7 @@ export class Creative {
     return task;
   }
   async cancel(storyId: string, id: string) {
-    await this.scope(storyId);
+    await this.task(storyId, id);
     const task = await this.serial(async () => {
       const task = await this.requireTask(storyId, id);
       if (!activeTask(task)) return task;
@@ -335,6 +346,10 @@ export class Creative {
     if (!conversation) return undefined;
     return {
       storyId,
+      lifecycle: conversation.lifecycle,
+      librarySources: async () =>
+        (await this.requireConversation(storyId, task.conversationId))
+          .librarySources ?? [],
       taskId: encodedTaskId,
       sessionId: conversation.sessionId,
       sourceMessageId: task.sourceMessageId,
@@ -352,17 +367,30 @@ export class Creative {
         });
       },
       recordSource: async (source) => {
-        await this.change(storyId, taskId, (current) => {
+        await this.serial(async () => {
+          const current = await this.requireTask(storyId, taskId);
           if (!activeTask(current))
             throw new ToolError("authorization_revoked");
-          if (
-            !current.sources.some(
-              (item) =>
-                item.asset_id === source.asset_id &&
-                item.revision === source.revision,
-            )
-          )
-            current.sources.push(source);
+          const same = (item: typeof source) =>
+            item.asset_id === source.asset_id &&
+            item.revision === source.revision &&
+            item.scope === source.scope;
+          if (!current.sources.some(same)) current.sources.push(source);
+          const writes: { record: CreativeRecord; revision: string }[] = [
+            { record: current, revision: current.revision },
+          ];
+          if (source.scope === "library") {
+            const bound = await this.requireConversation(
+              storyId,
+              current.conversationId,
+            );
+            if (!bound.lifecycle) throw new ToolError("forbidden_scope");
+            bound.librarySources ??= [];
+            if (!bound.librarySources.some(same))
+              bound.librarySources.push(source);
+            writes.push({ record: bound, revision: bound.revision });
+          }
+          await this.records.transaction(storyId, writes);
         });
       },
       readDraft: async (id, revision) => {
@@ -423,6 +451,7 @@ export class Creative {
     return this.requireTask(storyId, taskId);
   }
   async recover() {
+    await this.lifecycle.recover();
     for (const task of await this.records.activeTasks())
       this.workflow.start(task);
   }

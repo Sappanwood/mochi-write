@@ -59,7 +59,34 @@ export const entitySchema = z
   .strict();
 export type Entity = z.infer<typeof entitySchema>;
 export type Document = Entity & { revision: string };
-export interface Filter {
+export interface LibraryFilter {
+  kind: "character" | "world";
+  name?: string;
+  genre?: string;
+  ageBand?: string;
+  gender?: string;
+  occupation?: string;
+  trait?: string;
+  era?: string;
+  tag?: string;
+  cursor?: string;
+  limit?: number;
+}
+export interface LibraryEntry {
+  asset_id: string;
+  kind: "character" | "world";
+  name: string;
+  revision: string;
+  version: number;
+  genres: string[];
+  age_band: string;
+  gender?: string;
+  occupation?: string;
+  traits?: string[];
+  era?: string;
+  tags?: string[];
+}
+export interface Filter extends Omit<LibraryFilter, "kind"> {
   kind?: Entity["kind"];
   projectId?: string | null;
   name?: string;

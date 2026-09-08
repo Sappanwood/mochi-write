@@ -47,9 +47,12 @@ export const callbackSchema = z
 export type ToolCallback = z.infer<typeof callbackSchema>;
 export type AssetSource = {
   asset_id: string;
-  kind: z.infer<typeof assetKindSchema> | "draft";
+  kind: z.infer<typeof assetKindSchema> | "draft" | "character" | "world";
   title: string;
   revision: string;
+  scope?: "library";
+  version?: number;
+  content_hash?: string;
 };
 export type AssetRead = AssetSource & { content: string };
 export type ToolErrorCode =

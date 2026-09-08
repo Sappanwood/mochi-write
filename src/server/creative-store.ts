@@ -23,7 +23,7 @@ export interface CreativeStore {
     storyId: string,
     id: string,
   ): Promise<CreativeConversation | undefined>;
-  conversations(storyId: string): Promise<CreativeConversation[]>;
+  conversations(storyId?: string): Promise<CreativeConversation[]>;
   task(storyId: string, id: string): Promise<CreativeTask | undefined>;
   tasks(storyId: string, conversationId: string): Promise<CreativeTask[]>;
   activeTasks(): Promise<CreativeTask[]>;
@@ -301,7 +301,7 @@ export class CosmosCreativeStore implements CreativeStore {
   conversation(storyId: string, id: string) {
     return this.get<CreativeConversation>(storyId, id, "conversation");
   }
-  conversations(storyId: string) {
+  conversations(storyId?: string) {
     return this.query<CreativeConversation>("conversation", storyId);
   }
   task(storyId: string, id: string) {

@@ -60,7 +60,7 @@ export class MemoryCreativeStore implements CreativeStore {
   async conversation(storyId: string, id: string) {
     return this.get<CreativeConversation>(storyId, "conversation", id);
   }
-  async conversations(storyId: string) {
+  async conversations(storyId?: string) {
     return this.query<CreativeConversation>("conversation", storyId);
   }
   async task(storyId: string, id: string) {

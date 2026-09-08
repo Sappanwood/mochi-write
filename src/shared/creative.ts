@@ -24,6 +24,15 @@ export interface CreativeConversation extends RecordBase {
   kind: "conversation";
   sessionId: string;
   activeTaskId: string | null;
+  lifecycle?: true;
+  initialInput?: {
+    clientRequestId: string;
+    message: string;
+    provider: string;
+    model: string;
+  };
+  sessionDispatchStarted?: boolean;
+  librarySources?: AssetSource[];
 }
 export type CreativeIntent =
   | "discuss"

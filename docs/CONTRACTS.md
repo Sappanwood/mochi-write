@@ -308,3 +308,17 @@ HTTP 错误转换为安全应用错误，409 保留冲突，未知网络/服务�
 本地验收命令包括 `npm run check`、`npm run test:e2e` 和显式 `MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration`。
 最后一项启动双方真实 HTTP 服务与 Pi AgentSession，使用隔离存储、本地 RS256 身份和假 provider，验证持久任务及重启恢复。
 不自动发现另一 Repo，不纳入单 Repo 默认门禁，不授权真实云资源、付费模型或私人素材发送。
+
+## 生命周期会话与母版工具扩展（MWT-016）
+
+`/api/creative/conversations` 的首次发送、列表、按 conversation/request ID 恢复及七工具快照详见
+[创作会话契约](CREATIVE_WORKSPACE.md#生命周期会话与母版检索mwt-016)。原本人/服务身份、callback v1、128 KiB 请求与 64 KiB 响应上限不变。
+未建立会话的预留 storyId 只允许通过持久绑定访问 creative records，不是普通故事存在证明；旧 API 和旧三工具快照保持原行为。
+
+Store 新增 `searchLibrary` 元数据投影和 `getVersion(id,projectId,version)` 精确点读。检索固定 library 分区，
+name/genres/ageBand 复用规范 Content 字段；补充 `sourceMetadata.gender/occupation/era` 字符串、`traits/tags` 字符串数组。
+缺失或非法类型在对应条件下不匹配，无过滤浏览不排除 legacy 对象。数据库查询只 SELECT 元数据，以参数化 WHERE 过滤并沿用分页诊断。
+CCP 索引策略须追加 `/content/sourceMetadata/gender/?`、`/content/sourceMetadata/occupation/?`、
+`/content/sourceMetadata/era/?`、`/content/sourceMetadata/traits/[]/?`、`/content/sourceMetadata/tags/[]/?`；不索引完整 sourceMetadata 或正文。
+不可变 version 点读校验 entityId/version/分区及 Content hash；只有当前 conversation 已读来源可继续引用历史版本。
+本切片只登记 initialize_story schema，尚未启用正式初始化；七工具云配置与初始化收据能力须在后续发布前一起验证。

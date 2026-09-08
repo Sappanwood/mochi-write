@@ -2,6 +2,7 @@ import { Creative } from "./creative.js";
 import { CosmosCreativeStore } from "./creative-store.js";
 import { registerCreative } from "./creative-routes.js";
 import { registerAgentTools } from "./tool-routes.js";
+import { LibraryTools } from "./library-tools.js";
 import { AssetTools } from "./asset-tools.js";
 import { AppError } from "../shared/model.js";
 import { MochiClient } from "./mochi-client.js";
@@ -65,6 +66,7 @@ try {
   registerCreative(app, creative);
   registerAgentTools(app, {
     assets: new AssetTools(store),
+    library: new LibraryTools(store),
     resolveTask: (id) => creative.resolveTask(id),
     createChapter: (context, args, invocationId) =>
       creative.createChapter(context, args, invocationId),

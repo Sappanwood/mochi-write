@@ -188,3 +188,20 @@ Mochi 保存完整 Pi 工具历史，后续创作回合复用同一执行会话�
 来源查看先读当前文档并比对本轮 opaque revision，变更／删除时说明原版本不可展示，不引入历史正文读取接口。
 提交响应未知时在当前页面保留完整请求，以其 clientRequestId 查询原 task，显式重试也使用原输入和原键。
 同故事最近会话选择保存于 sessionStorage；消息、草稿和授权的权威数据仍由后端持有。
+
+## 生命周期绑定与全局资料发现（MWT-016）
+
+`CreativeLifecycle` 持有首条请求到预留 storyId/conversationId 的稳定映射，并区分 ready head 与尚无 head 的会话。
+请求登记沿用 library 幂等记录；首条输入留在 conversation 中，任务写入前的中断可从该输入恢复。
+普通故事 scope 不放宽；只在有持久生命周期绑定的 creative 任务子路径中允许无 head。
+本人按 request ID、conversation ID 或会话列表只读恢复，仍由 Mochi 保存唯一执行历史；不新建创意对象或第二套会话 authority。
+Mochi session 派发标记先持久化，未知创建结果中断且不自动重放；已绑定会话继续复用同 session。
+
+`LibraryTools` 在 library 固定分区用 `Store.searchLibrary` 查询元数据投影，由 Cosmos WHERE 执行 AND 条件过滤。
+不复用当前故事的正文扫描，不新增全文/向量服务。首次 `read_library` 检查 head revision；真实来源在 task 与 conversation
+同分区事务写入，仅保存 ID、revision、逻辑 version、Content hash 和 scope。后续通过 `Store.getVersion` 点读同一不可变版本，
+保证母版改删后仍能取得已阅读的完整内容。来源不是授权。
+
+新生命周期 session 使用固定七工具快照，旧三工具 session 保持兼容。initialize_story schema 已登记但本切片 handler 拒绝，
+正式初始化、首章相关资料原子写入及页面接入按后续切片完成。检索需要 CCP 登记五项 sourceMetadata 索引，
+具体字段、错误、预算和本人 API 见 [创作会话契约](CREATIVE_WORKSPACE.md#生命周期会话与母版检索mwt-016)。

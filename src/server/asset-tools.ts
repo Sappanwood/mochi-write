@@ -19,6 +19,7 @@ import type { Store } from "./store.js";
 
 export interface AssetContext {
   storyId: string;
+  librarySources?: () => Promise<AssetSource[]>;
   recordSource: (source: AssetSource) => Promise<void>;
   readDraft?: (id: string, revision: string) => Promise<AssetRead | undefined>;
 }

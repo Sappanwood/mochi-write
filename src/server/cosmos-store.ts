@@ -78,7 +78,47 @@ export class CosmosStore implements Store {
       storageError(error);
     }
   }
+  async getVersion(
+    id: string,
+    projectId: string | null,
+    version: number,
+  ): Promise<Entity | undefined> {
+    try {
+      const { resource } = await this.database
+        .container(projectId === null ? "library" : "stories")
+        .item(`version:${id}:${version}`, projectId ?? "library")
+        .read();
+      if (!resource) return undefined;
+      if (
+        resource.kind !== "version" ||
+        resource.entityId !== id ||
+        resource.version !== version ||
+        resource.content?.id !== id ||
+        resource.content?.projectId !== projectId ||
+        resource.content?.currentVersion !== version
+      )
+        throw new Error("Invalid immutable version");
+      return clean(resource.content);
+    } catch (error) {
+      if (Number((error as { code?: number })?.code) === 404) return undefined;
+      storageError(error);
+    }
+  }
+  async searchLibrary(f: import("../shared/model.js").LibraryFilter) {
+    return this.query<import("../shared/model.js").LibraryEntry>(
+      { ...f, projectId: null },
+      `SELECT c.id AS asset_id, c.kind, c.content.name AS name, c._etag AS revision, c.currentVersion AS version, c.content.genres AS genres, c.content.ageBand AS age_band, c.content.sourceMetadata.gender AS gender, c.content.sourceMetadata.occupation AS occupation, c.content.sourceMetadata.traits AS traits, c.content.sourceMetadata.era AS era, c.content.sourceMetadata.tags AS tags FROM c`,
+      (row) => row as unknown as import("../shared/model.js").LibraryEntry,
+    );
+  }
   async list(f: Filter): Promise<Page> {
+    return this.query(f, "SELECT * FROM c", deserialize);
+  }
+  private async query<T>(
+    f: Filter,
+    select: string,
+    decode: (row: Record<string, unknown>) => T,
+  ): Promise<{ items: T[]; cursor?: string }> {
     const clauses = [
       "c.recordType = 'head'",
       "(NOT IS_DEFINED(c.deleted) OR c.deleted = false)",
@@ -105,12 +145,33 @@ export class CosmosStore implements Store {
       clauses.push("c.content.ageBand = @ageBand");
       parameters.push({ name: "@ageBand", value: f.ageBand });
     }
+    for (const field of ["gender", "occupation", "era"] as const) {
+      if (f[field]) {
+        const path = `c.content.sourceMetadata.${field}`;
+        clauses.push(
+          `IS_STRING(${path}) AND ${field === "gender" ? `${path} = @${field}` : `CONTAINS(${path}, @${field}, true)`}`,
+        );
+        parameters.push({ name: `@${field}`, value: f[field]! });
+      }
+    }
+    if (f.trait) {
+      clauses.push(
+        "IS_ARRAY(c.content.sourceMetadata.traits) AND EXISTS(SELECT VALUE t FROM t IN c.content.sourceMetadata.traits WHERE IS_STRING(t) AND CONTAINS(t, @trait, true))",
+      );
+      parameters.push({ name: "@trait", value: f.trait });
+    }
+    if (f.tag) {
+      clauses.push(
+        "IS_ARRAY(c.content.sourceMetadata.tags) AND ARRAY_CONTAINS(c.content.sourceMetadata.tags, @tag)",
+      );
+      parameters.push({ name: "@tag", value: f.tag });
+    }
     try {
       const iterator = this.database
         .container(f.projectId === null ? "library" : "stories")
         .items.query(
           {
-            query: `SELECT * FROM c WHERE ${clauses.join(" AND ")} ORDER BY c.id`,
+            query: `${select} WHERE ${clauses.join(" AND ")} ORDER BY c.id`,
             parameters,
           },
           {
@@ -137,7 +198,7 @@ export class CosmosStore implements Store {
             "Cosmos query cannot be resumed without a continuation token",
           );
         return {
-          items: (response.resources ?? []).map(deserialize),
+          items: (response.resources ?? []).map(decode),
           ...(more && response.continuationToken
             ? { cursor: response.continuationToken }
             : {}),

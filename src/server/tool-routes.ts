@@ -11,6 +11,7 @@ import {
 import type { AssetContext, AssetTools } from "./asset-tools.js";
 
 export interface ToolTaskContext extends AssetContext {
+  lifecycle?: boolean;
   taskId: string;
   sessionId: string;
   sourceMessageId: string;
@@ -21,6 +22,7 @@ export interface ToolTaskContext extends AssetContext {
 }
 export interface AgentToolOptions {
   assets: AssetTools;
+  library?: import("./library-tools.js").LibraryTools;
   resolveTask: (taskId: string) => Promise<ToolTaskContext | undefined>;
   createChapter?: (
     context: ToolTaskContext,
@@ -49,6 +51,14 @@ export function registerAgentTools(
           ![
             "search_assets",
             "read_asset",
+            ...(options.library
+              ? [
+                  "library_vocabulary",
+                  "search_library",
+                  "read_library",
+                  "initialize_story",
+                ]
+              : []),
             ...(options.createChapter ? ["create_chapter"] : []),
           ].includes(callback.tool.name)
         )
@@ -56,6 +66,18 @@ export function registerAgentTools(
         const context = await options.resolveTask(callback.task_id);
         checkBinding(context, callback);
         await context.bindRun(callback.run_id);
+        if (
+          [
+            "library_vocabulary",
+            "search_library",
+            "read_library",
+            "initialize_story",
+          ].includes(callback.tool.name) &&
+          !context.lifecycle
+        )
+          throw new ToolError("forbidden_scope");
+        if (callback.tool.name === "initialize_story")
+          throw new ToolError("invalid_arguments");
         const result =
           callback.tool.name === "create_chapter"
             ? await options.createChapter!(
@@ -65,9 +87,24 @@ export function registerAgentTools(
               )
             : {
                 data:
-                  callback.tool.name === "search_assets"
-                    ? await options.assets.search(context, callback.arguments)
-                    : await options.assets.read(context, callback.arguments),
+                  callback.tool.name === "library_vocabulary"
+                    ? await options.library!.vocabulary(callback.arguments)
+                    : callback.tool.name === "search_library"
+                      ? await options.library!.search(callback.arguments)
+                      : callback.tool.name === "read_library"
+                        ? await options.library!.read(
+                            context,
+                            callback.arguments,
+                          )
+                        : callback.tool.name === "search_assets"
+                          ? await options.assets.search(
+                              context,
+                              callback.arguments,
+                            )
+                          : await options.assets.read(
+                              context,
+                              callback.arguments,
+                            ),
               };
         const response = { ...base, outcome: "ok" as const, ...result };
         if (Buffer.byteLength(JSON.stringify(response)) > TOOL_RESPONSE_BYTES)

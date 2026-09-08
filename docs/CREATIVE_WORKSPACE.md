@@ -1,7 +1,8 @@
 # 故事创作会话契约
 
-本模块在已有故事中提供 Agent 自主取材、独立草稿和授权创建新章。正文手工编辑、新故事初始化、
-自动压缩上下文与跨 session 长期续写不属于第一切片。原有无工具写作侧栏保持独立兼容。
+本模块在已有故事中提供 Agent 自主取材、独立草稿和授权创建新章。MWT-016 另提供未建立作品的生命周期会话 API、
+自然会话母版检索与固定来源；作品初始化事务及新入口 UI 由后续切片接入。正文手工编辑、自动压缩上下文与跨 session
+长期续写不属于本次范围。原有无工具写作侧栏保持独立兼容。
 
 ## 所有权与授权
 
@@ -112,3 +113,44 @@ node --import tsx tests/integration/creative-smoke.mjs
 不把凭据写入测试报告。脚本创建合成故事，验证直接写章保存、先看草稿、下一轮原样保存三条自然语言请求，
 报告保留任务、来源、草稿正文、收据和用量。每次预算只覆盖该次进程；重试须扣除前次报告的费用上界，
 累计不超过用户授权。报告按所有输入的峰值价格估算，缺失用量按请求预留上界计入，不作为实际账单。
+
+## 生命周期会话与母版检索（MWT-016）
+
+首次发送前不创建故事或独立创意业务对象。`POST /api/creative/conversations` 接受
+`{clientRequestId,message,provider,model}`，返回 `{conversation,task}`（task 使用既有脱敏 DTO）。
+后端为请求固定 storyId/conversationId，先在 library 登记请求摘要，再持久化带 `lifecycle:true` 的会话、
+首条输入及任务。允许 stories 分区只有 creative records 而没有 story head；正式故事列表、阅读及旧会话创建仍要求 ready head。
+相同键同输入找回原任务，异输入 409；中途仅会话已保存的请求由恢复流程使用已保存输入补齐任务。
+这不是跨分区原子事务，不通过换键或另建故事掩盖未知结果。
+
+`GET /api/creative/conversations` 返回 `{items}`，每项为生命周期 conversation 与 `established`，不包含旧三工具会话。
+`GET /api/creative/conversations/:conversationId` 仅依据持久绑定解析故事；
+`GET /api/creative/conversations/by-request/:clientRequestId` 返回原 `{conversation,task}`，供首次响应丢失后恢复，
+未找到完整绑定为 404。三个 GET 都只读取，不发起 Mochi 请求或重放首条 POST。
+任务、草稿、events、cancel、verify 复用上表的故事 creative 子路径；无 head 时必须验证其生命周期 conversation 绑定，
+不能将预留 ID 用于普通故事端点或别的会话。
+
+生命周期会话固定七工具：旧三项加 `library_vocabulary`、`search_library`、`read_library`、`initialize_story`。
+旧 API 新建会话及旧 session 保持原三工具。Mochi session 创建前持久化派发标记，成功响应后保存 sessionId；
+创建响应未知时任务显示 interrupted，保留记录、不自动创建第二个 session，用户可主动新建会话。
+已绑定 session 后沿用原 run/key/事件恢复机制。MWT-016 中 initialize_story 仅登记完整 schema，处理明确拒绝；
+不能将本切片的预留目标当作已初始化作品或正式保存成果。初始化实现消费 `CreativeLifecycle.target` 返回的 ready head 或 undefined。
+
+| 工具 | 参数与结果 |
+|---|---|
+| library_vocabulary | `{}` → genres、ageBands 与检索维度含义，不统计或输出全体母版 |
+| search_library | `{kind:character/world,name?,genre?,age_band?,gender?,occupation?,trait?,era?,tag?,limit?,cursor?}` → `{items,next_cursor}` |
+| read_library | `{asset_id,revision}` → 指定版本完整 Content、version、content_hash 与来源字段 |
+
+所有条件 AND；genre/tag 为单值成员匹配，gender/age_band 精确匹配，name/occupation/trait/era 为大小写不敏感子串。
+trait 匹配 traits 字符串数组的任一元素。非法词表值 invalid_arguments；字段缺失或类型错误不匹配该条件，
+空过滤仍能分页发现 legacy 资料。同名返回多个条目，不隐式挑选。文字条件最多 128 字符，genre/age_band 最多 40；
+limit 默认 10、最多 20；cursor 最多 4096 UTF-8 bytes，封装固定 library scope、全部过滤条件和存储 continuation，
+参数不一致返回 invalid_cursor。cursor 仅为分页状态，不承担授权，不承诺跨页事务快照。
+
+检索只投影 ID、kind、name、revision、version、genres、age_band 和五个 sourceMetadata 字段，不从数据库取正文再筛选。
+发现结果不等于真实读取。首次全文读取校验当前 head revision，成功前在同一事务记录 task 与 conversation 的真实来源
+`{asset_id,kind,title,revision,version,content_hash,scope:library}`，不将完整母版塞进来源记录。
+同 conversation 后续按已读来源点读不可变版本，核对 canonical Content SHA-256，即使母版更新或软删除也保持原内容；
+未读来源不能任意请求历史版本。单次 Content 与来源 JSON 最多 60 KiB，发现与回调整体仍受 64 KiB 限制，超限拒绝不截断。
+模型将自然条件映射至词表，按词表／摘要筛选／精确全文逐层取材；正文和来源均不能创建保存授权。

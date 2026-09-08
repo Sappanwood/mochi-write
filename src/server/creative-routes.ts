@@ -70,6 +70,31 @@ function taskView(task: CreativeTask): CreativeTaskView {
   };
 }
 export function registerCreative(app: FastifyInstance, creative: Creative) {
+  app.get("/api/creative/conversations", async () => ({
+    items: await creative.lifecycleConversations(),
+  }));
+  app.post("/api/creative/conversations", async (r) => {
+    const input = submit
+      .omit({ conversationId: true, selectedDraft: true })
+      .parse(r.body);
+    const result = await creative.startConversation(input);
+    return { conversation: result.conversation, task: taskView(result.task) };
+  });
+  app.get("/api/creative/conversations/:conversationId", async (r) =>
+    creative.lifecycleConversation(
+      z.object({ conversationId: z.uuid() }).parse(r.params).conversationId,
+    ),
+  );
+  app.get(
+    "/api/creative/conversations/by-request/:clientRequestId",
+    async (r) => {
+      const { clientRequestId } = z
+        .object({ clientRequestId: z.uuid() })
+        .parse(r.params);
+      const result = await creative.lifecycle.byRequest(clientRequestId);
+      return { conversation: result.conversation, task: taskView(result.task) };
+    },
+  );
   const base = "/api/stories/:storyId/creative";
   app.get(base + "/conversations", async (r) => ({
     items: await creative.conversations(params.parse(r.params).storyId),

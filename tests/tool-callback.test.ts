@@ -7,6 +7,7 @@ import {
   registerAgentTools,
   type ToolTaskContext,
 } from "../src/server/tool-routes.js";
+import { LibraryTools } from "../src/server/library-tools.js";
 import { AssetTools } from "../src/server/asset-tools.js";
 import { ToolError, type ToolCallback } from "../src/shared/creative-tools.js";
 import { MemoryStore } from "./support/memory-store.js";
@@ -64,6 +65,7 @@ async function fixture(creation = false) {
   }));
   registerAgentTools(app, {
     assets: new AssetTools(store),
+    library: new LibraryTools(store),
     resolveTask: resolve,
     ...(creation
       ? {
@@ -265,4 +267,37 @@ it("protects operation recovery with service identity and exposes the original r
     (await f.app.inject({ url, headers: { authorization: "Bearer person" } }))
       .statusCode,
   ).toBe(401);
+});
+
+it("permits library tools only for persisted lifecycle bindings and leaves initialization explicitly unavailable", async () => {
+  const f = await fixture();
+  const payload = {
+    ...f.body,
+    tool: { name: "library_vocabulary", version: "1" },
+    arguments: {},
+  };
+  expect((await f.call(payload)).json()).toMatchObject({
+    error: { code: "forbidden_scope" },
+  });
+  f.context.lifecycle = true;
+  expect((await f.call(payload)).json()).toMatchObject({
+    outcome: "ok",
+    data: { genres: expect.any(Array) },
+  });
+  expect(
+    (
+      await f.call({
+        ...payload,
+        scope: { ...payload.scope, story_id: "other" },
+      })
+    ).json(),
+  ).toMatchObject({ error: { code: "forbidden_scope" } });
+  expect(
+    (
+      await f.call({
+        ...payload,
+        tool: { name: "initialize_story", version: "1" },
+      })
+    ).json(),
+  ).toMatchObject({ error: { code: "invalid_arguments" } });
 });

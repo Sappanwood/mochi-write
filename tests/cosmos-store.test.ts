@@ -268,3 +268,55 @@ describe("Cosmos SDK 4.10 empty query pages", () => {
     ).rejects.toMatchObject({ statusCode: 503 });
   });
 });
+it("filters library discovery in storage and projects only metadata in the fixed library partition", async () => {
+  const f = fixture();
+  await f.store.searchLibrary({
+    kind: "character",
+    gender: "女",
+    occupation: "' OR true",
+    trait: "冷静",
+    era: "现代",
+    tag: "主角",
+    limit: 10,
+    cursor: "continuation",
+  });
+  const [spec, options] = f.query.mock.calls[0]!;
+  expect(spec.query).not.toContain("SELECT *");
+  expect(spec.query).not.toContain("markdown");
+  expect(spec.query).not.toContain("' OR true");
+  expect(spec.query).toContain(
+    "IS_STRING(c.content.sourceMetadata.occupation)",
+  );
+  expect(spec.query).toContain("EXISTS(SELECT VALUE t");
+  expect(spec.query).toContain(
+    "ARRAY_CONTAINS(c.content.sourceMetadata.tags, @tag)",
+  );
+  expect(spec.parameters).toEqual(
+    expect.arrayContaining([
+      { name: "@occupation", value: "' OR true" },
+      { name: "@trait", value: "冷静" },
+      { name: "@gender", value: "女" },
+    ]),
+  );
+  expect(options).toMatchObject({
+    partitionKey: "library",
+    maxItemCount: 10,
+    continuationToken: "continuation",
+  });
+});
+it("point reads only the requested immutable version and rejects wrong identity", async () => {
+  const read = vi.fn(async () => ({
+    resource: { kind: "version", entityId: doc.id, version: 1, content: doc },
+  }));
+  const item = vi.fn(() => ({ read }));
+  const container = vi.fn(() => ({ item }));
+  const store = new CosmosStore({ container } as unknown as Database);
+  expect(await store.getVersion(doc.id, null, 1)).toMatchObject({
+    id: doc.id,
+    currentVersion: 1,
+  });
+  expect(item).toHaveBeenCalledWith(`version:${doc.id}:1`, "library");
+  await expect(store.getVersion("another", null, 1)).rejects.toMatchObject({
+    statusCode: 503,
+  });
+});

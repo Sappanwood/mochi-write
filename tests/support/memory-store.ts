@@ -24,6 +24,55 @@ export class MemoryStore implements Store {
     const d = this.heads.get(`${projectId}:${id}`);
     return d ? structuredClone(d) : undefined;
   }
+  async getVersion(id: string, projectId: string | null, version: number) {
+    const value = this.history.get(`${id}:${version}`);
+    return value?.projectId === projectId ? structuredClone(value) : undefined;
+  }
+  async searchLibrary(f: import("../../src/shared/model.js").LibraryFilter) {
+    const values = [...this.heads.values()]
+      .filter((d) => {
+        const m = d.content.sourceMetadata;
+        const contains = (v: unknown, q: string) =>
+          typeof v === "string" && v.toLowerCase().includes(q.toLowerCase());
+        return (
+          !d.deleted &&
+          d.projectId === null &&
+          d.kind === f.kind &&
+          (!f.name || contains(d.content.name, f.name)) &&
+          (!f.genre || d.content.genres.includes(f.genre)) &&
+          (!f.ageBand || d.content.ageBand === f.ageBand) &&
+          (!f.gender || m.gender === f.gender) &&
+          (!f.occupation || contains(m.occupation, f.occupation)) &&
+          (!f.era || contains(m.era, f.era)) &&
+          (!f.trait ||
+            (Array.isArray(m.traits) &&
+              m.traits.some((v) => contains(v, f.trait!)))) &&
+          (!f.tag || (Array.isArray(m.tags) && m.tags.includes(f.tag)))
+        );
+      })
+      .sort((a, b) => a.id.localeCompare(b.id));
+    const offset = Number(f.cursor ?? 0),
+      limit = f.limit ?? 10;
+    return {
+      items: values.slice(offset, offset + limit).map((d) => ({
+        asset_id: d.id,
+        kind: d.kind as "character" | "world",
+        name: d.content.name,
+        revision: d.revision,
+        version: d.currentVersion,
+        genres: d.content.genres,
+        age_band: d.content.ageBand,
+        ...Object.fromEntries(
+          ["gender", "occupation", "era", "traits", "tags"]
+            .filter((k) => k in d.content.sourceMetadata)
+            .map((k) => [k, d.content.sourceMetadata[k]]),
+        ),
+      })),
+      ...(offset + limit < values.length
+        ? { cursor: String(offset + limit) }
+        : {}),
+    };
+  }
   async list(f: Filter): Promise<Page> {
     const all = [...this.heads.values()]
       .filter(

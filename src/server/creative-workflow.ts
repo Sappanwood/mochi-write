@@ -279,7 +279,10 @@ export class CreativeWorkflow {
       });
       if (!task.intentSessionId || !activeTask(task)) return;
     }
-    const story = await this.host.scope(task.storyId);
+    const story = await this.host.lifecycle.target(
+      task.storyId,
+      task.conversationId,
+    );
     const run = await this.run(
       task,
       "intent",
@@ -288,8 +291,9 @@ export class CreativeWorkflow {
         user_message: task.message,
         user_message_utf16_length: task.message.length,
         target: {
-          story_id: story.id,
-          story_title: story.content.name,
+          story_id: task.storyId,
+          story_established: Boolean(story),
+          story_title: story?.content.name ?? null,
           max_new_chapters: 1,
           selected_draft: task.selectedDraft ?? null,
         },
@@ -373,10 +377,29 @@ export class CreativeWorkflow {
     });
   }
   private async create(task: CreativeTask) {
-    const conversation = await this.host.requireConversation(
-      task.storyId,
-      task.conversationId,
-    );
+    let sessionId: string;
+    try {
+      sessionId = await this.host.lifecycle.session(
+        task.storyId,
+        task.conversationId,
+      );
+    } catch (error) {
+      const conversation = await this.host.requireConversation(
+        task.storyId,
+        task.conversationId,
+      );
+      if (!conversation.sessionDispatchStarted || conversation.sessionId)
+        throw error;
+      await this.host.change(task.storyId, task.id, (current) => {
+        if (activeTask(current)) {
+          current.status = "interrupted";
+          current.error = "原会话创建结果未知，请保留当前记录并主动新建会话";
+          if (current.authorization?.status === "active")
+            current.authorization.status = "revoked";
+        }
+      });
+      return;
+    }
     const receipts = (
       await this.host.records.tasks(task.storyId, task.conversationId)
     ).flatMap((other) => (other.receipt ? [other.receipt] : []));
@@ -393,12 +416,7 @@ export class CreativeWorkflow {
       },
       verified_prior_saves: receipts,
     });
-    const run = await this.run(
-      task,
-      "creative",
-      conversation.sessionId,
-      prompt,
-    );
+    const run = await this.run(task, "creative", sessionId, prompt);
     if (!run) return;
     await this.host.serial(async () => {
       const current = await this.host.requireTask(task.storyId, task.id);
