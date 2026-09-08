@@ -221,6 +221,9 @@ async function finish(conversation, task, label) {
     receipt: result.receipt,
     usage: result.usage,
     intent_usage: result.intentUsage,
+    invocations: result.runId
+      ? harness.store.runs.get(result.runId)?.invocations
+      : [],
     drafts: drafts.filter((draft) => draft.taskId === result.id),
   });
   console.log(
@@ -405,11 +408,11 @@ try {
   assert.equal(direct.task.receipt?.kind, "first_chapter_saved");
   await verifyPackage(direct);
   assert.deepEqual(
-    (await harness.content.get(character.id, "library")).content,
+    (await harness.content.get(character.id, null)).content,
     character.content,
   );
   assert.deepEqual(
-    (await harness.content.get(world.id, "library")).content,
+    (await harness.content.get(world.id, null)).content,
     world.content,
   );
   const count = report.calls.length;
