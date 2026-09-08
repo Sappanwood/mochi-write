@@ -164,7 +164,24 @@ MWT-019 本地候选通过 193 项测试、30 项浏览器 E2E 和真实 HTTP/Pi
 正式内容与冻结候选一致，母版保持不变，刷新查询不增加模型调用。该轮 29 次模型调用费用保守上界
 USD 0.10470592；连同此前验收及本次全部失败重试，累计上界 USD 0.68676828，仍按累计 USD 10 预算计算。
 验收暴露并修正了独立意图解释的 thinking 耗尽、首章工具选择和资料 revision 提示问题；失败未计作通过。
-这是本地真实模型与隔离存储证据；新版云端发布和生产浏览器验收由 MWT-020 跟踪，尚未完成。
+这是本地真实模型与隔离存储证据；新版已发布，生产浏览器创作验收仍由 MWT-020 跟踪。
+
+### 新故事流程云端部署（2026-09-08）
+
+源码 `494cba31567db49f1ab3ea4bec2933c2a73c968c` 经
+[检查、构建与部署 34206133631](https://github.com/Sappanwood/mochi-write/actions/runs/34206133631) 成功上线，
+revision 为 `mochi-write--0000006`，镜像 digest 为
+`sha256:fd8a9cd5d75217065f8949fb753eae2c58c73106edda58db88b078cc9c06e86e`。
+[访问应用](https://mochi-write.whitemeadow-6e32159b.eastus.azurecontainerapps.io/) 沿用本人 Entra 登录。
+
+配套 Mochi `db05247` 已发布，配置 revision 为 `mochi-agent--0000008`；CCP `720a00a` 的更新仅增加
+四个工具登记和五条 library metadata 索引。两次独立维护均完成 owner 释放、auth/data 备份及凭据摘要核对。
+Write live/ready 与首页均为 200，匿名故事请求为 401；实际 Write Managed Identity 读取 library metadata 返回 200，
+新增索引存在且转换进度为 100%。最终完整真实生产 Terraform plan 无配置或镜像漂移。
+
+本次部署未调用付费模型，累计模型费用上界仍为 USD 0.68676828。测试浏览器被另一任务占用，尚未完成新版
+本人登录后的书架点击、新故事合成创作、生产 MI 工具回调、首章收据及刷新恢复验收，也未完成旧云会话兼容复验。
+本地五任务真实模型通过不替代这些生产证据；MWT-020 与整体 Plan 保持未完成。
 
 ### 第一切片云端发布（2026-09-08）
 
