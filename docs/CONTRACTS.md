@@ -337,3 +337,17 @@ content_hash 等于整个规范包的 draft_hash。初始化 draft 的 `artifact
 
 新增行为验收覆盖仅建立、整包首章、精确旧版本、关联资料 CAS、完整来源复制、only 与含章授权隔离、双提交竞争、取消、丢响应、
 实际 JSON 预算，以及原创快照／零章作品导入导出。沿用 check、浏览器与显式跨 Repo integration 入口，不调用真实模型作为单 Repo 门禁。
+
+
+## 新建与会话页面（MWT-018）
+
+浏览器新建、列表、生命周期会话及独立初始化阅读路由见[创作工作区](CREATIVE_WORKSPACE.md#浏览器新建与恢复mwt-018)。
+首次与后续消息在发送前保留原 request ID／输入，刷新只读查询；明确拒绝后可编辑，未知结果不自动重发。
+无 head 目标只使用有持久绑定的 creative API，descriptor 确认已建立才读取普通作品。
+已建立 initializationPending 作品通过既有 POST /stories/:id/creative/conversations 主动创建新 session 时，
+返回 lifecycle:true 并使用七工具快照；其他旧故事仍使用原三工具，不新增自动 session 控制。
+POST tasks 的 selectedDraft 必须在新任务占位／停止旧任务前通过当前故事／会话归属、版本与 hash 校验，错误返回 409；
+同输入同键的有效重复任务仍返回原记录，支持保存后的恢复。
+初始化收据的顶层 revision 属于作品；显示正式首章版本读取 chapter.revision。UI 仅以真实收据生成成果，失败不抹掉成果。
+浏览器验收覆盖空／普通书架、首条响应丢失恢复、零章建立、固定母版全文、精确旧草稿、同 session 首章资料更新、
+主动换 session、明确输入拒绝与 390px 布局；旧章节与侧栏测试继续运行。

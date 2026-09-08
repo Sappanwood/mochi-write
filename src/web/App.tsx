@@ -1,4 +1,9 @@
 import { WritingHost } from "./WritingHost.js";
+import {
+  NewCreativeStory,
+  CreativeConversations,
+  LifecycleWorkspace,
+} from "./CreativeEntry.js";
 import { CreativeWorkspace } from "./CreativeWorkspace.js";
 import { CreativeDraftReader } from "./CreativeResults.js";
 import { useEffect, useMemo, useState } from "react";
@@ -153,6 +158,31 @@ export function App({
     );
   else if (area === "stories")
     view = <StoriesView api={api} navigate={navigate} />;
+  else if (area === "creative" && id === "new")
+    view = <NewCreativeStory api={api} navigate={navigate} />;
+  else if (area === "creative" && id === "conversations")
+    view = <CreativeConversations api={api} navigate={navigate} />;
+  else if (area === "creative" && id === "conversation" && section)
+    view = (
+      <LifecycleWorkspace
+        key={section}
+        api={api}
+        conversationId={section}
+        selectedDraftId={documentId}
+        navigate={navigate}
+      />
+    );
+  else if (area === "creative" && id === "draft" && section && documentId)
+    view = (
+      <CreativeDraftReader
+        key={`${section}:${documentId}`}
+        api={api}
+        storyId={section}
+        draftId={documentId}
+        navigate={navigate}
+        lifecycle
+      />
+    );
   else if (area === "story" && id && section === "creative")
     view = (
       <CreativeWorkspace
@@ -209,6 +239,12 @@ export function App({
             <span aria-hidden="true">▤</span>故事书架
           </a>
           <a
+            href="#creative/conversations"
+            aria-current={area === "creative" ? "page" : undefined}
+          >
+            <span aria-hidden="true">◌</span>创作会话
+          </a>
+          <a
             href="#library/character"
             aria-current={
               area === "library" && id === "character" ? "page" : undefined
@@ -253,8 +289,8 @@ export function App({
       </aside>
       <main className="main-content">{view}</main>
       {!(
-        area === "story" &&
-        (section === "creative" || section === "draft")
+        area === "creative" ||
+        (area === "story" && (section === "creative" || section === "draft"))
       ) && <WritingHost api={api} route={route} />}
     </div>
   );

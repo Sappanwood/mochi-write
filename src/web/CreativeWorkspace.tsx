@@ -5,6 +5,8 @@ import type {
   CreativeTaskView,
   DraftRef,
 } from "../shared/creative.js";
+import type { LifecycleConversation } from "./CreativeEntry.js";
+import { InitializationScope, draftKind } from "./InitializationReading.js";
 import type { Document } from "../shared/model.js";
 import { type Api, ApiError, message } from "./api.js";
 import {
@@ -26,6 +28,24 @@ interface Request {
   model: string;
   selectedDraft?: DraftRef;
 }
+function readPending(conversationId?: string): Request | undefined {
+  if (!conversationId) return;
+  try {
+    const value = JSON.parse(
+      sessionStorage.getItem(`mochi-creative-pending:${conversationId}`) ??
+        "null",
+    );
+    if (
+      value?.conversationId === conversationId &&
+      ["clientRequestId", "message", "provider", "model"].every(
+        (k) => typeof value[k] === "string",
+      )
+    )
+      return value;
+  } catch {
+    /* Only server records establish whether a request exists. */
+  }
+}
 interface EventPage {
   events: { cursor: number; type: string; data: Record<string, unknown> }[];
   next_cursor: number;
@@ -35,12 +55,14 @@ export function CreativeWorkspace({
   storyId,
   conversationId,
   selectedDraftId,
+  lifecycle = false,
   navigate,
 }: {
   api: Api;
   storyId: string;
   conversationId?: string;
   selectedDraftId?: string;
+  lifecycle?: boolean;
   navigate: (path: string) => void;
 }) {
   const [story, setStory] = useState<Document>(),
@@ -50,19 +72,23 @@ export function CreativeWorkspace({
     [tasks, setTasks] = useState<CreativeTaskView[]>([]),
     [drafts, setDrafts] = useState<CreativeDraft[]>([]),
     [selected, setSelected] = useState<CreativeDraft>(),
-    [text, setText] = useState(""),
+    [text, setText] = useState(
+      () => readPending(conversationId)?.message ?? "",
+    ),
     [error, setError] = useState(""),
     [syncError, setSyncError] = useState(""),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
-    [pending, setPending] = useState<Request>(),
+    [pending, setPending] = useState<Request | undefined>(() =>
+      readPending(conversationId),
+    ),
     [progress, setProgress] = useState<Record<string, ToolProgress[]>>({});
   const base = `/stories/${storyId}/creative`;
   const cursors = useRef(new Map<string, number>());
   const current = useRef(true);
   const refreshing = useRef(false);
   const taskProgress = useRef<Record<string, ToolProgress[]>>({});
-  const pendingRef = useRef<Request | undefined>(undefined);
+  const pendingRef = useRef<Request | undefined>(pending);
   const ended = useRef(new Set<string>());
   const selectedForRoute =
     selected?.id === selectedDraftId ? selected : undefined;
@@ -73,21 +99,40 @@ export function CreativeWorkspace({
       current.current = false;
     };
   }, []);
-  function choose(id: string) {
+  const conversationPath = lifecycle
+    ? `creative/conversation/${conversationId}`
+    : `story/${storyId}/creative/${conversationId}`;
+  function choose(id: string, isLifecycle = false) {
     sessionStorage.setItem(`mochi-creative:${storyId}`, id);
-    navigate(`story/${storyId}/creative/${id}`);
+    navigate(
+      isLifecycle
+        ? `creative/conversation/${id}`
+        : `story/${storyId}/creative/${id}`,
+    );
   }
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      api<Document>(`/stories/${storyId}`),
-      api<{ items: CreativeConversation[] }>(base + "/conversations"),
-      api<{ models: Model[] }>("/writing/models"),
-    ])
+    void (async () => {
+      const choices = await api<{ models: Model[] }>("/writing/models");
+      if (lifecycle && conversationId) {
+        const conversation = await api<LifecycleConversation>(
+          `/creative/conversations/${conversationId}`,
+        );
+        const story = conversation.established
+          ? await api<Document>(`/stories/${storyId}`)
+          : undefined;
+        return [story, { items: [conversation] }, choices] as const;
+      }
+      return [
+        await api<Document>(`/stories/${storyId}`),
+        await api<{ items: CreativeConversation[] }>(base + "/conversations"),
+        choices,
+      ] as const;
+    })()
       .then(([story, list, choices]) => {
         if (!active) return;
         setStory(story);
-        setConversations(list.items);
+        setConversations([...list.items]);
         setModels(choices.models);
         const preferredModel =
           choices.models.find((model) => model.id === "deepseek-v4-flash") ??
@@ -104,7 +149,7 @@ export function CreativeWorkspace({
             [...list.items].sort((a, b) =>
               b.createdAt.localeCompare(a.createdAt),
             )[0]!;
-          choose(chosen.id);
+          choose(chosen.id, chosen.lifecycle);
         }
       })
       .catch((error) => {
@@ -143,14 +188,23 @@ export function CreativeWorkspace({
     if (!conversationId || refreshing.current) return;
     refreshing.current = true;
     try {
-      const [result, drafts] = await Promise.all([
+      const [result, drafts, descriptor] = await Promise.all([
         api<{ items: CreativeTaskView[] }>(
           base + `/tasks?conversationId=${conversationId}`,
         ),
         api<{ items: CreativeDraft[] }>(
           base + `/drafts?conversationId=${conversationId}`,
         ),
+        lifecycle
+          ? api<LifecycleConversation>(
+              `/creative/conversations/${conversationId}`,
+            )
+          : Promise.resolve(undefined),
       ]);
+      if (descriptor?.established) {
+        const value = await api<Document>(`/stories/${storyId}`);
+        if (current.current) setStory(value);
+      }
       if (!current.current) return;
       setTasks(result.items);
       setDrafts(drafts.items);
@@ -161,9 +215,11 @@ export function CreativeWorkspace({
         )
       ) {
         pendingRef.current = undefined;
+        sessionStorage.removeItem(`mochi-creative-pending:${conversationId}`);
         setPending(undefined);
         setText("");
         setSelected(undefined);
+        if (selectedDraftId) navigate(conversationPath);
         setError("");
       }
       for (const task of result.items) {
@@ -256,6 +312,7 @@ export function CreativeWorkspace({
         ]);
         setPending(undefined);
         pendingRef.current = undefined;
+        sessionStorage.removeItem(`mochi-creative-pending:${conversationId}`);
         setText("");
         setSelected(undefined);
       }
@@ -290,6 +347,10 @@ export function CreativeWorkspace({
           }
         : {}),
     };
+    sessionStorage.setItem(
+      `mochi-creative-pending:${conversationId}`,
+      JSON.stringify(value),
+    );
     pendingRef.current = value;
     setPending(value);
     try {
@@ -300,17 +361,18 @@ export function CreativeWorkspace({
         task,
       ]);
       pendingRef.current = undefined;
+      sessionStorage.removeItem(`mochi-creative-pending:${conversationId}`);
       setPending(undefined);
       setText("");
       setSelected(undefined);
-      if (selectedDraftId)
-        navigate(`story/${storyId}/creative/${conversationId}`);
+      if (selectedDraftId) navigate(conversationPath);
     } catch (error) {
       if (
         error instanceof ApiError &&
         [400, 401, 403, 404, 409].includes(error.status)
       ) {
         pendingRef.current = undefined;
+        sessionStorage.removeItem(`mochi-creative-pending:${conversationId}`);
         setPending(undefined);
       }
       throw error;
@@ -328,23 +390,36 @@ export function CreativeWorkspace({
       <header className="page-heading">
         <div>
           <p className="eyebrow">故事创作</p>
-          <h1>{story?.content.name ?? "正在读取故事…"}</h1>
-          <p>说说想看怎样的故事，让 Agent 自主取材、写出下一页。</p>
+          <h1>
+            {story?.content.name ??
+              (lifecycle ? "尚未建立作品" : "正在读取故事…")}
+          </h1>
+          <p>
+            {lifecycle
+              ? story
+                ? story.initializationPending
+                  ? "作品已建立，还没有章节。继续在这里创作第一章。"
+                  : "作品已保存，在当前会话继续创作。"
+                : "先讨论、检索资料或看看草稿，确认后再建立作品。"
+              : "说说想看怎样的故事，让 Agent 自主取材、写出下一页。"}
+          </p>
         </div>
-        <div className="creative-navigation">
-          <button
-            className="secondary"
-            onClick={() => navigate(`story/${storyId}/chapter`)}
-          >
-            阅读章节
-          </button>
-          <button
-            className="quiet"
-            onClick={() => navigate(`story/${storyId}/snapshot`)}
-          >
-            查看故事资料
-          </button>
-        </div>
+        {(!lifecycle || story) && (
+          <div className="creative-navigation">
+            <button
+              className="secondary"
+              onClick={() => navigate(`story/${storyId}/chapter`)}
+            >
+              阅读章节
+            </button>
+            <button
+              className="quiet"
+              onClick={() => navigate(`story/${storyId}/snapshot`)}
+            >
+              查看故事资料
+            </button>
+          </div>
+        )}
       </header>
       {(error || syncError) && (
         <p role="alert" className="error">
@@ -355,40 +430,65 @@ export function CreativeWorkspace({
         <section className="creative-conversation">
           <h2>创作会话</h2>
           <div className="creative-controls">
-            <label>
-              创作会话
-              <select
-                aria-label="创作会话"
-                value={conversationId ?? ""}
-                disabled={busy || loading}
-                onChange={(e) => choose(e.target.value)}
-              >
-                <option value="" disabled>
-                  请选择会话
-                </option>
-                {conversations.map((conversation, index) => (
-                  <option key={conversation.id} value={conversation.id}>
-                    会话 {index + 1} ·{" "}
-                    {new Date(conversation.createdAt).toLocaleString()}
+            {!lifecycle && (
+              <label>
+                创作会话
+                <select
+                  aria-label="创作会话"
+                  value={conversationId ?? ""}
+                  disabled={busy || loading}
+                  onChange={(e) =>
+                    choose(
+                      e.target.value,
+                      conversations.find((c) => c.id === e.target.value)
+                        ?.lifecycle,
+                    )
+                  }
+                >
+                  <option value="" disabled>
+                    请选择会话
                   </option>
-                ))}
-              </select>
-            </label>
-            <button
-              className="secondary"
-              disabled={busy || loading}
-              onClick={() =>
-                void action(async () => {
-                  const conversation = await api<CreativeConversation>(
-                    base + "/conversations",
-                    {},
-                  );
-                  choose(conversation.id);
-                })
-              }
-            >
-              新建创作会话
-            </button>
+                  {conversations.map((conversation, index) => (
+                    <option key={conversation.id} value={conversation.id}>
+                      会话 {index + 1} ·{" "}
+                      {new Date(conversation.createdAt).toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {lifecycle && (
+              <button
+                className="quiet"
+                onClick={() => navigate("creative/conversations")}
+              >
+                全部创作会话
+              </button>
+            )}
+            {!lifecycle || story ? (
+              <button
+                className="secondary"
+                disabled={busy || loading}
+                onClick={() =>
+                  void action(async () => {
+                    const conversation = await api<CreativeConversation>(
+                      base + "/conversations",
+                      {},
+                    );
+                    choose(conversation.id, conversation.lifecycle);
+                  })
+                }
+              >
+                新建创作会话
+              </button>
+            ) : (
+              <button
+                className="secondary"
+                onClick={() => navigate("creative/new")}
+              >
+                新建故事
+              </button>
+            )}
           </div>
           {loading && <p role="status">正在读取会话…</p>}
           {!loading && !conversationId && (
@@ -403,6 +503,15 @@ export function CreativeWorkspace({
                 api={api}
                 task={task}
                 progress={progress[task.id] ?? []}
+                savedDraft={
+                  task.receipt
+                    ? drafts.find(
+                        (d) =>
+                          d.receipt?.operation_id ===
+                          task.receipt!.operation_id,
+                      )
+                    : undefined
+                }
                 navigate={navigate}
                 busy={busy}
                 action={async (task, operation) =>
@@ -453,13 +562,18 @@ export function CreativeWorkspace({
                   已选择草稿：{selectedForRoute.title}（版本{" "}
                   {selectedForRoute.draftRevision}）
                 </p>
+                {selectedForRoute.initialization && (
+                  <InitializationScope
+                    value={selectedForRoute.initialization}
+                  />
+                )}
                 <button
                   type="button"
                   className="quiet"
                   disabled={Boolean(pending)}
                   onClick={() => {
                     setSelected(undefined);
-                    navigate(`story/${storyId}/creative/${conversationId}`);
+                    navigate(conversationPath);
                   }}
                 >
                   取消选择
@@ -472,9 +586,7 @@ export function CreativeWorkspace({
                 <button
                   type="button"
                   className="quiet"
-                  onClick={() =>
-                    navigate(`story/${storyId}/creative/${conversationId}`)
-                  }
+                  onClick={() => navigate(conversationPath)}
                 >
                   取消选择
                 </button>
@@ -492,7 +604,10 @@ export function CreativeWorkspace({
               />
             </label>
             <p className="muted">
-              可先讨论、看草稿，或明确要求写一章并保存。新消息会停止上一轮并撤回尚未执行的保存授权。
+              {lifecycle
+                ? "可先讨论、看草稿、仅建立作品，或明确要求保存首章与关联资料。"
+                : "可先讨论、看草稿，或明确要求写一章并保存。"}
+              新消息会停止上一轮并撤回尚未执行的保存授权。
             </p>
             <button
               disabled={
@@ -534,18 +649,27 @@ export function CreativeWorkspace({
         </section>
         <aside className="creative-artifacts" aria-label="独立草稿">
           <h2>独立草稿</h2>
-          <p className="muted">正文单独阅读；草稿保存为章节后仍保留原稿。</p>
+          <p className="muted">
+            独立阅读每个版本，保存后仍保留原稿；修改时回到会话描述想调整的地方。
+          </p>
           {!drafts.length && <p className="empty">本会话还没有草稿。</p>}
           {drafts.map((draft) => (
             <section key={draft.id} className="creative-draft-card">
+              <p className="eyebrow">{draftKind(draft)}</p>
               <h3>{draft.title}</h3>
               <p className="muted">
                 版本 {draft.draftRevision} ·{" "}
-                {draft.receipt ? "已有正式章节" : "尚未加入章节目录"}
+                {draft.receipt ? "已有正式保存成果" : "尚未正式保存"}
               </p>
               <button
                 className="secondary"
-                onClick={() => navigate(`story/${storyId}/draft/${draft.id}`)}
+                onClick={() =>
+                  navigate(
+                    lifecycle
+                      ? `creative/draft/${storyId}/${draft.id}`
+                      : `story/${storyId}/draft/${draft.id}`,
+                  )
+                }
               >
                 阅读草稿
               </button>

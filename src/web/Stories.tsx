@@ -46,6 +46,15 @@ export function StoriesView({
           <h1>你的故事</h1>
           <p>回到故事会话，让下一章继续发生。</p>
         </div>
+        <div className="creative-navigation">
+          <button onClick={() => navigate("creative/new")}>新建故事</button>
+          <button
+            className="secondary"
+            onClick={() => navigate("creative/conversations")}
+          >
+            创作会话
+          </button>
+        </div>
       </header>
       {error && (
         <p role="alert" className="error">
@@ -54,9 +63,7 @@ export function StoriesView({
       )}
       {loading && <p role="status">正在读取…</p>}
       {!loading && !error && !page.items.length && (
-        <div className="empty">
-          书架上还没有故事。可在导入页面添加 Markdown 资料。
-        </div>
+        <div className="empty">书架上还没有故事。先聊聊你的想法。</div>
       )}
       <div className="story-grid">
         {page.items.map((s, i) => (
@@ -68,7 +75,11 @@ export function StoriesView({
             <div className={`book-cover cover-${i % 3}`}>
               <span>MOCHI WRITE</span>
               <h2>{s.content.name}</h2>
-              <span>故事 · 创作会话</span>
+              <span>
+                {s.initializationPending
+                  ? "作品已建立 · 尚无章节"
+                  : "故事 · 创作会话"}
+              </span>
             </div>
             <h3>{s.content.name}</h3>
             <p>进入会话 · 继续故事 →</p>
@@ -225,8 +236,10 @@ export function StoryReader({
                 <h2>{current.content.name}</h2>
                 {section === "snapshot" && (
                   <p className="muted">
-                    从母版第 {current.sourceVersion} 版复制 · 当前故事第{" "}
-                    {current.currentVersion} 版
+                    {current.sourceAssetId
+                      ? `从母版第 ${current.sourceVersion} 版复制`
+                      : "原创资料"}{" "}
+                    · 当前故事第 {current.currentVersion} 版
                   </p>
                 )}
                 <Markdown text={current.content.markdown} />
@@ -260,7 +273,9 @@ export function StoryReader({
               <div className="empty">
                 {documentId
                   ? "该文档不存在。"
-                  : "这里还没有" + labels[section] + "。"}
+                  : section === "chapter" && story?.initializationPending
+                    ? "作品已建立，还没有章节。返回创作会话继续写第一章。"
+                    : "这里还没有" + labels[section] + "。"}
               </div>
             )}
           </div>

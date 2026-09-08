@@ -7,6 +7,11 @@ import type {
 import type { AssetSource } from "../shared/creative-tools.js";
 import type { Document } from "../shared/model.js";
 import { type Api, ApiError, message } from "./api.js";
+import {
+  InitializationReading,
+  InitializationScope,
+  draftKind,
+} from "./InitializationReading.js";
 import { Markdown } from "./Markdown.js";
 
 function savedPath(receipt: CreativeReceipt) {
@@ -14,7 +19,7 @@ function savedPath(receipt: CreativeReceipt) {
     "chapter_id" in receipt ? receipt.chapter_id : receipt.chapter?.chapter_id;
   return chapterId
     ? `story/${receipt.story_id}/chapter/${chapterId}`
-    : `story/${receipt.story_id}`;
+    : `story/${receipt.story_id}/setting`;
 }
 function onlyStory(receipt: CreativeReceipt) {
   return "kind" in receipt && receipt.kind === "story_initialized";
@@ -29,6 +34,10 @@ const toolLabels: Record<string, string> = {
   search_assets: "检索资料",
   read_asset: "读取资料",
   create_chapter: "创建章节工具",
+  library_vocabulary: "查看检索词表",
+  search_library: "检索角色与世界观",
+  read_library: "读取母版版本",
+  initialize_story: "作品与首章工具",
 };
 const progressLabels: Record<string, string> = {
   running: "运行中",
@@ -93,6 +102,26 @@ function SourceView({
       setBusy(false);
     }
   }
+  if (source.scope === "library")
+    return (
+      <div className="creative-source">
+        <strong>已读取来源：{source.title}</strong>
+        <p className="muted">
+          {source.kind === "character" ? "角色" : "世界观"} · 母版第{" "}
+          {source.version} 版 · 当前会话已固定此版本
+        </p>
+        <details>
+          <summary>来源版本信息</summary>
+          <p className="muted">
+            ID：{source.asset_id}
+            <br />
+            读取版本：{source.revision}
+            <br />
+            内容校验：{source.content_hash}
+          </p>
+        </details>
+      </div>
+    );
   return (
     <div className="creative-source">
       <button className="quiet" disabled={busy} onClick={() => void read()}>
@@ -120,6 +149,7 @@ export function CreativeResults({
   api,
   task,
   progress,
+  savedDraft,
   navigate,
   action,
   busy,
@@ -127,6 +157,7 @@ export function CreativeResults({
   api: Api;
   task: CreativeTaskView;
   progress: ToolProgress[];
+  savedDraft?: CreativeDraft;
   navigate: (path: string) => void;
   action: (
     task: CreativeTaskView,
@@ -188,12 +219,30 @@ export function CreativeResults({
         {saved && (
           <div className="notice creative-receipt">
             <strong>
-              {onlyStory(task.receipt!) ? "作品已建立" : "章节已保存"}
+              {onlyStory(task.receipt!)
+                ? "作品已建立"
+                : "kind" in task.receipt!
+                  ? "首章已保存"
+                  : "章节已保存"}
             </strong>
             <p>
               {onlyStory(task.receipt!) ? "作品" : "正式章节"}第{" "}
-              {task.receipt!.revision} 版，保存结果已由后端确认。
+              {"kind" in task.receipt! &&
+              task.receipt!.kind === "first_chapter_saved"
+                ? task.receipt!.chapter!.revision
+                : task.receipt!.revision}{" "}
+              版，保存结果已由后端确认。
             </p>
+            {"kind" in task.receipt! && (
+              <p>
+                {onlyStory(task.receipt!)
+                  ? `已保存 ${task.receipt!.assets.length} 项初始资料，尚未保存章节。`
+                  : `已随首章保存 ${task.receipt!.assets.length} 项关联资料。`}
+              </p>
+            )}
+            {savedDraft?.initialization && (
+              <InitializationScope value={savedDraft.initialization} />
+            )}
             <button
               className="secondary"
               onClick={() => navigate(savedPath(task.receipt!))}
@@ -249,11 +298,13 @@ export function CreativeDraftReader({
   api,
   storyId,
   draftId,
+  lifecycle = false,
   navigate,
 }: {
   api: Api;
   storyId: string;
   draftId: string;
+  lifecycle?: boolean;
   navigate: (path: string) => void;
 }) {
   const [draft, setDraft] = useState<CreativeDraft>(),
@@ -277,7 +328,10 @@ export function CreativeDraftReader({
         className="back-link"
         onClick={() =>
           navigate(
-            `story/${storyId}/creative${draft ? `/${draft.conversationId}` : ""}`,
+            draft &&
+              (lifecycle || draft.artifactKind === "story_initialization")
+              ? `creative/conversation/${draft.conversationId}`
+              : `story/${storyId}/creative${draft ? `/${draft.conversationId}` : ""}`,
           )
         }
       >
@@ -293,7 +347,9 @@ export function CreativeDraftReader({
         <>
           <header className="page-heading">
             <div>
-              <p className="eyebrow">独立草稿 · 版本 {draft.draftRevision}</p>
+              <p className="eyebrow">
+                {draftKind(draft)} · 版本 {draft.draftRevision}
+              </p>
               <h1>{draft.title}</h1>
               <p>
                 {draft.receipt
@@ -304,9 +360,13 @@ export function CreativeDraftReader({
               </p>
             </div>
           </header>
-          <article className="reading-pane">
-            <Markdown text={draft.body} />
-          </article>
+          {draft.initialization ? (
+            <InitializationReading draft={draft} />
+          ) : (
+            <article className="reading-pane">
+              <Markdown text={draft.body} />
+            </article>
+          )}
           <div className="creative-draft-actions">
             {draft.receipt ? (
               <button onClick={() => navigate(savedPath(draft.receipt!))}>
@@ -316,7 +376,9 @@ export function CreativeDraftReader({
               <button
                 onClick={() =>
                   navigate(
-                    `story/${storyId}/creative/${draft.conversationId}/${draft.id}`,
+                    lifecycle || draft.artifactKind === "story_initialization"
+                      ? `creative/conversation/${draft.conversationId}/${draft.id}`
+                      : `story/${storyId}/creative/${draft.conversationId}/${draft.id}`,
                   )
                 }
               >

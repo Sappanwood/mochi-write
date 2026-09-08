@@ -1,7 +1,7 @@
 # 故事创作会话契约
 
 本模块在已有故事中提供 Agent 自主取材、独立草稿和授权创建新章。MWT-016 另提供未建立作品的生命周期会话 API、
-自然会话母版检索与固定来源；MWT-017 已接入作品初始化事务，新入口 UI 由后续切片接入。正文手工编辑、自动压缩上下文与跨 session
+自然会话母版检索与固定来源；MWT-017/018 已接入作品初始化事务、新建与恢复页面、独立初始化包阅读。正文手工编辑、自动压缩上下文与跨 session
 长期续写不属于本次范围。原有无工具写作侧栏保持独立兼容。
 
 ## 所有权与授权
@@ -14,7 +14,7 @@ Write 持有原始用户消息、故事会话映射、任务、草稿、授权�
 每条用户消息先由独立、无工具的 Mochi 会话解释意图，沿用所选 provider/model。
 输入只含本条原始用户消息与可信的故事／所选草稿元数据，不含作品正文或创作模型的授权判断。
 输出固定为 `{intent,evidence:{start,end,text}}`，intent 为 discuss、draft、save_current、create_and_save、revoke 或 unclear。
-后端严格检查 JSON 字段及 evidence 的 UTF-16 字符区间与原始消息一致。
+后端严格检查 JSON 字段及 evidence 的 UTF-16 字符区间与原始消息一致。意图 prompt 优先引用完整消息，输出上限为 2048 tokens。
 这证明引用确实来自用户，不能消除自然语言分类误判；该剩余边界已接受，不用关键词表冒充语义判断。
 
 明确的 save_current、create_and_save 或 initialize_only 解释能够创建对应的一次性授权。含糊请求需要澄清，讨论和预览仅能生成草稿。
@@ -48,7 +48,9 @@ save_current 还绑定用户当前所选草稿 ID、版本与 hash；不重新�
 不会进入业务 `recordType:head` 列表或导出。`library` 中请求登记把客户端请求 UUID 绑定故事和输入摘要，拒绝跨故事复用。
 Mochi callback 的 task ID 与操作 ID 使用 `storyUUID:taskUUID`，便于定位分区；身份和完整持久绑定仍逐项核对。
 
-任务与会话的新消息占位先原子持久化，再由后台校验请求登记、模型与所选版本，随后解释／创作。
+新任务提交先校验所选草稿属于当前故事／会话，且版本与 hash 完全一致；不匹配返回 409，不创建新任务或停止旧任务。
+有效重复请求先返回原持久任务，即使草稿之后已保存仍能恢复。任务与会话的新消息占位原子持久化后，
+后台继续校验请求登记、模型与所选版本，随后解释／创作。
 校验失败保留失败任务，不能恢复被本条消息撤回的旧授权。较早提交的外部查询即使稍后返回，也不能重新激活已被新消息取消的任务。
 页面关闭不取消任务，GET 刷新只查询已有任务，不自动 POST 新任务。
 解释与创作分别使用稳定幂等键；提交前持久标记。如果响应丢失，只按同 key 核实，不换 key 重放。
@@ -65,7 +67,7 @@ Mochi callback 的 task ID 与操作 ID 使用 `storyUUID:taskUUID`，便于定�
 | 方法与路径 | 输入／结果 |
 |---|---|
 | GET /conversations | `{items}`，当前故事会话 |
-| POST /conversations | `{}`，创建会话 |
+| POST /conversations | `{}`，创建会话；已有 initializationPending 作品创建 lifecycle:true 的七工具会话，其他故事保持旧三工具 |
 | GET /tasks?conversationId=… | `{items}`，用户消息、输出、来源、草稿和收据 |
 | POST /tasks | `{conversationId,clientRequestId,message,provider,model,selectedDraft?}`；返回已持久任务 |
 | GET /tasks/:taskId | 原任务状态，不重新发起生成 |
@@ -199,4 +201,20 @@ initialize_only 只允许无章包，可绑定所选无章版本；create_and_sa
 kind 为 story_initialized 时禁止 chapter；first_chapter_saved 时必须含 `{chapter_id,revision,content_hash}`。
 assets 每项含 `{asset_id,kind,revision,content_hash}`，资料 hash 对完整 Content；chapter hash 对精确正文。
 顶层 content_hash 与 draft_hash 相同，revision 为结果 story 逻辑版本；旧 ChapterReceipt 无 kind 的形状保持不变。
-最小旧阅读组件已适配收据分支，新生命周期页面与初始化包完整展示仍由下一 UI 切片接入。
+页面按收据区分作品建立、首章保存与普通章节保存；首章显示 chapter.revision，而顶层 revision 为作品版本。
+模型后续失败／中断不隐藏已有收据，只有实际含章的收据提供正式章节入口。
+
+
+## 浏览器新建与恢复（MWT-018）
+
+普通与空书架的「新建故事」都进入 `#creative/new`，无需作品标题或资产向导。首次消息 POST 前将原输入与
+clientRequestId 写入 sessionStorage；响应未知时保留，刷新仅 GET by-request，显式重试仍复用原键和输入。
+明确 400／权限／冲突等拒绝清除待核实提示，保留输入供修改。后续消息也保留待核实请求，刷新只查询原任务。
+`#creative/conversations` 是原会话入口列表，不创建独立创意对象。列表标出是否已建立作品；
+`#creative/conversation/:id` 先读 descriptor，无 head 时不调用普通故事 GET。
+
+初始化包在 `#creative/draft/:storyId/:draftId` 独立阅读，可刷新。作品信息、可选首章、资料全文与母版来源版本
+来自服务端冻结包；新增／更新范围在阅读页与所选草稿处显示。selectedDraft 只提交三字段精确引用，
+不把工具 summary 的 artifact_kind 等字段转发为授权输入。草稿只通过对话重写，无编辑器或差异视图。
+保存后仍处于原会话；已建立零章作品允许用户主动新建生命周期会话。所有 creative 路由都隐藏旧 WritingHost，
+不为会话初始化拉取全量母版。布局在 390px 支持输入、阅读与保存成果。

@@ -132,7 +132,7 @@ MWT-005 已登记 `127.0.0.1:12600` 长期开发服务，尚未启动；云发�
 | src/server/filesystem.ts、transfer-cli.ts | 只读本地源、不覆盖目录导出、CLI |
 | src/web | MSAL、资产库、故事阅读、Markdown 渲染与目录导入/ZIP 下载 |
 | src/web/sidebar、WritingHost.tsx | 无业务字段的通用侧栏与小说宿主适配；上下文预览、事件去重与宿主结果操作 |
-| src/web/CreativeWorkspace.tsx、CreativeResults.tsx | 故事会话主入口、原任务轮询与工具游标去重、精确来源核对、独立草稿阅读及收据成果 |
+| src/web/CreativeEntry.tsx、CreativeWorkspace.tsx、CreativeResults.tsx、InitializationReading.tsx | 故事会话主入口、原任务轮询与工具游标去重、精确来源核对、独立草稿阅读及收据成果 |
 | src/server/writing.ts、writing-routes.ts | 引用归属/版本、预算、请求恢复、scope 会话及草稿状态 |
 | src/server/writing-store.ts、mochi-client.ts | 独立 writing records、同分区采纳事务、后端 app-only Mochi HTTP 客户端 |
 | src/shared/creative-tools.ts、src/server/asset-tools.ts | callback wire v1 与故事分区关键词检索、版本绑定分页、精确全文读取及真实来源记录接口 |
@@ -186,7 +186,8 @@ Mochi 保存完整 Pi 工具历史，后续创作回合复用同一执行会话�
 任务轮询和按 after 游标查询的工具事件只恢复已有状态，不自动发送新请求。工具进展按 invocation 更新单项状态，
 重复游标事件不能重复增加进展；草稿来自 Write 持久数据，模型文字或工具事件文本不直接创建「已保存」标识。
 来源查看先读当前文档并比对本轮 opaque revision，变更／删除时说明原版本不可展示，不引入历史正文读取接口。
-提交响应未知时在当前页面保留完整请求，以其 clientRequestId 查询原 task，显式重试也使用原输入和原键。
+提交前以 sessionStorage 保留待核实完整请求，以其 clientRequestId 查询原 task；首次消息用 by-request 查询原会话和任务。
+刷新只读核实，显式重试也使用原输入和原键；明确的输入／权限拒绝清除待核实状态并保留可修改输入。
 同故事最近会话选择保存于 sessionStorage；消息、草稿和授权的权威数据仍由后端持有。
 
 ## 生命周期绑定与全局资料发现（MWT-016）
@@ -202,7 +203,7 @@ Mochi session 派发标记先持久化，未知创建结果中断且不自动重
 同分区事务写入，仅保存 ID、revision、逻辑 version、Content hash 和 scope。后续通过 `Store.getVersion` 点读同一不可变版本，
 保证母版改删后仍能取得已阅读的完整内容。来源不是授权。
 
-新生命周期 session 使用固定七工具快照，旧三工具 session 保持兼容。MWT-017 已实现 initialize_story 正式初始化与首章相关资料原子写入，页面接入按后续切片完成。检索需要 CCP 登记五项 sourceMetadata 索引，
+新生命周期 session 使用固定七工具快照，旧三工具 session 保持兼容。MWT-017 已实现 initialize_story 正式初始化与首章相关资料原子写入，MWT-018 已接入新建／恢复与初始化包阅读。检索需要 CCP 登记五项 sourceMetadata 索引，
 具体字段、错误、预算和本人 API 见 [创作会话契约](CREATIVE_WORKSPACE.md#生命周期会话与母版检索mwt-016)。
 
 
@@ -219,4 +220,9 @@ Mochi session 派发标记先持久化，未知创建结果中断且不自动重
 导入不接受该内部字段，导出不携带它，不把内容迁移扩大为执行会话恢复。生成 snapshot 的来源可省略，有来源时 ID 与版本必须配对。
 
 Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通；旧章节收据原样兼容。模型或连接失败不撤销已经提交的成果，
-重试先按原 OP 和精确包核实。新 UI 尚待接入，目前仅完成旧收据消费者的必要分支适配。
+重试先按原 OP 和精确包核实。CreativeResults 区分零章作品、首章和旧章节收据，首章版本来自 chapter.revision。
+
+`CreativeEntry` 提供新建、会话列表和 lifecycle descriptor 加载；`CreativeWorkspace` 复用原任务轮询与精确选择。
+新增 hash 路由为 creative/new、creative/conversations、creative/conversation/:id/:selectedDraftId? 与 creative/draft/:storyId/:draftId。
+无 head 时只读 descriptor 与 creative 子路径；descriptor 确认 established 后读取正式作品。
+全部 creative 路由隐藏 WritingHost，避免其全量母版加载。`InitializationReading` 渲染冻结包全文与保存范围，母版来源只显示真实固定元数据。

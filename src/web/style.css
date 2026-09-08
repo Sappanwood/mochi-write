@@ -989,3 +989,90 @@ summary {
     padding: 16px;
   }
 }
+.creative-entry {
+  max-width: 850px;
+}
+.creative-session-list {
+  display: grid;
+  gap: 18px;
+  max-width: 1000px;
+}
+.creative-session-card {
+  text-align: left;
+  color: inherit;
+  background: #fffefa;
+  border-color: #d8ddce;
+  padding: 24px;
+  overflow-wrap: anywhere;
+}
+.creative-session-card:hover {
+  background: #eef3e7;
+}
+.creative-session-card h2 {
+  font-family: serif;
+  font-weight: 500;
+  line-height: 1.6;
+  font-size: 23px;
+}
+.creative-session-card p {
+  color: #63705f;
+  font-size: 13px;
+}
+.initialization-reading {
+  display: grid;
+  gap: 24px;
+  max-width: 1000px;
+}
+.initialization-scope {
+  padding: 16px 20px;
+  background: #edf2e5;
+  border: 1px solid #d2dcc7;
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.initialization-scope h3 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+.initialization-scope ul {
+  padding-left: 20px;
+  line-height: 1.8;
+}
+.initialization-asset {
+  margin: 16px 0;
+  border: 1px solid #d8ddce;
+  border-radius: 6px;
+  background: #fffefa;
+  overflow-wrap: anywhere;
+}
+.initialization-asset > summary {
+  padding: 18px;
+  font-weight: 500;
+  line-height: 1.8;
+}
+.initialization-asset > .muted {
+  padding: 0 18px;
+}
+@media (max-width: 650px) {
+  .creative-session-card {
+    padding: 18px;
+  }
+  .creative-session-card h2 {
+    font-size: 20px;
+  }
+  .initialization-scope {
+    padding: 14px;
+  }
+  .initialization-reading .reading-pane {
+    padding: 20px;
+  }
+  .creative-navigation {
+    flex-wrap: wrap;
+  }
+  .creative-navigation button {
+    max-width: 100%;
+  }
+  .creative-entry textarea {
+    min-height: 160px;
+  }
+}
