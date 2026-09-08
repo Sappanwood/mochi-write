@@ -67,8 +67,9 @@ MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration
 ```
 
 该命令使用临时 loopback 端口和隔离持久存储，验证幂等、游标、采纳、调用方隔离及服务重启恢复；
-另包含固定应用工具身份下的 search → read → draft → commit 与完整工具历史验证。
+另包含固定应用工具身份下的 search → read → draft → commit、精确草稿保存、完整工具历史、身份隔离、预算及真实进程中断验证。
 不调用真实模型，不替代 Cosmos/Entra 云端联调。它不属于独立 Repo 的默认 `check`。
+独立收费 smoke 的授权、凭据和报告入口见[隔离验收说明](docs/CREATIVE_WORKSPACE.md#隔离验收入口)。
 
 运行入口为 `npm run dev`（TypeScript 后端）或构建后的 `npm start`；均提供 `dist/web` 静态页面，
 修改前端后需要重新构建。后端要求通过环境传入以下配置，不自动读取 `.env`：
@@ -87,7 +88,7 @@ MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration
 
 Mochi 侧还需配置固定 Write HTTPS callback、operations endpoint 和三个工具的 allowlist；
 Write 的反向角色配置必须对应上述身份。该接入不自动创建云端权限。授权／恢复契约见
-[故事创作会话](docs/CREATIVE_WORKSPACE.md)，创作主工作区 UI 正在后续切片接入。
+[故事创作会话](docs/CREATIVE_WORKSPACE.md)，已有故事可直接进入创作主工作区。
 
 后端目前使用 Managed Identity，不自动创建数据库、container 或 registration。API registration 需签发 v2 access token，
 scope 为 `api://<API client ID>/Write.Access`；SPA redirect 为 `APP_ORIGIN/redirect.html`。
@@ -147,7 +148,7 @@ CLI 不提供认证绕过，也不自动创建云资源。源目录只读；仅�
 
 刷新会话或草稿页只查询原任务和成果，不自动再调用模型；提交响应未知时，当前页面保留原请求，先查询再决定是否同键重试。
 「阅读章节」「查看故事资料」继续访问既有阅读页，阅读页可返回创作会话。创作与意图解释分别显示实际用量，缺失统计为未知。
-本地工作区已接入；完整跨 Repo 和真实模型切片验收由 MWT-013 完成，云端工具身份与配置尚未发布。
+本地第一切片已通过跨 Repo 故障验收和真实 deepseek-v4-flash smoke：自主取材、直接保存、先看草稿后原样保存均已验证。云端工具身份与配置尚未发布。
 
 ### 保留的无工具写作侧栏
 

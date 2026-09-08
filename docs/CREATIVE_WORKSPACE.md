@@ -86,4 +86,27 @@ main 注册个人创作 API 和工具 callback；未配置工具验证时 callba
 具体环境项见 [README](../README.md)。本地实现与隔离测试不代表云端角色、部署或数据库恢复已经验收。
 
 行为测试覆盖原始意图引用、精确草稿、授权撤回、跨范围拒绝、并发保存、幂等与丢失响应。
-API 测试覆盖本人／服务身份分离和非法自报授权；完整切片还要求浏览器与真实 HTTP/Pi 工具集成、独立真实模型 smoke。
+API 测试覆盖本人／服务身份分离和非法自报授权；第一切片已通过浏览器、真实 HTTP/Pi 工具集成和独立 deepseek-v4-flash smoke。
+真实 smoke 验证自主读取设定／角色、直接保存及草稿次轮原样保存，保留合成作品与收据证据；不作为长篇叙事质量评测。
+
+### 隔离验收入口
+
+`MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration` 使用两个真实 HTTP 服务、签名身份和 Pi AgentSession，
+由确定性 provider 驱动自主取材、精确草稿保存、历史恢复、隔离、工具错误及模型／工具／写入预算。
+还覆盖提交响应丢失后保留收据，并在写回调等待响应时实际 SIGKILL 子进程，确认新进程恢复为 interrupted／unknown，
+相同幂等键不会重放模型或写入。存储为隔离 fixture；这不替代收费 Cosmos 或云端身份验收。
+
+真实模型 smoke 单独显式启用，不属于默认门禁。运行前取得模型和累计费用授权，准备两个 Repo 依赖：
+
+```bash
+MOCHI_REPO_ROOT=/absolute/path/to/mochi \
+MOCHI_REAL_SMOKE=deepseek-v4-flash \
+MOCHI_SMOKE_BUDGET_USD=10 \
+MOCHI_SMOKE_REPORT=/tmp/creative-smoke.json \
+node --import tsx tests/integration/creative-smoke.mjs
+```
+
+凭据从进程环境 `DEEPSEEK_API_KEY` 读取，也可通过 `MOCHI_SMOKE_AUTH_FILE` 显式指定含 DeepSeek api_key 的 Pi auth 文件；
+不把凭据写入测试报告。脚本创建合成故事，验证直接写章保存、先看草稿、下一轮原样保存三条自然语言请求，
+报告保留任务、来源、草稿正文、收据和用量。每次预算只覆盖该次进程；重试须扣除前次报告的费用上界，
+累计不超过用户授权。报告按所有输入的峰值价格估算，缺失用量按请求预留上界计入，不作为实际账单。

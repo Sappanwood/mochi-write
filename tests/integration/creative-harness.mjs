@@ -145,7 +145,15 @@ export async function creativeHarness(options = {}) {
   const creative = new Creative(
     content,
     records,
-    { request: (path, body) => clientApi.request(path, body) },
+    {
+      request: (path, body) =>
+        clientApi.request(
+          path,
+          body?.scope && options.transformRun
+            ? options.transformRun(globalThis.structuredClone(body))
+            : body,
+        ),
+    },
     { pollMs: 10 },
   );
   const app = await createApp({

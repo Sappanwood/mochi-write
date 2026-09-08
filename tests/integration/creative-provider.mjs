@@ -10,7 +10,11 @@ const textOf = (message) =>
         .join("");
 export function controlledCreativeProvider() {
   const calls = [];
-  const control = { intent: "create_and_save", failAfterCommit: false };
+  const control = {
+    intent: "create_and_save",
+    failAfterCommit: false,
+    mode: "normal",
+  };
   return {
     calls,
     control,
@@ -47,6 +51,18 @@ export function controlledCreativeProvider() {
               }),
             },
           ];
+        } else if (control.mode !== "normal") {
+          if (control.mode === "repeat_search" || toolResults.length === 0)
+            content = tool(
+              control.mode === "unknown_tool" ? "absent_tool" : "search_assets",
+              control.mode === "invalid_arguments"
+                ? { query: "林舟", unrecognized: true }
+                : { query: "林舟", limit: 5 },
+            );
+          else
+            content = [
+              { type: "text", text: "工具失败已保留，未生成或保存正文。" },
+            ];
         } else if (input.task.intent === "save_current") {
           assert.ok(
             context.messages

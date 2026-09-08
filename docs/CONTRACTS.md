@@ -156,7 +156,7 @@ Mochi 暂不可用不使资产阅读服务整体 unready；写作入口明确显
 
 2026-09-08 已实现本地 `search_assets` / `read_asset` 及 `/api/agent/tools` 注册模块，遵循 Mochi 接受的应用工具 wire v1。
 MWT-011 在 `main` 注册可信持久任务绑定、草稿与授权写章；详见 [故事创作会话契约](CREATIVE_WORKSPACE.md)。
-本地注册不表示生产 Managed Identity 或完整切片验收已完成。
+本地切片已通过隔离集成和真实模型 smoke；生产 Managed Identity 与云端工具部署仍需独立验收。
 
 callback 通过 `MOCHI_TOOLS_CLIENT_ID` / `MOCHI_TOOLS_PRINCIPAL_ID` 成对配置 Mochi 调用身份，
 使用现有 Write API audience、tenant 的 v2 RS256 JWT，核对 azp/oid、有效期及 Write.Tools.Invoke 角色，拒绝任何 scp。
@@ -181,7 +181,7 @@ read 参数固定 `{asset_id,revision}`，均为 1–128 UTF-8 字节。返回 `
 不存在/删除返回 not_found，当前版本变化返回 revision_conflict，跨故事/母版返回 forbidden_scope。
 跨范围识别仅查询 ID 对应 projectId 元数据（每 container 最多 2 条），不读取其他故事正文。
 结果先检查 JSON 大小（预留 envelope 空间），成功前等待 `recordSource({asset_id,kind,title,revision})` 持久化；
-来源失败不能返回成功。可注入仅访问当前 task/session 授权草稿的 readDraft，具体持久化与 UI 消费由 MWT-011/012 承接。
+来源失败不能返回成功。readDraft 仅访问当前 task/session 授权草稿，已接入持久化和创作 UI。
 材料仅是创作资料，不能创建权限或取代 system 指令；系统提示与来源 UI 在工具会话接入时落实。
 
 合法 callback 的业务拒绝返回 HTTP 200 与固定 `{protocol_version:1,invocation_id,outcome:"error",error:{code,retryable:false}}`；
