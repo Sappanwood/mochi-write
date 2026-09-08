@@ -159,3 +159,18 @@ Cosmos 对正文进行有界应用内扫描，跨范围检测仅作 ID→project
 ## 镜像发布所有权
 
 应用 GitHub Actions 在本仓库 main 通过 OIDC 构建、推送并发布 image digest。CCP 的两个 ACA 资源仅忽略 image 字段，其余配置仍受 Terraform 管理。发布不读取 Terraform state，不调用 CCP workflow；触发与维护边界见 [README](../README.md#github-actions-日常发布)。
+
+## 故事工具会话与授权事务
+
+`Creative` 负责故事会话／任务持久绑定，`CreativeWorkflow` 驱动独立无工具意图解释及有界创作运行，
+`CreativeChapters` 验证草稿、授权与幂等写章。`creative-routes` 是本人 API，`tool-routes` 是 Mochi app-only callback；
+两者身份不能互换。工具配置固定于后端，正文与检索结果不能成为授权来源。
+
+`CosmosCreativeStore` 在故事分区保存 `recordType:creative` 的会话、任务和不可变草稿，
+在 library 登记请求 UUID 与故事／输入摘要。授权嵌于任务，正式提交在同一事务中消费授权、保存任务及草稿收据、
+创建章节 head 与版本，并对会话 CAS；正常并发下撤回和提交只有一个先完成。原有 head 查询与导出不包括创作过程记录。
+
+后台驱动不依赖浏览器连接。提交标记与稳定 key 持久化，未知结果只能查询原 key／操作，不能自动重新生成。
+Mochi 保存完整 Pi 工具历史，后续创作回合复用同一执行会话；Write 显示的消息、草稿和收据来自自己的持久任务。
+详细授权、安全与恢复规则见 [故事创作会话契约](CREATIVE_WORKSPACE.md)。此模块已接入本地 main，
+完整浏览器工作区及真实模型工具链验收由后续切片完成，不宣称已发布云端工具角色与配置。

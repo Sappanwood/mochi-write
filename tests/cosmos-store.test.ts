@@ -30,6 +30,22 @@ const doc = entity("character", {
   ageBand: "",
 });
 describe("Cosmos transaction contract", () => {
+  it("looks up only asset ownership metadata with bounded parameterized cross-partition queries", async () => {
+    const f = fixture();
+    f.query.mockReturnValue({
+      fetchAll: async () => ({ resources: [{ projectId: "story" }] }),
+    } as unknown as ReturnType<typeof f.query>);
+    expect(await f.store.assetScopes("' OR true")).toEqual(["story", "story"]);
+    for (const [spec] of f.query.mock.calls) {
+      expect(spec.query).toMatch(/^SELECT TOP 2 c.projectId FROM/);
+      expect(spec.query).not.toContain("' OR true");
+      expect(spec.parameters).toEqual([{ name: "@id", value: "' OR true" }]);
+    }
+    expect(f.query.mock.calls[0]?.[1]).toMatchObject({ forceQueryPlan: true });
+    expect(f.query.mock.calls[1]?.[1]).toMatchObject({
+      partitionKey: "library",
+    });
+  });
   it("creates immutable version and conditional head together in the library partition", async () => {
     const f = fixture();
     const result = await f.store.commit(

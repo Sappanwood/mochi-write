@@ -22,7 +22,7 @@ const apps: FastifyInstance[] = [];
 afterEach(async () => {
   await Promise.all(apps.splice(0).map((app) => app.close()));
 });
-async function fixture() {
+async function fixture(creation = false) {
   const store = new MemoryStore();
   const app = await createApp({
     config,
@@ -50,9 +50,32 @@ async function fixture() {
   const resolve = vi.fn(async (id: string) =>
     id === context.taskId ? context : undefined,
   );
+  const receipt = {
+    operation_id: "operation",
+    status: "committed" as const,
+    story_id: context.storyId,
+    chapter_id: randomUUID(),
+    revision: "1",
+    content_hash: "sha256:abc",
+  };
+  const createChapter = vi.fn(async () => ({
+    data: { chapter_id: receipt.chapter_id },
+    receipt,
+  }));
   registerAgentTools(app, {
     assets: new AssetTools(store),
     resolveTask: resolve,
+    ...(creation
+      ? {
+          createChapter,
+          operation: async (operation_id: string) => ({
+            protocol_version: 1 as const,
+            operation_id,
+            status: "committed" as const,
+            receipt,
+          }),
+        }
+      : {}),
   });
   app.post("/api/test-edit", async () => ({ ok: true }));
   const body: ToolCallback = {
@@ -78,7 +101,7 @@ async function fixture() {
       headers: { authorization, "content-type": "application/json" },
       payload: JSON.stringify(payload),
     });
-  return { app, call, body, context, resolve };
+  return { app, call, body, context, resolve, createChapter, receipt };
 }
 describe("application callback boundary", () => {
   it("accepts service JSON without browser Origin, while preserving personal API protection", async () => {
@@ -199,4 +222,47 @@ describe("application callback boundary", () => {
       ).statusCode,
     ).toBe(401);
   });
+});
+
+it("routes chapter writes through the bound task and returns durable receipts", async () => {
+  const f = await fixture(true);
+  const payload = {
+    ...f.body,
+    tool: { name: "create_chapter", version: "1" },
+    arguments: {
+      mode: "commit",
+      draft_id: "draft",
+      draft_revision: "1",
+      draft_hash: "sha256:abc",
+    },
+  };
+  expect((await f.call(payload)).json()).toMatchObject({
+    outcome: "ok",
+    receipt: f.receipt,
+  });
+  expect(f.createChapter).toHaveBeenCalledWith(
+    f.context,
+    payload.arguments,
+    "invocation",
+  );
+  await f.call({ ...payload, scope: { ...payload.scope, story_id: "other" } });
+  expect(f.createChapter).toHaveBeenCalledTimes(1);
+});
+it("protects operation recovery with service identity and exposes the original receipt", async () => {
+  const f = await fixture(true);
+  const url = "/api/agent/operations/operation";
+  expect(
+    (
+      await f.app.inject({ url, headers: { authorization: "Bearer service" } })
+    ).json(),
+  ).toMatchObject({
+    protocol_version: 1,
+    operation_id: "operation",
+    status: "committed",
+    receipt: f.receipt,
+  });
+  expect(
+    (await f.app.inject({ url, headers: { authorization: "Bearer person" } }))
+      .statusCode,
+  ).toBe(401);
 });

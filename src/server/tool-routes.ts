@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
+import type { ChapterReceipt } from "../shared/creative.js";
 import {
   callbackSchema,
+  toolIdSchema,
   ToolError,
   TOOL_REQUEST_BYTES,
   TOOL_RESPONSE_BYTES,
@@ -20,6 +22,12 @@ export interface ToolTaskContext extends AssetContext {
 export interface AgentToolOptions {
   assets: AssetTools;
   resolveTask: (taskId: string) => Promise<ToolTaskContext | undefined>;
+  createChapter?: (
+    context: ToolTaskContext,
+    args: unknown,
+    invocationId: string,
+  ) => Promise<{ data: unknown; receipt?: ChapterReceipt }>;
+  operation?: (operationId: string) => Promise<unknown>;
 }
 export function registerAgentTools(
   app: FastifyInstance,
@@ -37,16 +45,31 @@ export function registerAgentTools(
       try {
         if (callback.app_id !== "mochi-write")
           throw new ToolError("forbidden_scope");
-        if (!["search_assets", "read_asset"].includes(callback.tool.name))
+        if (
+          ![
+            "search_assets",
+            "read_asset",
+            ...(options.createChapter ? ["create_chapter"] : []),
+          ].includes(callback.tool.name)
+        )
           throw new ToolError("invalid_arguments");
         const context = await options.resolveTask(callback.task_id);
         checkBinding(context, callback);
         await context.bindRun(callback.run_id);
-        const data =
-          callback.tool.name === "search_assets"
-            ? await options.assets.search(context, callback.arguments)
-            : await options.assets.read(context, callback.arguments);
-        const response = { ...base, outcome: "ok" as const, data };
+        const result =
+          callback.tool.name === "create_chapter"
+            ? await options.createChapter!(
+                context,
+                callback.arguments,
+                callback.invocation_id,
+              )
+            : {
+                data:
+                  callback.tool.name === "search_assets"
+                    ? await options.assets.search(context, callback.arguments)
+                    : await options.assets.read(context, callback.arguments),
+              };
+        const response = { ...base, outcome: "ok" as const, ...result };
         if (Buffer.byteLength(JSON.stringify(response)) > TOOL_RESPONSE_BYTES)
           throw new ToolError("result_too_large");
         return response;
@@ -60,6 +83,26 @@ export function registerAgentTools(
       }
     },
   );
+  if (options.operation)
+    app.get(
+      "/api/agent/operations/:operationId",
+      { config: { mochiCallback: true } },
+      async (request) => {
+        const { operationId } = request.params as { operationId: string };
+        toolIdSchema.parse(operationId);
+        try {
+          return await options.operation!(operationId);
+        } catch (error) {
+          if (!(error instanceof ToolError)) throw error;
+          return {
+            protocol_version: 1,
+            operation_id: operationId,
+            status: "rejected",
+            error: { code: error.code },
+          };
+        }
+      },
+    );
 }
 function checkBinding(
   context: ToolTaskContext | undefined,

@@ -1,3 +1,8 @@
+import { Creative } from "./creative.js";
+import { CosmosCreativeStore } from "./creative-store.js";
+import { registerCreative } from "./creative-routes.js";
+import { registerAgentTools } from "./tool-routes.js";
+import { AssetTools } from "./asset-tools.js";
 import { AppError } from "../shared/model.js";
 import { MochiClient } from "./mochi-client.js";
 import { Writing } from "./writing.js";
@@ -52,11 +57,28 @@ try {
     app,
     new Writing(store, new CosmosWritingStore(database), mochi),
   );
+  const creative = new Creative(
+    store,
+    new CosmosCreativeStore(database),
+    mochi,
+  );
+  registerCreative(app, creative);
+  registerAgentTools(app, {
+    assets: new AssetTools(store),
+    resolveTask: (id) => creative.resolveTask(id),
+    createChapter: (context, args, invocationId) =>
+      creative.createChapter(context, args, invocationId),
+    operation: (id) => creative.operation(id),
+  });
+  app.addHook("onReady", async () => {
+    await creative.recover();
+  });
   await app.register(fastifyStatic, {
     root: resolve("dist/web"),
     wildcard: false,
   });
   app.addHook("onClose", async () => {
+    await creative.close();
     cosmos.dispose();
   });
   for (const signal of ["SIGINT", "SIGTERM"])

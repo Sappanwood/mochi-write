@@ -81,8 +81,12 @@ MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration
 | `COSMOS_DATABASE` | 默认 `mochi-write` |
 | `AZURE_CLIENT_ID` | 可选的 user-assigned Managed Identity client ID |
 | `MOCHI_ORIGIN` / `MOCHI_ENTRA_AUDIENCE` | 可选但必须成对；Mochi 精确 origin 与 Entra API audience UUID |
-| `MOCHI_TOOLS_CLIENT_ID` / `MOCHI_TOOLS_PRINCIPAL_ID` | 可选但必须成对；反向工具 callback 的 Mochi 服务 client/principal UUID，要求 Write.Tools.Invoke app role；MWT-010 仅提供认证与工具边界，生产任务绑定待 MWT-011 接入，当前 main 尚未注册 callback |
+| `MOCHI_TOOLS_CLIENT_ID` / `MOCHI_TOOLS_PRINCIPAL_ID` | 可选但必须成对；反向工具 callback 的 Mochi 服务 client/principal UUID，要求 Write.Tools.Invoke app role；main 已注册可信任务 callback，缺少此配置时拒绝工具请求 |
 | `HOST` / `PORT` | 默认 loopback / 8080；容器显式传 `HOST=0.0.0.0` |
+
+Mochi 侧还需配置固定 Write HTTPS callback、operations endpoint 和三个工具的 allowlist；
+Write 的反向角色配置必须对应上述身份。该接入不自动创建云端权限。授权／恢复契约见
+[故事创作会话](docs/CREATIVE_WORKSPACE.md)，创作主工作区 UI 正在后续切片接入。
 
 后端目前使用 Managed Identity，不自动创建数据库、container 或 registration。API registration 需签发 v2 access token，
 scope 为 `api://<API client ID>/Write.Access`；SPA redirect 为 `APP_ORIGIN/redirect.html`。

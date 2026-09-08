@@ -11,6 +11,25 @@ const env = {
 };
 
 describe("startup configuration", () => {
+  it("enables service identity only with an explicit client/principal pair", () => {
+    expect(loadConfig(env).toolAuth).toBeUndefined();
+    for (const field of ["MOCHI_TOOLS_CLIENT_ID", "MOCHI_TOOLS_PRINCIPAL_ID"])
+      expect(() =>
+        loadConfig({ ...env, [field]: env.ENTRA_SPA_CLIENT_ID }),
+      ).toThrow(/together/);
+    expect(
+      loadConfig({
+        ...env,
+        MOCHI_TOOLS_CLIENT_ID: env.ENTRA_SPA_CLIENT_ID,
+        MOCHI_TOOLS_PRINCIPAL_ID: env.ENTRA_OWNER_OID,
+      }).toolAuth,
+    ).toEqual({
+      tenantId: env.ENTRA_TENANT_ID,
+      apiClientId: env.ENTRA_API_CLIENT_ID,
+      clientId: env.ENTRA_SPA_CLIENT_ID,
+      principalId: env.ENTRA_OWNER_OID,
+    });
+  });
   it("requires explicit identity, origin and database configuration", () => {
     expect(() => loadConfig({})).toThrow();
     for (const key of Object.keys(env)) {

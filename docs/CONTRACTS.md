@@ -155,8 +155,8 @@ Mochi 暂不可用不使资产阅读服务整体 unready；写作入口明确显
 ## 已实现的故事资产工具边界（MWT-010）
 
 2026-09-08 已实现本地 `search_assets` / `read_asset` 及 `/api/agent/tools` 注册模块，遵循 Mochi 接受的应用工具 wire v1。
-生产 `main` 尚未注册此入口：任务持久绑定、草稿、授权、create_chapter、来源展示及真实 HTTP 工具联调由后续切片接入；
-不能将本节视作创作任务全链路或生产 Managed Identity 已验收。
+MWT-011 在 `main` 注册可信持久任务绑定、草稿与授权写章；详见 [故事创作会话契约](CREATIVE_WORKSPACE.md)。
+本地注册不表示生产 Managed Identity 或完整切片验收已完成。
 
 callback 通过 `MOCHI_TOOLS_CLIENT_ID` / `MOCHI_TOOLS_PRINCIPAL_ID` 成对配置 Mochi 调用身份，
 使用现有 Write API audience、tenant 的 v2 RS256 JWT，核对 azp/oid、有效期及 Write.Tools.Invoke 角色，拒绝任何 scp。
@@ -165,8 +165,8 @@ callback POST 仅接收 JSON，实际请求体最多 128 KiB，序列化响应�
 
 `registerAgentTools` 必须注入可信 `resolveTask(taskId)`；它返回持久 task/session/story/sourceMessage/operation/authorization
 绑定及 `bindRun(runId)`，入口逐项比对 scope，随后等待首次 run 原子绑定（异 run 拒绝）。body 的 app_id 只核对固定
-mochi-write 身份，不承担认证。未知工具、未知字段或版本拒绝；本阶段 create_chapter 尚不可调用。
-无配置的认证边界 fail closed，无可信 resolver 的生产入口不注册。
+mochi-write 身份，不承担认证。未知工具、未知字段或版本拒绝；create_chapter 按故事创作会话契约执行。
+无配置的认证边界 fail closed，生产 resolver 只返回持久且匹配的任务。
 
 search 参数为 `{query,kind?,limit?,cursor?}`：query 最多 256 Unicode 字符，空字符串浏览；kind 为 setting/outline/snapshot/chapter；
 limit 默认 10、范围 1–20。仅扫描故事当前非删除对象的标题与正文，大小写不敏感子串查询；排除全局母版和其他故事。

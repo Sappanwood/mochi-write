@@ -5,6 +5,7 @@
 ## 项目定位与当前状态
 
 个人小说创作 Web app；资产库支持 Web 编辑，故事支持阅读和单 Agent 草稿采纳，暂无正文手工编辑器。
+MWT-010/011 已在本地接入故事资产工具、独立草稿与有限授权写章后端；创作主界面与全链路验收由后续切片推进，未发布云端工具配置。
 MWT-002 已实现资产编辑、故事阅读、导入导出和个人认证接入；MWT-003 已接通写作侧栏与 Mochi 会话/任务 API。
 本地门禁使用隔离存储及签名测试身份；跨 Repo 集成使用真实 HTTP/Pi AgentSession 与假 provider 输出。
 MWT-004 已发布到 Azure Container Apps，本人 Entra 登录与故事列表 HTTP 200 已验证；
@@ -49,6 +50,7 @@ Backlog、Plan、execution、Report、ADR、Research 均由 ProjectOps 管理，
 | [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) | 设计功能、交互和数据 | 用户流程、范围与数据契约变化 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 设计组件、存储和接入 | 技术选择、所有权与外部契约变化 |
 | [docs/CONTRACTS.md](docs/CONTRACTS.md) | 实现数据、认证、侧栏、导入导出或部署前 | schema、接口、质量入口和接入边界变化 |
+| [docs/CREATIVE_WORKSPACE.md](docs/CREATIVE_WORKSPACE.md) | 实现故事工具会话、授权与恢复 | 草稿、授权、收据、创作 API 或恢复变化 |
 | ProjectOps typed roots | 查看任务、计划、决策背景与验收 | 通过对应 ProjectOps 契约维护 |
 
 ## 常用命令与完工验收
