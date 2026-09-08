@@ -156,7 +156,8 @@ Mochi 暂不可用不使资产阅读服务整体 unready；写作入口明确显
 
 2026-09-08 已实现本地 `search_assets` / `read_asset` 及 `/api/agent/tools` 注册模块，遵循 Mochi 接受的应用工具 wire v1。
 MWT-011 在 `main` 注册可信持久任务绑定、草稿与授权写章；详见 [故事创作会话契约](CREATIVE_WORKSPACE.md)。
-本地切片已通过隔离集成和真实模型 smoke；生产 Managed Identity 与云端工具部署仍需独立验收。
+本地切片已通过隔离集成和真实模型 smoke；2026-09-08 已完成生产 Managed Identity 与云端工具部署验收。
+正式身份链下独立合成故事通过自主读取资产、独立草稿、精确保存和直接生成并保存；正文与草稿及收据 hash 一致，发布版本与边界见 README。
 
 callback 通过 `MOCHI_TOOLS_CLIENT_ID` / `MOCHI_TOOLS_PRINCIPAL_ID` 成对配置 Mochi 调用身份，
 使用现有 Write API audience、tenant 的 v2 RS256 JWT，核对 azp/oid、有效期及 Write.Tools.Invoke 角色，拒绝任何 scp。

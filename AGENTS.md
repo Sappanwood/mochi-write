@@ -5,7 +5,8 @@
 ## 项目定位与当前状态
 
 个人小说创作 Web app；资产库支持 Web 编辑，故事支持阅读和单 Agent 草稿采纳，暂无正文手工编辑器。
-MWT-010/011/012 已在本地接入故事资产工具、独立草稿、有限授权写章及会话主界面；MWT-013 已通过跨 Repo 故障验收与真实 deepseek-v4-flash smoke，未发布云端工具配置。
+MWT-010/011/012 已接入故事资产工具、独立草稿、有限授权写章及会话主界面；MWT-013 已通过跨 Repo 故障验收与真实 deepseek-v4-flash smoke。
+MWT-014 已于 2026-09-08 发布第一切片及云端工具配置，真实 Managed Identity 回调、独立草稿、精确保存、直接生成并保存及刷新阅读均验证通过；发布证据见 README。
 MWT-002 已实现资产编辑、故事阅读、导入导出和个人认证接入；MWT-003 已接通写作侧栏与 Mochi 会话/任务 API。
 本地门禁使用隔离存储及签名测试身份；跨 Repo 集成使用真实 HTTP/Pi AgentSession 与假 provider 输出。
 MWT-004 已发布到 Azure Container Apps，本人 Entra 登录与故事列表 HTTP 200 已验证；

@@ -148,7 +148,21 @@ CLI 不提供认证绕过，也不自动创建云资源。源目录只读；仅�
 
 刷新会话或草稿页只查询原任务和成果，不自动再调用模型；提交响应未知时，当前页面保留原请求，先查询再决定是否同键重试。
 「阅读章节」「查看故事资料」继续访问既有阅读页，阅读页可返回创作会话。创作与意图解释分别显示实际用量，缺失统计为未知。
-本地第一切片已通过跨 Repo 故障验收和真实 deepseek-v4-flash smoke：自主取材、直接保存、先看草稿后原样保存均已验证。云端工具身份与配置尚未发布。
+第一切片已通过本地跨 Repo 故障验收，并于 2026-09-08 发布云端工具身份、配置及创作工作区。
+
+### 第一切片云端发布（2026-09-08）
+
+[云端入口](https://mochi-write.whitemeadow-6e32159b.eastus.azurecontainerapps.io/) 使用既有本人 Entra 登录。
+Write 发布代码为 `53a2973bf925c4649536f0954d4ac7d641401113`，
+[构建与部署 34184281613](https://github.com/Sappanwood/mochi-write/actions/runs/34184281613) 成功；
+镜像 digest 为 `sha256:492df20008778aceb48c38d4d1df85c00f6c8ad961681dca13cd06b85dcbd1bb`，revision 为 `mochi-write--0000005`。
+配套 Mochi 为 `ec98d45549816ce0df8f3df6382587d96e9a1c11`、revision `mochi-agent--0000006`；
+CCP 部署了仅授予 Mochi runtime Managed Identity 的 `Write.Tools.Invoke` 和三个固定工具配置，最终 Terraform plan 无变更。
+
+独立合成故事通过真实 `deepseek-v4-flash` 完成三轮：自主读取设定与角色后只产草稿、将选中版本原样保存、重新取材写另一章并直接保存。
+草稿轮没有新增章节，随后章节数分别为 1 和 2；正式正文与对应草稿完全一致，收据 hash 匹配，刷新后章节和会话成果保留。
+三轮实际 usage 完整，本轮费用保守上界 USD 0.02845084；加上此前本地 smoke 上界合计 USD 0.09984128，均为估算而非账单。
+该验收覆盖正式个人登录、Cosmos 持久化、Managed Identity 工具回调和正常创作路径；数据库恢复及云端进程故障验收仍单独跟踪。
 
 ### 保留的无工具写作侧栏
 

@@ -3,7 +3,7 @@
 ## 当前状态
 
 已实现 React 资产编辑/故事阅读/导入导出及写作侧栏，Fastify 业务 API、个人认证、Cosmos adapter 与版本/采纳事务。
-本地验证使用独立签名测试身份和内存存储，尚无真实 Cosmos/Entra 联调。
+本地验证使用独立签名测试身份和内存存储；云端已完成真实 Cosmos/Entra 联调及第一创作切片的 Managed Identity 工具回调验收。
 已选择 Azure Cosmos DB 作为业务主存储，并确认故事独立快照与页面感知 Agent 侧栏方向；技术栈、个人认证、数据布局与宿主接口已确定，详见 [首期实现契约](CONTRACTS.md)。实际依赖版本固定于 package.json 与 package-lock.json，已由 CCP 发布到 Azure Container Apps，完成本人 Entra 登录及 Cosmos 故事列表读取验证。
 
 ## 组件与所有权
@@ -161,7 +161,7 @@ MWT-010 已提供故事自主取材工具及反向 callback 注册器，独立�
 Cosmos 对正文进行有界应用内扫描，跨范围检测仅作 ID→projectId 元数据查询，不从其他故事读取正文。
 具体参数、错误和预算见 [CONTRACTS](CONTRACTS.md#已实现的故事资产工具边界mwt-010)。
 MWT-011 已在本地 main 接上持久任务/session/story/run 绑定、草稿与授权事务，MWT-012 已接入创作会话与真实来源 UI。
-新增角色授权和云发布仍是独立部署事项；本地跨 Repo 与真实 deepseek-v4-flash 切片验收已完成。
+新增角色授权和云发布由 CCP-007 与 MWT-014 独立执行，已于 2026-09-08 落地；本地跨 Repo 与真实 deepseek-v4-flash 切片验收已完成。
 
 ## 镜像发布所有权
 
@@ -180,7 +180,7 @@ MWT-011 已在本地 main 接上持久任务/session/story/run 绑定、草稿�
 后台驱动不依赖浏览器连接。提交标记与稳定 key 持久化，未知结果只能查询原 key／操作，不能自动重新生成。
 Mochi 保存完整 Pi 工具历史，后续创作回合复用同一执行会话；Write 显示的消息、草稿和收据来自自己的持久任务。
 详细授权、安全与恢复规则见 [故事创作会话契约](CREATIVE_WORKSPACE.md)。此模块已接入本地 main，
-浏览器工作区与真实模型工具链已通过第一切片验收；云端工具角色与配置尚未发布。
+浏览器工作区与真实模型工具链已通过第一切片验收；云端工具角色与配置已发布，正式身份链下三轮创作验证通过，详见 README 的发布记录。
 
 浏览器 `story/:id/creative/:conversationId` 保持会话路由，`story/:id/draft/:draftId` 独立加载草稿；旧章节阅读路由继续有效。
 任务轮询和按 after 游标查询的工具事件只恢复已有状态，不自动发送新请求。工具进展按 invocation 更新单项状态，
