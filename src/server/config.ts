@@ -31,6 +31,8 @@ const schema = z.object({
     .default("mochi-write"),
   MOCHI_ORIGIN: origin.optional(),
   MOCHI_ENTRA_AUDIENCE: z.uuid().optional(),
+  MOCHI_TOOLS_CLIENT_ID: z.uuid().optional(),
+  MOCHI_TOOLS_PRINCIPAL_ID: z.uuid().optional(),
   AZURE_CLIENT_ID: z.uuid().optional(),
   HOST: z.enum(["127.0.0.1", "0.0.0.0", "::1"]).default("127.0.0.1"),
   PORT: z
@@ -53,6 +55,13 @@ export function loadConfig(
   const value = result.data;
   if (Boolean(value.MOCHI_ORIGIN) !== Boolean(value.MOCHI_ENTRA_AUDIENCE))
     throw new Error("Mochi origin and audience must be configured together");
+  if (
+    Boolean(value.MOCHI_TOOLS_CLIENT_ID) !==
+    Boolean(value.MOCHI_TOOLS_PRINCIPAL_ID)
+  )
+    throw new Error(
+      "Mochi tool client and principal must be configured together",
+    );
   return {
     auth: {
       tenantId: value.ENTRA_TENANT_ID,
@@ -61,6 +70,15 @@ export function loadConfig(
       apiClientId: value.ENTRA_API_CLIENT_ID,
     },
     origin: value.APP_ORIGIN,
+    toolAuth:
+      value.MOCHI_TOOLS_CLIENT_ID && value.MOCHI_TOOLS_PRINCIPAL_ID
+        ? {
+            tenantId: value.ENTRA_TENANT_ID,
+            apiClientId: value.ENTRA_API_CLIENT_ID,
+            clientId: value.MOCHI_TOOLS_CLIENT_ID,
+            principalId: value.MOCHI_TOOLS_PRINCIPAL_ID,
+          }
+        : undefined,
     cosmosEndpoint: value.COSMOS_ENDPOINT,
     cosmosDatabase: value.COSMOS_DATABASE,
     managedIdentityClientId: value.AZURE_CLIENT_ID,

@@ -128,6 +128,8 @@ MWT-005 已登记 `127.0.0.1:12600` 长期开发服务，尚未启动；云发�
 | src/web/sidebar、WritingHost.tsx | 无业务字段的通用侧栏与小说宿主适配；上下文预览、事件去重与宿主结果操作 |
 | src/server/writing.ts、writing-routes.ts | 引用归属/版本、预算、请求恢复、scope 会话及草稿状态 |
 | src/server/writing-store.ts、mochi-client.ts | 独立 writing records、同分区采纳事务、后端 app-only Mochi HTTP 客户端 |
+| src/shared/creative-tools.ts、src/server/asset-tools.ts | callback wire v1 与故事分区关键词检索、版本绑定分页、精确全文读取及真实来源记录接口 |
+| src/server/tool-auth.ts、tool-routes.ts | Mochi 服务 app-only 身份、严格 task/session/story scope 与 run 绑定；与本人编辑 API 分离 |
 | tests/integration/mochi.mjs | 显式跨 Repo 真实 HTTP 与持久服务联调，假 provider，不运行真实模型 |
 | tests/support、tests/e2e/browser | 隔离内存存储、签名测试身份与单独测试页面，不被生产构建引用 |
 
@@ -144,6 +146,15 @@ MWT-005 已登记 `127.0.0.1:12600` 长期开发服务，尚未启动；云发�
 采纳单次 batch 包含版本 Create、章节 head Create/IfMatch、草稿 accepted IfMatch；失败不返回采纳成功。
 新章节 ID 在首次提交前分配，反馈重写复用该 ID。只有 succeeded 完整文本可采纳，终态片段来自持久事件。
 生产可不配置 Mochi，此时仅写作入口报告不可用，不使阅读服务的 readiness 失败。
+
+MWT-010 已提供故事自主取材工具及反向 callback 注册器，独立于旧无工具 Writing 链路。
+应用固定故事范围后，Mochi 才能调用 search_assets/read_asset；发现列表只含元数据和有界命中片段，全文按精确 revision 获取。
+搜索每次最多扫描 1000 对象/8 MiB/50 页，HMAC cursor 绑定条件与当前资料版本摘要；重启失效后重新检索。
+成功读取通过注入接口持久记录实际 ID/revision，后续 UI 据此展示来源；权限不能从资料或模型输出取得。
+Cosmos 对正文进行有界应用内扫描，跨范围检测仅作 ID→projectId 元数据查询，不从其他故事读取正文。
+具体参数、错误和预算见 [CONTRACTS](CONTRACTS.md#已实现的故事资产工具边界mwt-010)。
+此阶段生产 main 未注册工具 callback；Mochi app-only 验证虽已具备，仍须 MWT-011 接上持久任务/session/story/run 绑定、草稿与授权事务，
+并由后续切片接入工具会话、真实来源 UI 和跨 Repo HTTP 验证。新增角色授权和云发布仍是独立部署事项。
 
 ## 镜像发布所有权
 

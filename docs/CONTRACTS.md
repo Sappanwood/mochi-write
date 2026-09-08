@@ -150,6 +150,42 @@ Mochi 暂不可用不使资产阅读服务整体 unready；写作入口明确显
 - [Free Tier](https://learn.microsoft.com/en-us/azure/cosmos-db/free-tier)
 - [连续备份](https://learn.microsoft.com/en-us/azure/cosmos-db/continuous-backup-restore-introduction)
 - [Entra 授权码与 PKCE](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow)
+- [Entra token 声明与 app-only roles](https://learn.microsoft.com/en-us/entra/identity-platform/access-token-claims-reference)
+
+## 已实现的故事资产工具边界（MWT-010）
+
+2026-09-08 已实现本地 `search_assets` / `read_asset` 及 `/api/agent/tools` 注册模块，遵循 Mochi 接受的应用工具 wire v1。
+生产 `main` 尚未注册此入口：任务持久绑定、草稿、授权、create_chapter、来源展示及真实 HTTP 工具联调由后续切片接入；
+不能将本节视作创作任务全链路或生产 Managed Identity 已验收。
+
+callback 通过 `MOCHI_TOOLS_CLIENT_ID` / `MOCHI_TOOLS_PRINCIPAL_ID` 成对配置 Mochi 调用身份，
+使用现有 Write API audience、tenant 的 v2 RS256 JWT，核对 azp/oid、有效期及 Write.Tools.Invoke 角色，拒绝任何 scp。
+普通业务路由仍要求本人 delegated Bearer，写入要求同源 Origin；个人 token 不可调用工具，callback token 不可编辑普通资产。
+callback POST 仅接收 JSON，实际请求体最多 128 KiB，序列化响应最多 64 KiB；超限拒绝而不截断。
+
+`registerAgentTools` 必须注入可信 `resolveTask(taskId)`；它返回持久 task/session/story/sourceMessage/operation/authorization
+绑定及 `bindRun(runId)`，入口逐项比对 scope，随后等待首次 run 原子绑定（异 run 拒绝）。body 的 app_id 只核对固定
+mochi-write 身份，不承担认证。未知工具、未知字段或版本拒绝；本阶段 create_chapter 尚不可调用。
+无配置的认证边界 fail closed，无可信 resolver 的生产入口不注册。
+
+search 参数为 `{query,kind?,limit?,cursor?}`：query 最多 256 Unicode 字符，空字符串浏览；kind 为 setting/outline/snapshot/chapter；
+limit 默认 10、范围 1–20。仅扫描故事当前非删除对象的标题与正文，大小写不敏感子串查询；排除全局母版和其他故事。
+每次扫描最多 1000 份资料、8 MiB 标题/正文 UTF-8 总量和 50 个存储页，超限 result_too_large；不向模型传全库正文。
+结果按 kind、ID 升序，固定 `{items:[{asset_id,kind,title,summary,revision}],next_cursor}`；summary 最多 512 字符，
+正文命中时包含命中附近片段。空结果为 `items:[]/next_cursor:null`，发现记录不声称已读取全文。
+cursor 为 HMAC 保护的进程内令牌，绑定故事、原始 query、kind、limit、offset 和全部可检索对象 ID/kind/revision 摘要；
+最长 4096 字节，参数变化/篡改/进程重启返回 invalid_cursor；故事资料变化返回 revision_conflict，须重新从第一页查询。
+扫描使用 Cosmos Session consistency，不承诺跨多页事务快照或任意并发修改下的可串行化读取。
+
+read 参数固定 `{asset_id,revision}`，均为 1–128 UTF-8 字节。返回 `{asset_id,kind,title,revision,content}`，正文保持精确文本。
+不存在/删除返回 not_found，当前版本变化返回 revision_conflict，跨故事/母版返回 forbidden_scope。
+跨范围识别仅查询 ID 对应 projectId 元数据（每 container 最多 2 条），不读取其他故事正文。
+结果先检查 JSON 大小（预留 envelope 空间），成功前等待 `recordSource({asset_id,kind,title,revision})` 持久化；
+来源失败不能返回成功。可注入仅访问当前 task/session 授权草稿的 readDraft，具体持久化与 UI 消费由 MWT-011/012 承接。
+材料仅是创作资料，不能创建权限或取代 system 指令；系统提示与来源 UI 在工具会话接入时落实。
+
+合法 callback 的业务拒绝返回 HTTP 200 与固定 `{protocol_version:1,invocation_id,outcome:"error",error:{code,retryable:false}}`；
+成功返回同基础字段、`outcome:"ok"/data`。认证、JSON、wire schema、存储故障为 HTTP 失败，不透传凭据或数据库原文。
 
 ## 已实现的 v1 数据与 API
 

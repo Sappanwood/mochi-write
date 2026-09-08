@@ -31,6 +31,32 @@ function storageError(error: unknown): never {
 }
 export class CosmosStore implements Store {
   constructor(readonly database: Database) {}
+  async assetScopes(id: string): Promise<(string | null)[]> {
+    try {
+      const results = await Promise.all(
+        ["stories", "library"].map(async (name) => {
+          const { resources } = await this.database
+            .container(name)
+            .items.query<{ projectId: string | null }>(
+              {
+                query:
+                  "SELECT TOP 2 c.projectId FROM c WHERE c.recordType = 'head' AND c.id = @id",
+                parameters: [{ name: "@id", value: id }],
+              },
+              {
+                forceQueryPlan: name === "stories",
+                ...(name === "library" ? { partitionKey: "library" } : {}),
+              },
+            )
+            .fetchAll();
+          return resources.map((row) => row.projectId);
+        }),
+      );
+      return results.flat();
+    } catch (error) {
+      storageError(error);
+    }
+  }
   async get(
     id: string,
     projectId: string | null,

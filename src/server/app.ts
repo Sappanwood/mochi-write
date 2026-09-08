@@ -3,16 +3,27 @@ import { AppError } from "../shared/model.js";
 import Fastify from "fastify";
 import { createVerifier } from "./auth.js";
 import type { AppConfig } from "./config.js";
+import { createToolVerifier } from "./tool-auth.js";
+
+declare module "fastify" {
+  interface FastifyContextConfig {
+    mochiCallback?: boolean;
+  }
+}
 
 interface AppOptions {
   config: AppConfig;
   verify?: (authorization: string | undefined) => Promise<void>;
+  verifyTools?: (authorization: string | undefined) => Promise<"mochi-write">;
   checkStorage: () => Promise<void>;
 }
 
 export async function createApp({
   config,
   verify = createVerifier(config.auth),
+  verifyTools = config.toolAuth
+    ? createToolVerifier(config.toolAuth)
+    : undefined,
   checkStorage,
 }: AppOptions) {
   const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 });
@@ -27,6 +38,27 @@ export async function createApp({
       ["GET", "HEAD"].includes(request.method)
     )
       return;
+    if (request.routeOptions.config.mochiCallback) {
+      try {
+        if (
+          !verifyTools ||
+          (await verifyTools(request.headers.authorization)) !== "mochi-write"
+        )
+          throw new Error();
+      } catch {
+        return reply
+          .code(401)
+          .header("www-authenticate", "Bearer")
+          .send({ error: "工具调用身份无效" });
+      }
+      if (
+        request.method === "POST" &&
+        request.headers["content-type"]?.split(";")[0]?.trim().toLowerCase() !==
+          "application/json"
+      )
+        return reply.code(415).send({ error: "工具请求必须使用 JSON" });
+      return;
+    }
     try {
       await verify(request.headers.authorization);
     } catch {

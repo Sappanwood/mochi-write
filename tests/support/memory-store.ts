@@ -12,6 +12,11 @@ export class MemoryStore implements Store {
   readonly heads = new Map<string, Document>();
   readonly history = new Map<string, Entity>();
   failNext = false;
+  async assetScopes(id: string) {
+    return [...this.heads.values()]
+      .filter((doc) => doc.id === id)
+      .map((doc) => doc.projectId);
+  }
   async get(
     id: string,
     projectId: string | null,
