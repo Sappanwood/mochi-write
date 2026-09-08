@@ -196,6 +196,31 @@ try {
 
   Object.assign(control, {
     mode: "initialize",
+    intent: "initialize_only",
+    includeChapter: false,
+  });
+  const switching = await start("先建立作品和资料，暂时不写章节。");
+  const switched = await h.request(
+    `/api/stories/${switching.conversation.storyId}/creative/conversations`,
+    {},
+  );
+  assert.equal(
+    switched.lifecycle,
+    true,
+    "A zero-chapter story needs initialization tools after a manual session switch",
+  );
+  assert.notEqual(switched.sessionId, switching.conversation.sessionId);
+  Object.assign(control, {
+    mode: "chapter",
+    intent: "create_and_save",
+    assets: [],
+    body: "用户主动更换会话后保存的第一章。\n",
+  });
+  const switchedChapter = await next(switched, "在新会话写第一章并保存。");
+  assert.equal(switchedChapter.receipt.kind, "first_chapter_saved");
+
+  Object.assign(control, {
+    mode: "initialize",
     intent: "draft",
     includeChapter: true,
     body: "首个预览版本。\n",

@@ -14,7 +14,10 @@ Write 持有原始用户消息、故事会话映射、任务、草稿、授权�
 每条用户消息先由独立、无工具的 Mochi 会话解释意图，沿用所选 provider/model。
 输入只含本条原始用户消息与可信的故事／所选草稿元数据，不含作品正文或创作模型的授权判断。
 输出固定为 `{intent,evidence:{start,end,text}}`，intent 为 discuss、draft、save_current、create_and_save、revoke 或 unclear。
-后端严格检查 JSON 字段及 evidence 的 UTF-16 字符区间与原始消息一致。意图 prompt 优先引用完整消息，输出上限为 2048 tokens。
+后端严格检查 JSON 字段及 evidence 的 UTF-16 字符区间与原始消息一致。意图 prompt 直接引用完整消息，输出上限为 2048 tokens。
+新建独立意图会话显式传入 `thinking_level: "off"`，避免推理耗尽分类输出额度；创作会话沿用原模型设置。
+此字段要求先发布支持它的 Mochi runtime；已有会话不迁移，解析失败仍不授予写入权限。
+实际关闭能力服从模型与 SDK 支持；本切片按 DeepSeek V4 的 disabled 投影验收，不承诺所有 provider 都支持关闭。
 这证明引用确实来自用户，不能消除自然语言分类误判；该剩余边界已接受，不用关键词表冒充语义判断。
 
 明确的 save_current、create_and_save 或 initialize_only 解释能够创建对应的一次性授权。含糊请求需要澄清，讨论和预览仅能生成草稿。

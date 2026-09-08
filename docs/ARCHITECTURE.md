@@ -212,6 +212,7 @@ Mochi session 派发标记先持久化，未知创建结果中断且不自动重
 `CreativeInitialization` 校验 draft/commit 分支、展开已读母版及现有资料，并冻结 `InitializationPackage`。
 `initialization-package` 集中定义输入边界、排序键规范 JSON／hash 和有界摘要；标题先规范化再冻结，正式持久对象与收据 hash 一致。
 `CreativeWorkflow` 向独立意图模型提供是否建立、是否有章及所选草稿类型／含章标志，由服务器生成精确一次性授权。
+该独立会话显式使用 Mochi 的 `thinking_level: "off"`；创作会话不设置此字段，已有会话与授权校验保持原契约。
 新 initialize_only 不保存正文；save_current 绑定整个所选版本，首章直接创作保存绑定包含章节的包。
 
 `initialization-operations` 校验包、授权、收据与三条 creative 条件写入一致，将所有 Entity version/head 加入一次同分区 batch。

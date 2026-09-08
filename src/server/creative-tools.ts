@@ -115,7 +115,7 @@ export const LIFECYCLE_TOOLS = [
     version: "1",
     effect: "write",
     description:
-      "Draft an exact story initialization package or commit that version with server-held authorization. Supports creating a story without a chapter and later saving its first chapter with related initial assets.",
+      "Draft mode freezes a selectable candidate only: it creates no formal story, assets or chapter, requires no formal save authorization, and is allowed for 'preview/do not save' requests. Commit mode saves that exact package with server-held authorization. At most 8 assets, with at most one setting and one outline. Each asset uses exactly one form: generate {kind,title,body}; update {kind,asset_id,base_revision,title,body}; or copy a read library master {kind:'snapshot',source_id,source_version,source_hash}. For a master copy, use the version and content_hash returned by read_library, omit title/body, and the server freezes the complete original Content. A generated snapshot is new story material, not a copy of a master. Supports creating a story without a chapter and later saving its first chapter with related initial assets. Commit only the exact draft reference; never regenerate save_current.",
     parameters: {
       oneOf: [
         object(

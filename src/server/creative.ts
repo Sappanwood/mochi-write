@@ -13,11 +13,11 @@ import type { Store } from "./store.js";
 import type { CreativeStore } from "./creative-store.js";
 import type { Mochi } from "./mochi-client.js";
 import { hash } from "./entities.js";
-import { CREATIVE_TOOLS } from "./creative-tools.js";
+import { CREATIVE_TOOLS, LIFECYCLE_TOOLS } from "./creative-tools.js";
 import { CreativeChapters } from "./creative-chapters.js";
 import { CreativeInitialization } from "./creative-initialization.js";
 import { initializationSummary } from "./initialization-package.js";
-import { CreativeLifecycle } from "./creative-lifecycle.js";
+import { CreativeLifecycle, LIFECYCLE_SYSTEM } from "./creative-lifecycle.js";
 import { CreativeWorkflow } from "./creative-workflow.js";
 
 const intentSchema = z
@@ -154,10 +154,14 @@ export class Creative {
     });
   }
   async createConversation(storyId: string) {
-    await this.scope(storyId);
+    const story = await this.scope(storyId);
+    const lifecycle = story.initializationPending === true;
     const session = await this.mochi.request<{ session_id: string }>(
       "/v1/sessions",
-      { system_prompt: CREATIVE_SYSTEM, tools: CREATIVE_TOOLS },
+      {
+        system_prompt: lifecycle ? LIFECYCLE_SYSTEM : CREATIVE_SYSTEM,
+        tools: lifecycle ? LIFECYCLE_TOOLS : CREATIVE_TOOLS,
+      },
     );
     if (!z.uuid().safeParse(session.session_id).success)
       throw new AppError(503, "Mochi 会话响应无效");
@@ -171,6 +175,7 @@ export class Creative {
       revision: "",
       sessionId: session.session_id,
       activeTaskId: null,
+      ...(lifecycle ? { lifecycle: true, librarySources: [] } : {}),
     };
     const [saved] = await this.records.transaction(storyId, [
       { record, revision: null },
@@ -244,6 +249,7 @@ export class Creative {
           throw new AppError(409, "请求 ID 已用于不同输入");
         return duplicate;
       }
+      await this.selected(storyId, input.conversationId, input.selectedDraft);
       const conversation = await this.requireConversation(
         storyId,
         input.conversationId,
