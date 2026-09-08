@@ -17,7 +17,8 @@ import { registerCreative } from "../../src/server/creative-routes.ts";
 import { registerAgentTools } from "../../src/server/tool-routes.ts";
 import { Creative } from "../../src/server/creative.ts";
 import { AssetTools } from "../../src/server/asset-tools.ts";
-import { CREATIVE_TOOLS } from "../../src/server/creative-tools.ts";
+import { LibraryTools } from "../../src/server/library-tools.ts";
+import { LIFECYCLE_TOOLS } from "../../src/server/creative-tools.ts";
 import { MochiClient } from "../../src/server/mochi-client.ts";
 import { entity } from "../../src/server/entities.ts";
 import { MemoryStore } from "../support/memory-store.ts";
@@ -166,6 +167,7 @@ export async function creativeHarness(options = {}) {
   registerCreative(app, creative);
   registerAgentTools(app, {
     assets: new AssetTools(content),
+    library: new LibraryTools(content),
     resolveTask: (id) => creative.resolveTask(id),
     createChapter: (ctx, args, id) => creative.createChapter(ctx, args, id),
     operation: (id) => creative.operation(id),
@@ -180,7 +182,7 @@ export async function creativeHarness(options = {}) {
         endpoint: origin + "/api/agent/tools",
         operations_endpoint: origin + "/api/agent/operations",
         audience: `api://${apiId}`,
-        tools: CREATIVE_TOOLS.map(({ name, version, effect }) => ({
+        tools: LIFECYCLE_TOOLS.map(({ name, version, effect }) => ({
           name,
           version,
           effect,
