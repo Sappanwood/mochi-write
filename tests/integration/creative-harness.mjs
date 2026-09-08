@@ -170,6 +170,7 @@ export async function creativeHarness(options = {}) {
     library: new LibraryTools(content),
     resolveTask: (id) => creative.resolveTask(id),
     createChapter: (ctx, args, id) => creative.createChapter(ctx, args, id),
+    initializeStory: (ctx, args, id) => creative.initializeStory(ctx, args, id),
     operation: (id) => creative.operation(id),
   });
   const origin = await app.listen({ host: "127.0.0.1", port: 0 });

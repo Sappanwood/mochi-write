@@ -11,8 +11,17 @@ const textOf = (message) =>
 
 export function initializationProvider() {
   const calls = [];
+  const control = {
+    intent: "discuss",
+    mode: "discover",
+    body: "守望者举起银色灯盏，紫色火光越过雾港。\n",
+    includeChapter: true,
+    assets: [],
+    failAfterCommit: false,
+  };
   return {
     calls,
+    control,
     configureRuntime(pi, streamFactory) {
       const original = pi.runtime.streamSimple;
       pi.runtime.streamSimple = (model, context) => {
@@ -35,7 +44,7 @@ export function initializationProvider() {
             {
               type: "text",
               text: JSON.stringify({
-                intent: "discuss",
+                intent: control.intent,
                 evidence: {
                   start: 0,
                   end: input.user_message.length,
@@ -49,7 +58,49 @@ export function initializationProvider() {
             ? JSON.parse(textOf(results.at(-1)))
             : undefined;
           if (last) assert.equal(last.outcome, "ok", JSON.stringify(last));
-          if (results.length === 0) content = tool("library_vocabulary", {});
+          if (control.intent === "save_current") {
+            assert.ok(input.task.selected_draft);
+            content =
+              results.length === 0
+                ? tool("initialize_story", {
+                    mode: "commit",
+                    ...input.task.selected_draft,
+                  })
+                : [{ type: "text", text: "已保存选定初始化版本。" }];
+          } else if (
+            control.mode === "chapter" ||
+            control.mode === "continue"
+          ) {
+            const name =
+              control.mode === "continue"
+                ? "create_chapter"
+                : "initialize_story";
+            if (results.length === 0)
+              content = tool(
+                name,
+                control.mode === "continue"
+                  ? { mode: "draft", title: "后续章节", body: control.body }
+                  : {
+                      mode: "draft",
+                      title: "合成雾港故事",
+                      assets: control.assets,
+                      chapter: { title: "雾港首章", body: control.body },
+                    },
+              );
+            else if (
+              results.length === 1 &&
+              control.intent === "create_and_save"
+            ) {
+              const { draft_id, draft_revision, draft_hash } = last.data;
+              content = tool(name, {
+                mode: "commit",
+                draft_id,
+                draft_revision,
+                draft_hash,
+              });
+            } else content = [{ type: "text", text: "本轮成果已处理。" }];
+          } else if (results.length === 0)
+            content = tool("library_vocabulary", {});
           else if (results.length === 1)
             content = tool("search_library", {
               kind: "character",
@@ -74,13 +125,54 @@ export function initializationProvider() {
               era: "近代",
               limit: 5,
             });
-          else
+          else if (control.mode === "initialize" && results.length === 5) {
+            const sources = [results[2], results[4]].map(
+              (r) => JSON.parse(textOf(r)).data,
+            );
+            content = tool("initialize_story", {
+              mode: "draft",
+              title: "合成雾港故事",
+              assets: [
+                {
+                  kind: "setting",
+                  title: "雾港约定",
+                  body: "紫色火焰为归船引航。",
+                },
+                ...sources.map((source) => ({
+                  kind: "snapshot",
+                  source_id: source.asset_id,
+                  source_version: source.version,
+                  source_hash: source.content_hash,
+                })),
+              ],
+              ...(control.includeChapter
+                ? { chapter: { title: "雾港首章", body: control.body } }
+                : {}),
+            });
+          } else if (
+            control.mode === "initialize" &&
+            results.length === 6 &&
+            ["initialize_only", "create_and_save"].includes(control.intent)
+          ) {
+            const { draft_id, draft_revision, draft_hash } = last.data;
+            content = tool("initialize_story", {
+              mode: "commit",
+              draft_id,
+              draft_revision,
+              draft_hash,
+            });
+          } else
             content = [
               {
                 type: "text",
                 text: "已找到合成角色与世界观，先讨论方向，尚未建立作品。",
               },
             ];
+          if (
+            control.failAfterCommit &&
+            results.some((r) => JSON.parse(textOf(r)).receipt)
+          )
+            reason = "length";
         }
         const message = {
           role: "assistant",
