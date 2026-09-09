@@ -47,7 +47,7 @@ Backlog、Plan、execution、Report、ADR、Research 均由 ProjectOps 管理，
 
 | 文档 | 何时读 | 何时更新 |
 |---|---|---|
-| [README.md](README.md) | 了解状态和运行入口 | 实现状态、安装与运行命令变化 |
+| [README.md](README.md) | 了解状态、运行入口与发布验收 | 实现状态、运行命令、发布验收与收尾规则变化 |
 | [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) | 设计功能、交互和数据 | 用户流程、范围与数据契约变化 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 设计组件、存储和接入 | 技术选择、所有权与外部契约变化 |
 | [docs/CONTRACTS.md](docs/CONTRACTS.md) | 实现数据、认证、侧栏、导入导出或部署前 | schema、接口、质量入口和接入边界变化 |
@@ -73,3 +73,12 @@ npm run test:e2e
 完工同步受影响的产品和架构文档；已有 CodeGraph 索引且修改覆盖源码时运行 `codegraph sync`。
 
 应用发布 workflow 与 `scripts/deploy.py` 的修改需运行 Python 发布行为测试，随后执行项目既有质量门禁。日常发布入口与维护边界见 README；不得恢复 CCP 与应用双重管理 image。
+
+## 发布验收与 Agent 收尾
+
+- 发布后按 [README 发布验收](README.md#发布验收与结束条件) 选择受影响范围；既有质量门禁和任务明确约定的验收仍须完成，不因发布追加全量业务或故障验收。
+- 既有证据在相关实现、依赖或运行条件变化，或出现新失败时重新验证受影响部分；未验收事项保持原状态，不自动成为每次发布的阻塞项。
+- 用户已授权的具体发布与验收范围连续执行，不在构建、发布、smoke 或记录等子步骤重复确认；新目标、新收费或权限及破坏性操作超出原授权时，准备可审阅结果后再确认。
+- 普通发布按 [README 收尾记录](README.md#发布收尾记录) 简报版本、部署结果、验收结果与已知问题，并引用证据；达到结束条件即交付。
+- 单项发布沿用已有任务记录；无任务时以本次对话和 Actions 证据收尾，不为发布另建 Backlog、Plan 或 Report。已有 ProjectOps execution 仍按契约验证、验收；多阶段交付满足结案条件后按 ProjectOps 契约生成 Report。
+- 长期文档只同步系统当前行为、状态和操作契约，不逐次追加发布流水；历史证据保留。工作流回顾仍仅在共享规则的触发条件满足时产出。
