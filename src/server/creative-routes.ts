@@ -1,3 +1,4 @@
+import { thinkingLevels } from "../shared/creative.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { CreativeTask, CreativeTaskView } from "../shared/creative.js";
@@ -20,6 +21,7 @@ const submit = z
       .refine((s) => s.trim().length > 0),
     provider: z.string().min(1).max(128),
     model: z.string().min(1).max(128),
+    thinkingLevel: z.enum(thinkingLevels).optional(),
     selectedDraft: draftRef.optional(),
   })
   .strict();
@@ -35,6 +37,7 @@ function taskView(task: CreativeTask): CreativeTaskView {
     message,
     provider,
     model,
+    thinkingLevel,
     selectedDraft,
     status,
     output,
@@ -56,6 +59,7 @@ function taskView(task: CreativeTask): CreativeTaskView {
     message,
     provider,
     model,
+    thinkingLevel,
     selectedDraft,
     status,
     output,

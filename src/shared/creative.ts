@@ -1,6 +1,21 @@
 import type { Entity } from "./model.js";
 import type { AssetSource } from "./creative-tools.js";
 
+export const thinkingLevels = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+export type ThinkingLevel = (typeof thinkingLevels)[number];
+export interface CreativeConfiguration {
+  provider: string;
+  model: string;
+  thinkingLevel?: ThinkingLevel;
+}
 export interface DraftRef {
   draft_id: string;
   draft_revision: string;
@@ -61,6 +76,7 @@ interface RecordBase {
 export interface CreativeConversation extends RecordBase {
   kind: "conversation";
   sessionId: string;
+  configuration?: CreativeConfiguration;
   activeTaskId: string | null;
   lifecycle?: true;
   initialInput?: {
@@ -68,6 +84,7 @@ export interface CreativeConversation extends RecordBase {
     message: string;
     provider: string;
     model: string;
+    thinkingLevel?: ThinkingLevel;
   };
   sessionDispatchStarted?: boolean;
   librarySources?: AssetSource[];
@@ -89,6 +106,7 @@ export interface CreativeTask extends RecordBase {
   sourceHash: string;
   provider: string;
   model: string;
+  thinkingLevel?: ThinkingLevel;
   operationId: string;
   chapterId: string;
   selectedDraft?: DraftRef;
@@ -161,6 +179,7 @@ export type CreativeTaskView = Pick<
   | "message"
   | "provider"
   | "model"
+  | "thinkingLevel"
   | "selectedDraft"
   | "status"
   | "output"

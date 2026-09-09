@@ -1,3 +1,4 @@
+import { thinkingLevels } from "../shared/creative.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { AppError } from "../shared/model.js";
@@ -13,11 +14,10 @@ import type { Store } from "./store.js";
 import type { CreativeStore } from "./creative-store.js";
 import type { Mochi } from "./mochi-client.js";
 import { hash } from "./entities.js";
-import { CREATIVE_TOOLS, LIFECYCLE_TOOLS } from "./creative-tools.js";
 import { CreativeChapters } from "./creative-chapters.js";
 import { CreativeInitialization } from "./creative-initialization.js";
 import { initializationSummary } from "./initialization-package.js";
-import { CreativeLifecycle, LIFECYCLE_SYSTEM } from "./creative-lifecycle.js";
+import { CreativeLifecycle } from "./creative-lifecycle.js";
 import { CreativeWorkflow } from "./creative-workflow.js";
 
 const intentSchema = z
@@ -70,6 +70,7 @@ const submitSchema = z
     conversationId: z.uuid(),
     provider: z.string().min(1).max(64),
     model: z.string().min(1).max(256),
+    thinkingLevel: z.enum(thinkingLevels).optional(),
     message: z
       .string()
       .min(1)
@@ -156,15 +157,6 @@ export class Creative {
   async createConversation(storyId: string) {
     const story = await this.scope(storyId);
     const lifecycle = story.initializationPending === true;
-    const session = await this.mochi.request<{ session_id: string }>(
-      "/v1/sessions",
-      {
-        system_prompt: lifecycle ? LIFECYCLE_SYSTEM : CREATIVE_SYSTEM,
-        tools: lifecycle ? LIFECYCLE_TOOLS : CREATIVE_TOOLS,
-      },
-    );
-    if (!z.uuid().safeParse(session.session_id).success)
-      throw new AppError(503, "Mochi 会话响应无效");
     const now = new Date().toISOString();
     const record: CreativeConversation = {
       id: randomUUID(),
@@ -173,7 +165,7 @@ export class Creative {
       createdAt: now,
       updatedAt: now,
       revision: "",
-      sessionId: session.session_id,
+      sessionId: "",
       activeTaskId: null,
       ...(lifecycle ? { lifecycle: true, librarySources: [] } : {}),
     };
@@ -254,6 +246,39 @@ export class Creative {
         storyId,
         input.conversationId,
       );
+      const previousTasks = conversation.configuration
+        ? []
+        : await this.records.tasks(storyId, conversation.id);
+      const last = previousTasks.at(-1);
+      const fixed =
+        conversation.configuration ??
+        (last
+          ? {
+              provider: last.provider,
+              model: last.model,
+              ...(last.thinkingLevel
+                ? { thinkingLevel: last.thinkingLevel }
+                : {}),
+            }
+          : undefined);
+      if (
+        fixed &&
+        (fixed.provider !== input.provider ||
+          fixed.model !== input.model ||
+          (input.thinkingLevel !== undefined &&
+            fixed.thinkingLevel !== input.thinkingLevel))
+      )
+        throw new AppError(409, "会话开始后不能更换模型或思考强度，请新建会话");
+      if (!fixed && conversation.sessionId && input.thinkingLevel !== undefined)
+        throw new AppError(
+          409,
+          "旧会话已固定原有思考设置，请新建会话选择思考强度",
+        );
+      conversation.configuration = fixed ?? {
+        provider: input.provider,
+        model: input.model,
+        ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
+      };
       const now = new Date().toISOString();
       const task: CreativeTask = {
         id: input.clientRequestId,
@@ -269,6 +294,9 @@ export class Creative {
         sourceHash: hash(input.message),
         provider: input.provider,
         model: input.model,
+        ...(conversation.configuration.thinkingLevel
+          ? { thinkingLevel: conversation.configuration.thinkingLevel }
+          : {}),
         operationId: wireId(storyId, input.clientRequestId),
         chapterId: randomUUID(),
         ...(input.selectedDraft ? { selectedDraft: input.selectedDraft } : {}),

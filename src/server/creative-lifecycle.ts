@@ -1,9 +1,10 @@
+import { thinkingLevels } from "../shared/creative.js";
 import { z } from "zod";
 import { AppError } from "../shared/model.js";
 import type { CreativeConversation } from "../shared/creative.js";
 import { hash, stableId } from "./entities.js";
-import { LIFECYCLE_TOOLS } from "./creative-tools.js";
-import type { Creative } from "./creative.js";
+import { LIFECYCLE_TOOLS, CREATIVE_TOOLS } from "./creative-tools.js";
+import { CREATIVE_SYSTEM, type Creative } from "./creative.js";
 const initialSchema = z
   .object({
     clientRequestId: z.uuid(),
@@ -14,6 +15,7 @@ const initialSchema = z
       .refine((s) => s.trim().length > 0 && Buffer.byteLength(s) <= 32768),
     provider: z.string().min(1).max(64),
     model: z.string().min(1).max(256),
+    thinkingLevel: z.enum(thinkingLevels).optional(),
   })
   .strict();
 export const LIFECYCLE_SYSTEM =
@@ -83,6 +85,7 @@ export class CreativeLifecycle {
         conversationId: id,
         provider: input.provider,
         model: input.model,
+        ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
         message: input.message,
       }),
     );
@@ -139,7 +142,7 @@ export class CreativeLifecycle {
     return this.host.serial(async () => {
       let conversation = await this.host.requireConversation(storyId, id);
       if (conversation.sessionId) return conversation.sessionId;
-      if (!conversation.lifecycle || conversation.sessionDispatchStarted)
+      if (conversation.sessionDispatchStarted)
         throw new AppError(
           400,
           "原会话创建结果未知，请保留当前记录并主动新建会话",
@@ -151,7 +154,15 @@ export class CreativeLifecycle {
       conversation = saved[0]!;
       const result = await this.host.mochi.request<{ session_id: string }>(
         "/v1/sessions",
-        { system_prompt: LIFECYCLE_SYSTEM, tools: LIFECYCLE_TOOLS },
+        {
+          system_prompt: conversation.lifecycle
+            ? LIFECYCLE_SYSTEM
+            : CREATIVE_SYSTEM,
+          tools: conversation.lifecycle ? LIFECYCLE_TOOLS : CREATIVE_TOOLS,
+          ...(conversation.configuration?.thinkingLevel
+            ? { thinking_level: conversation.configuration.thinkingLevel }
+            : {}),
+        },
       );
       if (!z.uuid().safeParse(result.session_id).success)
         throw new AppError(503, "Mochi 会话响应无效");

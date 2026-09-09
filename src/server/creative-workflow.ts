@@ -227,12 +227,19 @@ export class CreativeWorkflow {
           task.selectedDraft,
         );
         const models = await this.host.mochi.request<{
-          models: { provider: string; id: string }[];
+          models: {
+            provider: string;
+            id: string;
+            thinking_levels?: string[];
+          }[];
         }>("/v1/models");
         if (
           !models.models.some(
             (model) =>
-              model.provider === task.provider && model.id === task.model,
+              model.provider === task.provider &&
+              model.id === task.model &&
+              (!task.thinkingLevel ||
+                model.thinking_levels?.includes(task.thinkingLevel)),
           )
         )
           throw new AppError(400, "模型不可用");

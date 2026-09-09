@@ -25,7 +25,11 @@ Mochi 不直接持有或修改正式小说数据，认证共享不挂载给本�
 已有故事的主要入口为 `CreativeWorkspace`。浏览器只提交自然语言消息、模型选择和可选的精确草稿引用，
 Write 生成有限授权与故事 scope；Mochi 保存固定工具快照并执行自主取材、草稿和新章工具。
 Write 持久 task 的原始消息与最终文字构成 UI 会话时间线，Mochi 完整 Pi 历史仍是后续模型回合的权威上下文，
-前端不导入或重建可执行模型历史。草稿与正式章节分别阅读，保存只由业务收据确认。
+前端不导入或重建可执行模型历史。草稿在会话双栏中直接阅读，正式章节保留阅读页，保存只由业务收据确认。
+`CreativeDraftPane` 显示服务端持久草稿，按草稿 ID 保存页面内阅读位置；`CreativeWorkspace` 维护
+当前视图、阅读版本与输入引用。`CreativeModelPicker` 在首次输入前读取 Mochi 目录的模型和支持思考档位，
+开始后显示服务端固定配置。手机切换视图保留两个面板实例，输入区始终在当前视图下方。
+新草稿不会自动替换当前阅读版本；选择版本仅改变前端引用，保存仍沿用自然语言请求与后端授权契约。
 
 以下无工具 Writing 链路继续保留在阅读与资产页面的侧栏。
 应用负责组织本次要求、相关角色母版及快照、世界观、选定前文和按需加入的大纲。
@@ -132,7 +136,7 @@ MWT-005 已登记 `127.0.0.1:12600` 长期开发服务，尚未启动；云发�
 | src/server/filesystem.ts、transfer-cli.ts | 只读本地源、不覆盖目录导出、CLI |
 | src/web | MSAL、资产库、故事阅读、Markdown 渲染与目录导入/ZIP 下载 |
 | src/web/sidebar、WritingHost.tsx | 无业务字段的通用侧栏与小说宿主适配；上下文预览、事件去重与宿主结果操作 |
-| src/web/CreativeEntry.tsx、CreativeWorkspace.tsx、CreativeResults.tsx、InitializationReading.tsx | 故事会话主入口、原任务轮询与工具游标去重、精确来源核对、独立草稿阅读及收据成果 |
+| src/web/CreativeEntry.tsx、CreativeWorkspace.tsx、CreativeDraftPane.tsx、CreativeResults.tsx、InitializationReading.tsx | 故事会话主入口、原任务轮询与工具游标去重、精确来源核对、独立草稿阅读及收据成果 |
 | src/server/writing.ts、writing-routes.ts | 引用归属/版本、预算、请求恢复、scope 会话及草稿状态 |
 | src/server/writing-store.ts、mochi-client.ts | 独立 writing records、同分区采纳事务、后端 app-only Mochi HTTP 客户端 |
 | src/shared/creative-tools.ts、src/server/asset-tools.ts | callback wire v1 与故事分区关键词检索、版本绑定分页、精确全文读取及真实来源记录接口 |
@@ -176,6 +180,12 @@ MWT-011 已在本地 main 接上持久任务/session/story/run 绑定、草稿�
 `CosmosCreativeStore` 在故事分区保存 `recordType:creative` 的会话、任务和不可变草稿，
 在 library 登记请求 UUID 与故事／输入摘要。授权嵌于任务，正式提交在同一事务中消费授权、保存任务及草稿收据、
 创建章节 head 与版本，并对会话 CAS；正常并发下撤回和提交只有一个先完成。原有 head 查询与导出不包括创作过程记录。
+
+`Creative.submit` 将首次 provider/model/thinkingLevel 与 task、conversation 以同一 CAS 事务持久化，
+后续配置变更在修改旧任务之前拒绝。无 configuration 的旧会话沿用最近任务模型和原思考设置。
+新建故事及已有故事的新会话均在首条消息后由 `CreativeLifecycle.session` 建立 Mochi session，
+提前持久派发标记防止未知响应造成重复会话；所选 thinkingLevel 作为 session 参数固定，意图解释仍为 off。
+该接口需要先发布支持完整 thinking_level 档位与 thinking_levels 目录字段的 Mochi，再发布本消费者。
 
 后台驱动不依赖浏览器连接。提交标记与稳定 key 持久化，未知结果只能查询原 key／操作，不能自动重新生成。
 Mochi 保存完整 Pi 工具历史，后续创作回合复用同一执行会话；Write 显示的消息、草稿和收据来自自己的持久任务。

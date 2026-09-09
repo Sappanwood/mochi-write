@@ -16,10 +16,12 @@ test.afterEach(async () => {
   await f?.close();
 });
 async function send(page: Page, message: string, create = true) {
-  if (create)
+  if (create) {
+    await page.getByText("会话与导航", { exact: true }).click();
     await page
       .getByRole("button", { name: "新建创作会话", exact: true })
       .click();
+  }
   await page.getByLabel("对故事说点什么", { exact: true }).fill(message);
   const response = page.waitForResponse(
     (r) =>
@@ -60,6 +62,7 @@ test("story entry opens the creative conversation workspace", async ({
   await expect(
     page.getByRole("heading", { name: "创作会话", exact: true }),
   ).toBeVisible();
+  await page.getByText("会话与导航", { exact: true }).click();
   await expect(
     page.getByRole("button", { name: "新建创作会话", exact: true }),
   ).toBeVisible();
@@ -103,7 +106,7 @@ test("independent draft survives refresh and exact selection saves one chapter o
   ).toBeVisible();
   await page.getByRole("button", { name: "选择此版本", exact: true }).click();
   await expect(
-    page.getByText("已选择草稿：第三章 归灯（版本 1）", { exact: true }),
+    page.getByText("当前引用：第三章 归灯 · 第 1 稿", { exact: true }),
   ).toBeVisible();
   f.mochi.intent = "save_current";
   const saving = await send(page, "保存这个版本", false);
@@ -188,6 +191,9 @@ test("running refresh resumes the same task and repeated tool events render once
     },
     source.revision,
   );
+  await taskSection(page, task)
+    .getByText(/本轮实际读取的资料/)
+    .click();
   await taskSection(page, task)
     .getByRole("button", {
       name: `查看来源：${source.content.name}`,
@@ -306,6 +312,9 @@ test("terminal history drains all event pages before marking tool progress compl
   await page.goto(
     `${f.address}/#story/${f.story.id}/creative/${task.conversationId}`,
   );
+  await taskSection(page, task)
+    .getByText(/创作过程/)
+    .click();
   const progress = taskSection(page, task).getByRole("region", {
     name: "工具进展",
   });
@@ -328,7 +337,7 @@ for (const destination of ["unselected", "missing"] as const) {
     f.mochi.finish(task.runId!);
     await page.getByRole("button", { name: "阅读草稿", exact: true }).click();
     await page.getByRole("button", { name: "选择此版本", exact: true }).click();
-    const selected = page.getByText("已选择草稿：第三章 归灯（版本 1）", {
+    const selected = page.getByText("当前引用：第三章 归灯 · 第 1 稿", {
       exact: true,
     });
     await expect(selected).toBeVisible();

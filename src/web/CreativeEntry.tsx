@@ -2,22 +2,23 @@ import { useEffect, useRef, useState } from "react";
 import type {
   CreativeConversation,
   CreativeTaskView,
+  ThinkingLevel,
 } from "../shared/creative.js";
 import { type Api, ApiError, message } from "./api.js";
+import {
+  CreativeModelPicker,
+  type CreativeModel,
+} from "./CreativeModelPicker.js";
 import { CreativeWorkspace } from "./CreativeWorkspace.js";
 export type LifecycleConversation = CreativeConversation & {
   established: boolean;
 };
-interface Model {
-  provider: string;
-  id: string;
-  name?: string;
-}
 interface FirstRequest {
   clientRequestId: string;
   message: string;
   provider: string;
   model: string;
+  thinkingLevel?: ThinkingLevel;
 }
 const requestKey = "mochi-creative-first-request";
 function pendingFirst(): FirstRequest | undefined {
@@ -44,8 +45,11 @@ export function NewCreativeStory({
 }) {
   const [pending, setPending] = useState(pendingFirst),
     [text, setText] = useState(() => pendingFirst()?.message ?? ""),
-    [models, setModels] = useState<Model[]>([]),
+    [models, setModels] = useState<CreativeModel[]>([]),
     [model, setModel] = useState(""),
+    [thinking, setThinking] = useState<ThinkingLevel | "">(
+      () => pendingFirst()?.thinkingLevel ?? "",
+    ),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const initial = useRef(pending);
@@ -82,7 +86,7 @@ export function NewCreativeStory({
   }
   useEffect(() => {
     let active = true;
-    void api<{ models: Model[] }>("/writing/models")
+    void api<{ models: CreativeModel[] }>("/writing/models")
       .then((result) => {
         if (!active) return;
         setModels(result.models);
@@ -107,6 +111,7 @@ export function NewCreativeStory({
       message: text,
       provider: choice!.provider,
       model: choice!.id,
+      ...(thinking ? { thinkingLevel: thinking } : {}),
     };
     sessionStorage.setItem(requestKey, JSON.stringify(request));
     setPending(request);
@@ -148,24 +153,16 @@ export function NewCreativeStory({
           void send();
         }}
       >
-        <label>
-          创作模型
-          <select
-            aria-label="创作模型"
-            value={model}
-            disabled={busy || Boolean(pending)}
-            onChange={(e) => setModel(e.target.value)}
-          >
-            {models.map((m) => (
-              <option
-                key={`${m.provider}/${m.id}`}
-                value={`${m.provider}/${m.id}`}
-              >
-                {m.name ?? m.id} · {m.provider}
-              </option>
-            ))}
-          </select>
-        </label>
+        <CreativeModelPicker
+          models={models}
+          model={model}
+          thinking={thinking}
+          onModel={setModel}
+          onThinking={setThinking}
+          locked={pending}
+          disabled={busy || Boolean(pending)}
+        />
+        <p className="muted">首次发送后，本会话的模型与思考强度固定。</p>
         <label>
           对故事说点什么
           <textarea

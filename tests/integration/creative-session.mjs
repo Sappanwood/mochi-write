@@ -16,6 +16,7 @@ try {
     conversationId: conversation.id,
     provider: "deepseek",
     model: "deepseek-v4-flash",
+    thinkingLevel: "low",
     message: "让林舟在暴风夜守住灯塔，写一章并保存。",
   });
   const task = await harness.waitTask(story.id, first.id);
@@ -26,8 +27,32 @@ try {
     `/api/stories/${story.id}/documents/${task.receipt.chapter_id}`,
   );
   assert.ok(chapter.content.markdown.includes("黄铜指环"));
+  const startedConversation = await harness.creative.requireConversation(
+    story.id,
+    conversation.id,
+  );
+  assert.equal(
+    (
+      await harness.mochiRequest(
+        `/v1/sessions/${startedConversation.sessionId}`,
+      )
+    ).thinking_level,
+    "low",
+  );
+  await harness.request(
+    base + "/tasks",
+    {
+      clientRequestId: randomUUID(),
+      conversationId: conversation.id,
+      provider: "deepseek",
+      model: "deepseek-v4-flash",
+      thinkingLevel: "high",
+      message: "不能换强度",
+    },
+    409,
+  );
   const history = await harness.mochiRequest(
-    `/v1/sessions/${conversation.sessionId}/history?format=pi-v1`,
+    `/v1/sessions/${startedConversation.sessionId}/history?format=pi-v1`,
   );
   assert.ok(
     history.messages.some(

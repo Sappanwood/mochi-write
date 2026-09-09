@@ -11,11 +11,15 @@ Write 持有原始用户消息、故事会话映射、任务、草稿、授权�
 后端为故事会话注册固定 `search_assets`、`read_asset`、`create_chapter` 工具快照。
 模型按需查询当前故事，用户无需预先勾选资料。作品正文、角色描述和检索结果均是资料，不能赋予权限。
 
-每条用户消息先由独立、无工具的 Mochi 会话解释意图，沿用所选 provider/model。
+首次发送时将 provider/model 与可选 thinkingLevel 同任务一起固定在 conversation.configuration；
+后续消息不能更换模型或显式改动思考强度，409 拒绝发生在撤回旧授权、取消旧任务之前。
+新消息省略 thinkingLevel 时沿用已固定值。已有会话缺少 configuration 时，以最近记录任务的模型和原思考设置为准，
+在下次有效提交时持久绑定；不会采用新页面的默认模型。重复请求仍先按原摘要找回原任务。
+每条用户消息先由独立、无工具的 Mochi 会话解释意图，沿用固定 provider/model。
 输入只含本条原始用户消息与可信的故事／所选草稿元数据，不含作品正文或创作模型的授权判断。
 输出固定为 `{intent,evidence:{start,end,text}}`，intent 为 discuss、draft、save_current、create_and_save、revoke 或 unclear。
 后端严格检查 JSON 字段及 evidence 的 UTF-16 字符区间与原始消息一致。意图 prompt 直接引用完整消息，输出上限为 2048 tokens。
-新建独立意图会话显式传入 `thinking_level: "off"`，避免推理耗尽分类输出额度；创作会话沿用原模型设置。
+新建独立意图会话显式传入 `thinking_level: "off"`，避免推理耗尽分类输出额度；创作会话使用用户固定的思考强度。
 此字段要求先发布支持它的 Mochi runtime；已有会话不迁移，解析失败仍不授予写入权限。
 实际关闭能力服从模型与 SDK 支持；本切片按 DeepSeek V4 的 disabled 投影验收，不承诺所有 provider 都支持关闭。
 这证明引用确实来自用户，不能消除自然语言分类误判；该剩余边界已接受，不用关键词表冒充语义判断。
@@ -70,9 +74,9 @@ Mochi callback 的 task ID 与操作 ID 使用 `storyUUID:taskUUID`，便于定�
 | 方法与路径 | 输入／结果 |
 |---|---|
 | GET /conversations | `{items}`，当前故事会话 |
-| POST /conversations | `{}`，创建会话；已有 initializationPending 作品创建 lifecycle:true 的七工具会话，其他故事保持旧三工具 |
+| POST /conversations | `{}`，创建本地会话记录；首次消息再建立 Mochi session，以便开始前选择思考强度。已有 initializationPending 作品使用 lifecycle:true 七工具，其他故事保持三工具 |
 | GET /tasks?conversationId=… | `{items}`，用户消息、输出、来源、草稿和收据 |
-| POST /tasks | `{conversationId,clientRequestId,message,provider,model,selectedDraft?}`；返回已持久任务 |
+| POST /tasks | `{conversationId,clientRequestId,message,provider,model,thinkingLevel?,selectedDraft?}`；返回已持久任务 |
 | GET /tasks/:taskId | 原任务状态，不重新发起生成 |
 | POST /tasks/:taskId/cancel | `{}`；撤回授权并停止原运行 |
 | GET /tasks/:taskId/events?after=… | 原 run 的有序事件与游标 |
@@ -80,6 +84,9 @@ Mochi callback 的 task ID 与操作 ID 使用 `storyUUID:taskUUID`，便于定�
 | GET /drafts?conversationId=… | `{items}`，独立草稿正文与收据 |
 | GET /drafts/:draftId | 单份草稿，支持独立阅读与刷新 |
 
+thinkingLevel 可省略，或为 off/minimal/low/medium/high/xhigh/max；非默认选择还须属于 Mochi 模型目录的 thinking_levels。
+服务端在创作派发前检查能力，不将不支持的选项静默改成另一强度。Mochi session 创建后无修改接口；
+创建前先持久派发标记，响应未知不重放。旧已有 session 保持原有思考配置，需要其他强度时新建会话。
 selectedDraft 为 `{draft_id,draft_revision,draft_hash}`，浏览器任务 DTO 不暴露后端授权记录。
 Mochi callback `POST /api/agent/tools` 和 `GET /api/agent/operations/:operationId` 使用专用 app-only 身份，
 沿用 [CONTRACTS](CONTRACTS.md) 的工具认证和响应大小边界。正式提交成功响应携带收据；操作查询返回 committed、rejected 或 not_found。
@@ -122,7 +129,7 @@ node --import tsx tests/integration/creative-smoke.mjs
 ## 生命周期会话与母版检索（MWT-016）
 
 首次发送前不创建故事或独立创意业务对象。`POST /api/creative/conversations` 接受
-`{clientRequestId,message,provider,model}`，返回 `{conversation,task}`（task 使用既有脱敏 DTO）。
+`{clientRequestId,message,provider,model,thinkingLevel?}`，返回 `{conversation,task}`（task 使用既有脱敏 DTO）。
 后端为请求固定 storyId/conversationId，先在 library 登记请求摘要，再持久化带 `lifecycle:true` 的会话、
 首条输入及任务。允许 stories 分区只有 creative records 而没有 story head；正式故事列表、阅读及旧会话创建仍要求 ready head。
 相同键同输入找回原任务，异输入 409；中途仅会话已保存的请求由恢复流程使用已保存输入补齐任务。
@@ -216,8 +223,14 @@ clientRequestId 写入 sessionStorage；响应未知时保留，刷新仅 GET by
 `#creative/conversations` 是原会话入口列表，不创建独立创意对象。列表标出是否已建立作品；
 `#creative/conversation/:id` 先读 descriptor，无 head 时不调用普通故事 GET。
 
-初始化包在 `#creative/draft/:storyId/:draftId` 独立阅读，可刷新。作品信息、可选首章、资料全文与母版来源版本
-来自服务端冻结包；新增／更新范围在阅读页与所选草稿处显示。selectedDraft 只提交三字段精确引用，
+初始化包可在原会话草稿面板直接阅读，也可通过 `#creative/draft/:storyId/:draftId` 独立阅读和刷新。
+桌面采用双栏独立滚动，900px 及以下切换「对话／草稿」视图，共用输入区；切换视图不卸载面板，
+草稿版本分别保留当前页面内的滚动位置。新草稿只提示更新，不自动切换视图或替换当前草稿。
+作品信息、可选首章、资料全文与母版来源版本来自服务端冻结包；新增／更新范围在面板按需展开，
+点击「保存此版本」时填入明确请求并展开保存范围，发送后仍保持当前视图。
+查看草稿会将其设为输入区引用，反馈、保存与显式重试固定所选版本；仅查看或切换版本不发起保存。
+界面的第 N 稿按会话草稿生成顺序排列，不替代存储中的不可变 draftRevision。
+selectedDraft 只提交三字段精确引用，
 不把工具 summary 的 artifact_kind 等字段转发为授权输入。草稿只通过对话重写，无编辑器或差异视图。
 保存后仍处于原会话；已建立零章作品允许用户主动新建生命周期会话。所有 creative 路由都隐藏旧 WritingHost，
 不为会话初始化拉取全量母版。布局在 390px 支持输入、阅读与保存成果。

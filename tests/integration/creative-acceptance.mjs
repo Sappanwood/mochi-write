@@ -41,8 +41,12 @@ try {
   const ref = first.artifacts[0];
   const draft = await h.request(base + `/drafts/${ref.draft_id}`);
   assert.notEqual(first.output, draft.body);
+  const startedConversation = await h.creative.requireConversation(
+    story.id,
+    conversation.id,
+  );
   const beforeSaveHistory = await h.mochiRequest(
-    `/v1/sessions/${conversation.sessionId}/history?format=pi-v1`,
+    `/v1/sessions/${startedConversation.sessionId}/history?format=pi-v1`,
   );
   assert.ok(
     beforeSaveHistory.messages.some(
@@ -60,7 +64,7 @@ try {
   const runs = [first.runId, saved.runId].map((id) => h.store.runs.get(id));
   assert.equal(runs[0].session_id, runs[1].session_id);
   const finalMessages = await h.mochiRequest(
-    `/v1/sessions/${conversation.sessionId}/history?format=pi-v1`,
+    `/v1/sessions/${startedConversation.sessionId}/history?format=pi-v1`,
   );
   assert.ok(finalMessages.messages.length > beforeSaveHistory.messages.length);
   const before = provider.calls.length;
@@ -74,7 +78,7 @@ try {
   assert.equal(provider.calls.length, before);
   await h.mochiRequest(`/v1/runs/${saved.runId}`, undefined, 403, true);
   await h.mochiRequest(
-    `/v1/sessions/${conversation.sessionId}/history?format=pi-v1`,
+    `/v1/sessions/${startedConversation.sessionId}/history?format=pi-v1`,
     undefined,
     403,
     true,

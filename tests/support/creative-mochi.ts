@@ -6,7 +6,7 @@ import type { Mochi } from "../../src/server/mochi-client.js";
 export class FakeCreativeMochi implements Mochi {
   readonly sessions = new Map<
     string,
-    { tools?: unknown; system_prompt?: string }
+    { tools?: unknown; system_prompt?: string; thinking_level?: string }
   >();
   readonly runs = new Map<string, Run>();
   readonly keys = new Map<string, string>();
@@ -21,7 +21,20 @@ export class FakeCreativeMochi implements Mochi {
     this.calls.push({ path, body });
     if (path === "/v1/models") {
       await this.modelBarrier?.();
-      return { models: [{ provider: "deepseek", id: "test" }] } as T;
+      return {
+        models: [
+          {
+            provider: "deepseek",
+            id: "test",
+            thinking_levels: ["off", "low", "high", "max"],
+          },
+          {
+            provider: "deepseek",
+            id: "other",
+            thinking_levels: ["off", "high"],
+          },
+        ],
+      } as T;
     }
     if (path === "/v1/sessions") {
       const session_id = randomUUID();

@@ -48,11 +48,17 @@ export function InitializationScope({
     </section>
   );
 }
-export function InitializationReading({ draft }: { draft: CreativeDraft }) {
+export function InitializationReading({
+  draft,
+  showScope = true,
+}: {
+  draft: CreativeDraft;
+  showScope?: boolean;
+}) {
   const value = draft.initialization!;
   return (
     <div className="initialization-reading">
-      <InitializationScope value={value} />
+      {showScope && <InitializationScope value={value} />}
       <section className="reading-pane" aria-label="作品信息">
         <p className="eyebrow">作品信息</p>
         <h2>{value.story.entity.content.name}</h2>

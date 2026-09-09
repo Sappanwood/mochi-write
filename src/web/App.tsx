@@ -222,7 +222,9 @@ export function App({
   else if (area === "transfer") view = <Transfer api={api} />;
   else view = <div className="empty">页面不存在。请从侧栏选择资产或故事。</div>;
   return (
-    <div className="workspace">
+    <div
+      className={`workspace${(area === "creative" && id === "conversation") || (area === "story" && section === "creative") ? " workspace-creative" : ""}`}
+    >
       <aside className="sidebar">
         <a className="wordmark" href="#library/character">
           <span className="seal">文</span>

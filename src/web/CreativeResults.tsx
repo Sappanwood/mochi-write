@@ -14,7 +14,7 @@ import {
 } from "./InitializationReading.js";
 import { Markdown } from "./Markdown.js";
 
-function savedPath(receipt: CreativeReceipt) {
+export function savedPath(receipt: CreativeReceipt) {
   const chapterId =
     "chapter_id" in receipt ? receipt.chapter_id : receipt.chapter?.chapter_id;
   return chapterId
@@ -150,6 +150,9 @@ export function CreativeResults({
   task,
   progress,
   savedDraft,
+  drafts = [],
+  onReadDraft,
+  lifecycle = false,
   navigate,
   action,
   busy,
@@ -158,6 +161,9 @@ export function CreativeResults({
   task: CreativeTaskView;
   progress: ToolProgress[];
   savedDraft?: CreativeDraft;
+  drafts?: CreativeDraft[];
+  onReadDraft?: (draft: CreativeDraft) => void;
+  lifecycle?: boolean;
   navigate: (path: string) => void;
   action: (
     task: CreativeTaskView,
@@ -175,12 +181,16 @@ export function CreativeResults({
         <p>{task.message}</p>
       </div>
       <div className="creative-assistant">
-        <p role="status" className="creative-status">
-          {statusLabels[task.status]}
-        </p>
+        <div className="creative-response-heading">
+          <span>Mochi</span>
+          {task.status !== "succeeded" && (
+            <span role="status" className="creative-status">
+              {statusLabels[task.status]}
+            </span>
+          )}
+        </div>
         {task.output && (
           <>
-            <p className="eyebrow">会话回复</p>
             <Markdown text={task.output} />
           </>
         )}
@@ -191,20 +201,57 @@ export function CreativeResults({
           </p>
         )}
         {progress.length > 0 && (
-          <section className="creative-progress" aria-label="工具进展">
-            <h3>工具进展</h3>
-            <ul>
-              {progress.map((tool) => (
-                <li key={tool.id}>
-                  {toolLabels[tool.name] ?? "故事工具"} ·{" "}
-                  {progressLabels[tool.status] ?? tool.status}
-                </li>
-              ))}
-            </ul>
-          </section>
+          <details
+            className="creative-progress"
+            open={activeCreativeTask(task)}
+          >
+            <summary>
+              {activeCreativeTask(task) ? "正在取材与创作" : "创作过程"} ·{" "}
+              {progress.length} 项
+            </summary>
+            <section aria-label="工具进展">
+              <ul>
+                {progress.map((tool) => (
+                  <li key={tool.id}>
+                    {toolLabels[tool.name] ?? "故事工具"} ·{" "}
+                    {progressLabels[tool.status] ?? tool.status}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </details>
         )}
+        {drafts.map((draft) => (
+          <section key={draft.id} className="creative-draft-card">
+            <p className="eyebrow">{draftKind(draft)}</p>
+            <strong>{draft.title}</strong>
+            <p className="muted">
+              {draft.receipt ? "此版本已保存" : "草稿已生成，尚未正式保存"}
+            </p>
+            <div className="creative-navigation">
+              <button
+                className="secondary"
+                onClick={() => onReadDraft?.(draft)}
+              >
+                查看草稿
+              </button>
+              <button
+                className="quiet"
+                onClick={() =>
+                  navigate(
+                    lifecycle || draft.artifactKind === "story_initialization"
+                      ? `creative/draft/${draft.storyId}/${draft.id}`
+                      : `story/${draft.storyId}/draft/${draft.id}`,
+                  )
+                }
+              >
+                阅读草稿
+              </button>
+            </div>
+          </section>
+        ))}
         {task.sources.length > 0 && (
-          <details className="creative-sources" open>
+          <details className="creative-sources">
             <summary>本轮实际读取的资料 · {task.sources.length}</summary>
             {task.sources.map((source) => (
               <SourceView

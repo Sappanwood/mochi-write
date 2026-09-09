@@ -209,7 +209,12 @@ try {
     true,
     "A zero-chapter story needs initialization tools after a manual session switch",
   );
-  assert.notEqual(switched.sessionId, switching.conversation.sessionId);
+  assert.notEqual(switched.id, switching.conversation.id);
+  assert.equal(
+    switched.sessionId,
+    "",
+    "The new session starts on its first message so thinking can still be selected",
+  );
   Object.assign(control, {
     mode: "chapter",
     intent: "create_and_save",

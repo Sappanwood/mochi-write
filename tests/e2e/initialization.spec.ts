@@ -96,6 +96,7 @@ test("lost first response resumes the unestablished conversation by GET and neve
     await route.abort("failed");
   });
   await page.getByRole("button", { name: "新建故事", exact: true }).click();
+  await page.getByLabel("思考强度", { exact: true }).selectOption("high");
   await page
     .getByLabel("对故事说点什么", { exact: true })
     .fill("一个在月亮上修钟的人");
@@ -121,6 +122,14 @@ test("lost first response resumes the unestablished conversation by GET and neve
     page.getByText("一个在月亮上修钟的人", { exact: true }),
   ).toBeVisible();
   expect(posts).toBe(1);
+  await expect(page.getByLabel("会话模型设置", { exact: true })).toContainText(
+    "高",
+  );
+  expect(
+    (await f.records.conversation(conversation!.storyId, conversation!.id))
+      ?.configuration,
+  ).toMatchObject({ thinkingLevel: "high" });
+  await page.getByText("会话与导航", { exact: true }).click();
   await page.getByRole("button", { name: "全部创作会话", exact: true }).click();
   await expect(page.getByText("尚未建立作品", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /一个在月亮上修钟的人/ }).click();
@@ -188,6 +197,7 @@ test("initialize only, inspect frozen sources, and save the first chapter with r
       exact: true,
     }),
   ).toBeVisible();
+  await page.getByText("会话与导航", { exact: true }).click();
   await expect(
     page.getByRole("button", { name: "新建创作会话", exact: true }),
   ).toBeVisible();
@@ -275,6 +285,7 @@ test("initialize only, inspect frozen sources, and save the first chapter with r
     ),
   ).toBe(true);
   expect(libraryRequests).toEqual([]);
+  await page.getByRole("tab", { name: "对话", exact: true }).click();
   await region(page, next)
     .getByRole("button", { name: "打开章节", exact: true })
     .click();
@@ -319,7 +330,7 @@ test("rewritten initialization preview saves exactly the chosen package and keep
   await page
     .locator(".creative-draft-card")
     .filter({
-      has: page.getByRole("heading", { name: "原来的故事", exact: true }),
+      has: page.getByText("原来的故事", { exact: true }),
     })
     .getByRole("button", { name: "阅读草稿", exact: true })
     .click();
@@ -328,6 +339,7 @@ test("rewritten initialization preview saves exactly the chosen package and keep
   );
   await page.reload();
   await page.getByRole("button", { name: "选择此版本", exact: true }).click();
+  await page.locator(".creative-reference-scope > summary").click();
   await expect(
     page.getByRole("region", { name: "本版本保存范围" }),
   ).toContainText("原大纲");
@@ -406,6 +418,7 @@ test("an established zero-chapter project can explicitly switch to a new lifecyc
   await expect(
     region(page, task).getByText("作品已建立", { exact: true }),
   ).toBeVisible();
+  await page.getByText("会话与导航", { exact: true }).click();
   await page.getByRole("button", { name: "新建创作会话", exact: true }).click();
   await expect(page).not.toHaveURL(new RegExp(`${task.conversationId}$`));
   await expect(page).toHaveURL(/#creative\/conversation\/[\da-f-]+$/);
@@ -457,16 +470,14 @@ test("directly initializes without library assets and continues creating in the 
     randomUUID(),
   );
   await finish(next);
-  await expect(
-    page.getByRole("heading", { name: "第二章 回声", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("第二章 回声", { exact: true })).toBeVisible();
   expect(
     (await f.store.list({ projectId: task.storyId, kind: "chapter" })).items,
   ).toHaveLength(1);
   await page
     .locator(".creative-draft-card")
     .filter({
-      has: page.getByRole("heading", { name: "第二章 回声", exact: true }),
+      has: page.getByText("第二章 回声", { exact: true }),
     })
     .getByRole("button", { name: "阅读草稿", exact: true })
     .click();
