@@ -117,6 +117,7 @@ export async function creativeFixture() {
     story,
     close: async () => {
       await creative.close();
+      server.server.closeAllConnections();
       await server.close();
     },
   };
