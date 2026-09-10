@@ -82,7 +82,7 @@ setting/outline/snapshot/chapter 必须指定可读 story_id；候选仅当前 c
 Write 先持久原消息、refs、epoch、sourceMessageId、taskId、operationId，再以独立无工具 session 解释原消息与可信引用摘要。
 解释器 thinking=off、最多 2048 输出 tokens、失败不自动重试；费用/用量与创作运行分开。自然语义由此隔离解释器判断，仍存在分类误判风险。
 输出严格验证 intent、目标 mode/kind、最多 8 个字段条件、原 UTF-16 证据区间和修改证据；否定、转述、多操作或不支持条件进入澄清。
-目标 mode 描述产出或保存对象，引用素材不会把全新角色或故事变成已有目标；检索 story 仅支持 name，同字段条件不重复，gender/age_band/genre/tag 仅支持 eq。
+目标 mode 描述产出或保存对象，引用素材不会把全新角色或故事变成已有目标。明确 draft + mode=new 时，同类型候选也只作素材，不继承其目标、baseRevision 或改写 reference；新故事分配新的预留 ID。explicit 同组反馈与 save_current 仍核验并沿用所选候选的冻结上下文；检索 story 仅支持 name，同字段条件不重复，gender/age_band/genre/tag 仅支持 eq。
 目标条件只描述要选择的原有对象；期望的新性格、职业或正文改写要求不是旧目标筛选条件。明确引用候选的改写及新建属性由创作阶段处理，解释器不把新值拿来匹配旧稿；后端仍逐项校验解释结果，错误分类进入澄清。
 
 需要检索时，原 Mochi session 的 `<taskId>:resolve:1` 只有读权限，连 draft 都拒绝。

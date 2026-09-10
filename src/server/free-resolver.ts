@@ -185,7 +185,7 @@ export async function resolveTarget(
     return reject("invalid_action_kind");
   const draftRefs = task.input.refs.filter((r) => r.type === "candidate");
   const relevantDrafts =
-    c.intent === "draft" && references.candidates
+    c.intent === "draft" && c.target.mode !== "new" && references.candidates
       ? (
           await Promise.all(
             draftRefs.map(async (r) => ({

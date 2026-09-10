@@ -430,3 +430,91 @@ it("never replaces an immutable candidate through the underlying transaction", a
     ]),
   ).rejects.toThrow("invalid_free_transaction");
 });
+
+it.each([
+  ["character", "new", "draft"],
+  ["story", "new", "draft"],
+  ["character", "explicit", "draft"],
+  ["story", "explicit", "draft"],
+  ["character", "explicit", "save_current"],
+  ["story", "explicit", "save_current"],
+] as const)(
+  "resolves %s candidate material with mode=%s intent=%s without confusing new targets and rewrites",
+  async (kind, mode, intent) => {
+    const { free, task } = await fixture();
+    const { entity } = await import("../src/server/entities.js");
+    const master =
+      kind === "character"
+        ? await free.content.commit(entity("character", content("甲")), null)
+        : undefined;
+    const sourceTarget =
+      kind === "character"
+        ? { kind: "character" as const, asset_id: master!.id }
+        : { kind: "story" as const, story_id: randomUUID() };
+    const sourceTask = await free.change(task.id, (t) => {
+      t.draftContext = {
+        mode: kind === "character" ? "existing_character" : "new_story",
+        target: sourceTarget,
+        baseRevision: master?.revision ?? null,
+      };
+    });
+    const source = await free.candidates.freeze(
+      sourceTask,
+      {
+        artifactKind:
+          kind === "character" ? "character" : "story_initialization",
+        content: content("甲"),
+      },
+      "source",
+    );
+    const sourceRef = free.candidates.ref(source);
+    const message =
+      mode === "new"
+        ? `参考甲候选，另建一个独立${kind === "character" ? "角色" : "故事"}乙，只预览`
+        : intent === "save_current"
+          ? "原样保存甲候选"
+          : "改写甲候选，仅预览";
+    const next = await free.submit(task.conversationId, {
+      clientRequestId: randomUUID(),
+      message,
+      provider: "fake",
+      model: "fake",
+      refs: [sourceRef],
+    });
+    const resolved = await free.resolve(
+      next.id,
+      {
+        intent,
+        evidence: { start: 0, end: message.length, text: message },
+        target: { kind, mode, predicates: [] },
+      },
+      randomUUID(),
+    );
+    expect(resolved.state).not.toBe("clarifying");
+    expect(resolved.input.refs).toEqual([sourceRef]);
+    expect(await free.candidates.get(task.conversationId, source.id)).toEqual(
+      source,
+    );
+    if (mode === "new") {
+      expect(resolved.binding).toBeUndefined();
+      expect(resolved.draftContext?.mode).toBe(
+        kind === "character" ? "new_character" : "new_story",
+      );
+      expect(resolved.draftContext?.baseRevision).toBeNull();
+      expect(resolved.draftContext?.reference).toBeUndefined();
+      expect(resolved.draftContext?.target).not.toEqual(sourceTarget);
+      if (kind === "story")
+        expect(resolved.draftContext?.target?.kind).toBe("story");
+    } else {
+      expect(resolved.draftContext?.reference).toEqual(sourceRef);
+      expect(resolved.draftContext?.target).toEqual(sourceTarget);
+      expect(resolved.draftContext?.baseRevision).toBe(
+        master?.revision ?? null,
+      );
+      if (intent === "save_current") {
+        expect(resolved.binding?.selectedDraft).toEqual(sourceRef);
+        expect(resolved.binding?.target).toEqual(sourceTarget);
+      } else expect(resolved.binding).toBeUndefined();
+    }
+  },
+);
