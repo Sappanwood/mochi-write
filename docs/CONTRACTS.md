@@ -351,3 +351,8 @@ POST tasks 的 selectedDraft 必须在新任务占位／停止旧任务前通过
 初始化收据的顶层 revision 属于作品；显示正式首章版本读取 chapter.revision。UI 仅以真实收据生成成果，失败不抹掉成果。
 浏览器验收覆盖空／普通书架、首条响应丢失恢复、零章建立、固定母版全文、精确旧草稿、同 session 首章资料更新、
 主动换 session、明确输入拒绝与 390px 布局；旧章节与侧栏测试继续运行。
+
+
+## 自由会话协议 v2
+
+`/api/creative/free` 与 v1 路由并存；记录使用 free 命名空间，callback 按 protocol_version 分流，不放宽旧 story scope。十工具快照、独立目标核验、任务预算、本人 API、来源与 OP 恢复详见 [自由会话服务](FREE_SESSION.md)。

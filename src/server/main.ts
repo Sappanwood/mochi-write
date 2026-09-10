@@ -1,3 +1,7 @@
+import { FreeSession } from "./free-session.js";
+import { CosmosFreeStore } from "./free-store.js";
+import { registerFree } from "./free-routes.js";
+import { FreeCallback } from "./free-callback.js";
 import { Creative } from "./creative.js";
 import { CosmosCreativeStore } from "./creative-store.js";
 import { registerCreative } from "./creative-routes.js";
@@ -64,7 +68,10 @@ try {
     mochi,
   );
   registerCreative(app, creative);
+  const free = new FreeSession(store, new CosmosFreeStore(database), mochi);
+  registerFree(app, free);
   registerAgentTools(app, {
+    free: new FreeCallback(free),
     assets: new AssetTools(store),
     library: new LibraryTools(store),
     resolveTask: (id) => creative.resolveTask(id),
@@ -76,6 +83,7 @@ try {
   });
   app.addHook("onReady", async () => {
     await creative.recover();
+    await free.recover();
   });
   await app.register(fastifyStatic, {
     root: resolve("dist/web"),
@@ -83,6 +91,7 @@ try {
   });
   app.addHook("onClose", async () => {
     await creative.close();
+    await free.close();
     cosmos.dispose();
   });
   for (const signal of ["SIGINT", "SIGTERM"])

@@ -237,3 +237,8 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 新增 hash 路由为 creative/new、creative/conversations、creative/conversation/:id/:selectedDraftId? 与 creative/draft/:storyId/:draftId。
 无 head 时只读 descriptor 与 creative 子路径；descriptor 确认 established 后读取正式作品。
 全部 creative 路由隐藏 WritingHost，避免其全量母版加载。`InitializationReading` 渲染冻结包全文与保存范围，母版来源只显示真实固定元数据。
+
+
+## 自由会话过程存储
+
+`FreeSession` 与旧 `Creative` 并存。v2 过程记录在 library；不可变 OP directory 将任务绑定到角色 library 或故事 stories 分区的权威 ledger。目标事务与会话投影分开恢复，取消以目标 ledger CAS 确认为准。独立解释与同 session 两阶段 run、只读 allowlist 及业务扩展点见 [自由会话服务](FREE_SESSION.md)。

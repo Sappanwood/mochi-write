@@ -24,6 +24,7 @@ export interface ToolTaskContext extends AssetContext {
   bindRun: (runId: string) => Promise<void>;
 }
 export interface AgentToolOptions {
+  free?: import("./free-callback.js").FreeCallback;
   assets: AssetTools;
   library?: import("./library-tools.js").LibraryTools;
   resolveTask: (taskId: string) => Promise<ToolTaskContext | undefined>;
@@ -47,6 +48,12 @@ export function registerAgentTools(
     "/api/agent/tools",
     { bodyLimit: TOOL_REQUEST_BYTES, config: { mochiCallback: true } },
     async (request) => {
+      if (
+        (request.body as { protocol_version?: number })?.protocol_version ===
+          2 &&
+        options.free
+      )
+        return options.free.invoke(request.body);
       const callback = callbackSchema.parse(request.body);
       const base = {
         protocol_version: 1 as const,
@@ -144,6 +151,8 @@ export function registerAgentTools(
       async (request) => {
         const { operationId } = request.params as { operationId: string };
         toolIdSchema.parse(operationId);
+        if (options.free && !operationId.includes(":"))
+          return options.free.free.operation(operationId);
         try {
           return await options.operation!(operationId);
         } catch (error) {

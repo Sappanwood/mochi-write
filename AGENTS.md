@@ -52,6 +52,7 @@ Backlog、Plan、execution、Report、ADR、Research 均由 ProjectOps 管理，
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 设计组件、存储和接入 | 技术选择、所有权与外部契约变化 |
 | [docs/CONTRACTS.md](docs/CONTRACTS.md) | 实现数据、认证、侧栏、导入导出或部署前 | schema、接口、质量入口和接入边界变化 |
 | [docs/CREATIVE_WORKSPACE.md](docs/CREATIVE_WORKSPACE.md) | 实现故事工具会话、授权与恢复 | 草稿、授权、收据、创作 API 或恢复变化 |
+| [docs/FREE_SESSION.md](docs/FREE_SESSION.md) | 实现自由会话 v2、目标解析、回调或操作恢复 | v2 身份、来源、运行、API 与 OP 契约变化 |
 | ProjectOps typed roots | 查看任务、计划、决策背景与验收 | 通过对应 ProjectOps 契约维护 |
 
 ## 常用命令与完工验收

@@ -1,3 +1,8 @@
+import { FreeSession } from "../../src/server/free-session.ts";
+import { FreeCallback } from "../../src/server/free-callback.ts";
+import { registerFree } from "../../src/server/free-routes.ts";
+import { FREE_TOOLS } from "../../src/server/free-tools.ts";
+import { MemoryFreeStore } from "../support/free-store.ts";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -165,7 +170,17 @@ export async function creativeHarness(options = {}) {
   });
   registerBusiness(app, content);
   registerCreative(app, creative);
+  const free = options.freeSession
+    ? new FreeSession(
+        content,
+        new MemoryFreeStore(),
+        { request: (path, body) => clientApi.request(path, body) },
+        { pollMs: 10 },
+      )
+    : undefined;
+  if (free) registerFree(app, free);
   registerAgentTools(app, {
+    ...(free ? { free: new FreeCallback(free) } : {}),
     assets: new AssetTools(content),
     library: new LibraryTools(content),
     resolveTask: (id) => creative.resolveTask(id),
@@ -183,7 +198,19 @@ export async function creativeHarness(options = {}) {
         endpoint: origin + "/api/agent/tools",
         operations_endpoint: origin + "/api/agent/operations",
         audience: `api://${apiId}`,
-        tools: LIFECYCLE_TOOLS.map(({ name, version, effect }) => ({
+        tools: (free
+          ? [
+              ...LIFECYCLE_TOOLS,
+              ...FREE_TOOLS.filter(
+                (tool) =>
+                  !LIFECYCLE_TOOLS.some(
+                    (old) =>
+                      old.name === tool.name && old.version === tool.version,
+                  ),
+              ),
+            ]
+          : LIFECYCLE_TOOLS
+        ).map(({ name, version, effect }) => ({
           name,
           version,
           effect,
@@ -323,6 +350,7 @@ export async function creativeHarness(options = {}) {
     content,
     records,
     creative,
+    free,
     pi,
     callbacks,
     queue,
@@ -381,6 +409,7 @@ export async function creativeHarness(options = {}) {
     async close() {
       closing = true;
       await creative.close();
+      await free?.close();
       await tasks.close();
       if (pumping) await pumping;
       await new Promise((resolve) => service.close(resolve));

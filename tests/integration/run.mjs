@@ -5,3 +5,5 @@ await import("./initialization-save.mjs");
 await import("./initialization-isolation.mjs");
 await import("./creative-acceptance.mjs");
 await import("./creative-crash.mjs");
+
+await import("./free-session.mjs");
