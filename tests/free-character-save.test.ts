@@ -877,3 +877,50 @@ it("same input recovers if a concurrent commit completes after a stale claim rea
   proceed.release();
   expect((await pending).receipt).toEqual(completed.receipt);
 });
+
+it("returns a protocol error for invalid model vocabulary without freezing a candidate", async () => {
+  const { free } = fixture(),
+    t = await begin(free);
+  const { FreeCallback } = await import("../src/server/free-callback.js");
+  const { freeScope } = await import("../src/server/free-workflow.js");
+  const c = await free.conversation(t.conversationId),
+    sessionId = randomUUID(),
+    runId = randomUUID();
+  await free.records.transaction("library", [
+    { record: { ...c, sessionId }, revision: c.revision },
+  ]);
+  const current = await free.change(t.id, (task) => {
+    task.executionRun = {
+      sessionId,
+      key: "key",
+      payload: {},
+      dispatchStarted: true,
+      runId,
+    };
+  });
+  const { task_id: _id, ...scope } = freeScope(current, "execute");
+  void _id;
+  const response = await new FreeCallback(free).invoke({
+    protocol_version: 2,
+    app_id: "mochi-write",
+    session_id: sessionId,
+    run_id: runId,
+    task_id: t.id,
+    scope,
+    invocation_id: "vocabulary-error",
+    tool_call_id: "vocabulary-error",
+    tool: { name: "save_character", version: "2" },
+    arguments: {
+      mode: "draft",
+      name: "岚舟",
+      markdown: "合成侦探角色",
+      genres: ["悬疑", "犯罪"],
+      age_band: "成人",
+    },
+  });
+  expect(response).toMatchObject({
+    outcome: "error",
+    error: { code: "invalid_arguments", retryable: false },
+  });
+  expect(await free.candidates.drafts(t.conversationId)).toEqual([]);
+});

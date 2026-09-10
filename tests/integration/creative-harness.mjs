@@ -124,12 +124,13 @@ export async function creativeHarness(options = {}) {
     jwks,
   );
   const root = await mkdtemp("/tmp/mochi-creative-http-");
-  const credentials = new InMemoryCredentialStore();
-  await credentials.modify(
-    "deepseek",
-    async () =>
-      options.credential ?? { type: "api_key", key: "isolated-test-key" },
-  );
+  const credentials = options.credentialStore ?? new InMemoryCredentialStore();
+  if (!options.credentialStore)
+    await credentials.modify(
+      options.provider ?? "deepseek",
+      async () =>
+        options.credential ?? { type: "api_key", key: "isolated-test-key" },
+    );
   const pi = await createPi(credentials);
   const restoreRuntime = await options.configureRuntime?.(
     pi,
@@ -191,6 +192,7 @@ export async function creativeHarness(options = {}) {
   const origin = await app.listen({ host: "127.0.0.1", port: 0 });
   config.origin = origin;
   const callbacks = [];
+  const callbackResponses = [];
   let loseCommitResponse = false;
   const appTools = new AppTools(
     {
@@ -224,6 +226,11 @@ export async function creativeHarness(options = {}) {
         const callback = init?.body ? JSON.parse(init.body) : undefined;
         if (callback) callbacks.push(callback);
         const response = await globalThis.fetch(url, init);
+        callbackResponses.push({
+          invocation_id: callback?.invocation_id,
+          status: response.status,
+          body: await response.clone().text(),
+        });
         if (
           loseCommitResponse &&
           callback?.arguments?.mode === "commit" &&
@@ -356,6 +363,7 @@ export async function creativeHarness(options = {}) {
     free,
     pi,
     callbacks,
+    callbackResponses,
     queue,
     story,
     pump,

@@ -361,8 +361,30 @@ it.each(["claim", "ledger", "business", "projection"])(
 it.each(["cancel", "commit"])(
   "story OP CAS resolves concurrent %s winner without partial assets",
   async (winner) => {
-    const { free, records, content } = fixture(),
-      t = await begin(free, "initialize_story", "story", [], undefined, true);
+    const { free, records, content } = fixture();
+    const previous = await begin(free, "create_character", "character"),
+      role = await draft(free, previous, "save_character", {
+        name: "前轮角色",
+        markdown: "已确认母版",
+        genres: [],
+        age_band: "",
+      }),
+      previousResult = await commit(free, previous, role, "save_character");
+    if (
+      !("receipt" in previousResult) ||
+      previous.binding?.target.kind !== "character"
+    )
+      throw Error("Expected a committed character before the story operation");
+    const master = await content.get(previous.binding.target.asset_id, null);
+    expect(master).toBeDefined();
+    const t = await begin(
+      free,
+      "initialize_story",
+      "story",
+      [],
+      previous.conversationId,
+      true,
+    );
     const d = await draft(free, t, "initialize_story", {
       title: "故事",
       assets: [{ kind: "setting", title: "设定", body: "内容" }],
@@ -396,7 +418,21 @@ it.each(["cancel", "commit"])(
     expect((await free.operation(t.operationId)).status).toBe(
       winner === "cancel" ? "revoked" : "committed",
     );
-    expect(content.heads.size).toBe(winner === "cancel" ? 0 : 3);
+    expect(content.heads.size).toBe(winner === "cancel" ? 1 : 4);
+    expect(await content.get(master!.id, null)).toEqual(master);
+    expect(await free.candidates.get(previous.conversationId, role.id)).toEqual(
+      role,
+    );
+    expect((await free.operation(previous.operationId)).receipt).toEqual(
+      previousResult.receipt,
+    );
+    expect((await free.task(previous.id)).receipt).toEqual(
+      previousResult.receipt,
+    );
+    if (winner === "cancel") {
+      expect((await content.list({ kind: "story" })).items).toEqual([]);
+      expect(await free.candidates.get(t.conversationId, d.id)).toEqual(d);
+    }
     if (winner === "cancel")
       expect(result).toMatchObject({
         error: { message: "authorization_revoked" },

@@ -65,6 +65,7 @@ character/world 禁止 story_id；故事及其资料必须提供 story_id，stor
 
 save_character draft 共享 Library 的 Content/词表验证，只允许有界角色字段；更新保留未知合法 metadata，
 正文原换行不变，规范化在冻结前完成。候选冻结目标及 baseRevision 与正式授权分开，参考世界观/故事/其他资料不会成为保存目标。
+用户明确原样保存选定候选时使用 save_current，即使称保存为新母版也不重新生成；引用候选作素材后要求改写并保存不属于原样保存。
 选定候选可以和多份背景资料一起发送；save_current 仍只接受一份精确候选，并核验原消息全部目标条件及候选冻结目标/当前基础版本。
 `freeze` 的服务端 extra 接口承载初始化 members/business 包与 action，供故事桥接消费；此接口不作为客户端或模型可传的授权。
 成员 ID 由业务桥接分配，冻结后独立于来源后续变化；read_artifact 无 member_id 的初始化响应仅返回成员目录。
@@ -81,6 +82,8 @@ setting/outline/snapshot/chapter 必须指定可读 story_id；候选仅当前 c
 Write 先持久原消息、refs、epoch、sourceMessageId、taskId、operationId，再以独立无工具 session 解释原消息与可信引用摘要。
 解释器 thinking=off、最多 2048 输出 tokens、失败不自动重试；费用/用量与创作运行分开。自然语义由此隔离解释器判断，仍存在分类误判风险。
 输出严格验证 intent、目标 mode/kind、最多 8 个字段条件、原 UTF-16 证据区间和修改证据；否定、转述、多操作或不支持条件进入澄清。
+目标 mode 描述产出或保存对象，引用素材不会把全新角色或故事变成已有目标；检索 story 仅支持 name，同字段条件不重复，gender/age_band/genre/tag 仅支持 eq。
+目标条件只描述要选择的原有对象；期望的新性格、职业或正文改写要求不是旧目标筛选条件。明确引用候选的改写及新建属性由创作阶段处理，解释器不把新值拿来匹配旧稿；后端仍逐项校验解释结果，错误分类进入澄清。
 
 需要检索时，原 Mochi session 的 `<taskId>:resolve:1` 只有读权限，连 draft 都拒绝。
 其结果不作为授权：Write 另行按冻结条件完整查询最多 20 个摘要/5 页/60 KiB，重新 AND 匹配、核对唯一性并重读当前 head。
@@ -149,10 +152,22 @@ unknown/缺失和 committed 都不释放候选，避免响应丢失后另建母�
 v1 无工具/三工具/七工具 session、旧 `creative:` records、story 分区事务、`#creative` 链接及查看即引用 UI 保持原状，不迁移/升级旧快照。
 新工具白名单顺序为 library_vocabulary/1、search_library/1、read_library/1、search_assets/2、read_asset/2、discover_artifacts/2、read_artifact/2、save_character/2、initialize_story/2、create_chapter/2。
 v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/scope；请求/响应上限仍 128/64 KiB。
+角色候选先读取受控词表；非法题材或年龄层返回协议 invalid_arguments，不把 Library 的界面错误文案当作工具错误码。
+新工具快照的来源引用用嵌套 type 判别联合区分 asset/candidate，禁止混入另一类字段；parent_ref 与初始化 candidate_ref 只接受完整候选，derived_from/source_ref 保留合法 member 引用。改写必须同时提供 group_id 和精确 parent_ref。初始化复制候选角色使用完整 `{kind: "snapshot", candidate_ref}`，不混入 title/body 或母版复制字段；顶层 derived_from 只记录来源，不创建角色快照。身份关系、hash、范围和版本仍由 Write 校验；旧持久工具快照不原地修改。
 
 `npm run check` 覆盖新身份、目标证据、跨分区恢复、取消、API 与存储行为及既有 v1 测试。
 `MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration` 增加真实 HTTP、签名身份、Pi AgentSession 和假 provider 的 v2 两阶段/同 session 续聊、预算与事件验证。
-上述确定性验证不表示云部署、真实模型或新工作区浏览器验收完成。
+`free-session.mjs` 从没有 initialRefs 的会话自主 search/read 建立实际来源历史，随后原样发送
+“找到之前那个侦探角色，把职业改成记者并保存”，本轮不带 refs；断言独立完整查询、目标身份/基础版本、
+两阶段同 session 和同键恢复，日志记录合成来源、绑定证据与精确收据。检索摘要本身不计全文来源。
+`free-story-bridge.mjs` 记录角色旧稿/改稿、初始化包、反向母版的精确引用及首章/续章/母版收据。
+浏览器验证范围见下文；这些确定性测试不证明真实模型能自主完成同样路径，也不表示 v2 已云部署。
+
+真实模型 smoke 必须在执行前确认本次 provider/model、账户通路与消费授权，失败及重试累计记录；有明确费用上限时按本次授权执行，不得继承旧 Plan
+额度或直接套用历史 smoke 脚本的硬编码预算。仅用合成角色/故事，验收同 session 双向衔接、按成果改稿、
+精确旧稿保存、无 @ 自主取材与检索后确定目标保存。未取得本次授权时此项保持未完成。
+本地 gpt-5.6-luna / openai-codex 订阅已完成上述合成真实链路：同 session 角色候选→故事快照/首章/续章→独立母版，以及无预选引用的原句职业更新。续章因模型抄错版本字符，经过明确原版本纠错后保存；记录不等同无人介入首轮成功。真实调用证明更新前旧版全文与来源保留，更新后再次精确读取旧来源由当前确定性测试覆盖。
+线上仍待验收 v2 工具快照/真实身份回调、角色及故事目标分区提交、收据与刷新恢复；执行云发布须另有授权。
 
 
 ## 浏览器双关注点（MWT-029）

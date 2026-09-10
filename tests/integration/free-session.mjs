@@ -26,7 +26,7 @@ const configureRuntime = (pi, streamFactory) => {
       reason = "stop";
     if (!context.tools?.length) {
       const message = input.user_message;
-      const search = message.includes("侦探");
+      const search = message.includes("职业改成记者");
       const selected = message.includes("选定");
       const candidate = message.includes("候选");
       const word = "侦探",
@@ -80,6 +80,30 @@ const configureRuntime = (pi, streamFactory) => {
           id: randomUUID(),
           name: "library_vocabulary",
           arguments: {},
+        },
+      ];
+    } else if (
+      (input.user_message === "查阅侦探角色作为讨论资料" ||
+        input.phase === "resolve") &&
+      results.length < 3
+    ) {
+      const last = JSON.parse(textOf(results.at(-1)));
+      assert.equal(last.outcome, "ok", JSON.stringify(last));
+      const hit = last.data.items?.[0];
+      if (results.length === 2) {
+        assert.ok(hit, "Synthetic detective is discoverable");
+        assert.equal("markdown" in hit, false);
+      }
+      reason = "toolUse";
+      content = [
+        {
+          type: "toolCall",
+          id: randomUUID(),
+          name: results.length === 1 ? "search_library" : "read_library",
+          arguments:
+            results.length === 1
+              ? { kind: "character", occupation: "侦探", limit: 5 }
+              : { asset_id: hit.asset_id, revision: hit.revision },
         },
       ];
     } else if (
@@ -214,9 +238,34 @@ try {
     message: "找到之前那个侦探角色，把职业改成记者并保存",
     provider: "deepseek",
     model: "deepseek-v4-flash",
-    initialRefs: [ref],
   };
-  const first = await h.request("/api/creative/free/conversations", input);
+  assert.equal(
+    input.initialRefs,
+    undefined,
+    "natural target acceptance must not preselect an asset",
+  );
+  const opened = await h.request("/api/creative/free/conversations", {
+    ...input,
+    clientRequestId: randomUUID(),
+    message: "查阅侦探角色作为讨论资料",
+  });
+  const researched = await finish(opened.task.id);
+  assert.equal(researched.state, "succeeded", JSON.stringify(researched));
+  assert.equal(researched.binding, undefined);
+  assert.deepEqual(
+    (await h.free.conversation(opened.conversation.id)).initialRefs,
+    [],
+  );
+  const researchView = await h.request(
+    `/api/creative/free/conversations/${opened.conversation.id}/tasks/${researched.id}`,
+  );
+  assert.deepEqual(
+    researchView.sources.map((s) => [s.origin, s.ref]),
+    [["agent_read", ref]],
+  );
+  const callbackStart = h.callbacks.length;
+  const taskPath = `/api/creative/free/conversations/${opened.conversation.id}/tasks`;
+  const first = { ...opened, ...(await h.request(taskPath, input)) };
   const task = await finish(first.task.id);
   assert.equal(
     task.state,
@@ -233,14 +282,29 @@ try {
     }),
   );
   assert.equal(task.binding.target.asset_id, doc.id);
+  assert.equal(
+    task.input.message,
+    "找到之前那个侦探角色，把职业改成记者并保存",
+  );
+  assert.deepEqual(task.input.refs, []);
+  assert.deepEqual(task.resolutionEvidence.candidateIds, [doc.id]);
+  assert.deepEqual(task.resolutionEvidence.candidateRevisions, [doc.revision]);
+  assert.equal(task.resolutionEvidence.matchedId, doc.id);
+  assert.equal(task.resolutionEvidence.headRevision, doc.revision);
+  assert.equal(task.resolutionEvidence.complete, true);
+  assert.equal(task.resolutionEvidence.policyVersion, "target-v2");
   assert.ok(task.resolutionRun.runId && task.executionRun.runId);
   assert.equal(task.resolutionRun.sessionId, task.executionRun.sessionId);
   assert.ok(task.resolutionRun.executionUsage.model_calls > 0);
   assert.ok(task.executionRun.payload.budget.max_model_calls < 8);
   assert.deepEqual(
-    h.callbacks.map((c) => [c.protocol_version, c.scope.phase, c.tool.name]),
+    h.callbacks
+      .slice(callbackStart)
+      .map((c) => [c.protocol_version, c.scope.phase, c.tool.name]),
     [
       [2, "resolve", "library_vocabulary"],
+      [2, "resolve", "search_library"],
+      [2, "resolve", "read_library"],
       [2, "execute", "library_vocabulary"],
       [2, "execute", "save_character"],
       [2, "execute", "save_character"],
@@ -257,10 +321,7 @@ try {
     ).task.id,
     task.id,
   );
-  assert.equal(
-    (await h.request("/api/creative/free/conversations", input)).task.id,
-    task.id,
-  );
+  assert.equal((await h.request(taskPath, input)).task.id, task.id);
   assert.equal(contexts.length, before);
   const follow = await h.request(
     `/api/creative/free/conversations/${first.conversation.id}/tasks`,
@@ -385,6 +446,17 @@ try {
       mochiOrigin: h.mochiOrigin,
       scenario:
         "free v2 real HTTP/Pi resolved update, exact selected character save, lost response receipt recovery and same session",
+      conversationId: first.conversation.id,
+      sessionId: savedSession,
+      naturalTarget: {
+        taskId: task.id,
+        refs: task.input.refs,
+        evidence: task.resolutionEvidence,
+        receipt: task.receipt,
+      },
+      selectedCandidate: exact,
+      selectedReceipt: committed.receipt,
+      actualSources: researchView.sources,
       providerCalls: contexts.length,
       callbacks: h.callbacks.length,
       events: events.events.length,

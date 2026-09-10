@@ -1,3 +1,5 @@
+await import("./free-vocabulary-error.mjs");
+await import("./free-reference-schema.mjs");
 await import("./mochi.mjs");
 await import("./creative-session.mjs");
 await import("./initialization-session.mjs");

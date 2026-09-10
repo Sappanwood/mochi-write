@@ -239,7 +239,9 @@ export class FreeCallback {
               e instanceof ToolError
                 ? e.code
                 : e instanceof AppError
-                  ? e.message
+                  ? e.message === "题材或年龄层不在受控词表中"
+                    ? "invalid_arguments"
+                    : e.message
                   : "invalid_arguments",
             retryable: false,
           },
