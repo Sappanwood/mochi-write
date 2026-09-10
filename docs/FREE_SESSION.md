@@ -2,10 +2,10 @@
 
 ## 当前范围
 
-MWT-025/026/027 增量实现 `/api/creative/free` 本人 API、独立会话身份、固定资产引用、只读工具、目标后绑定、两阶段执行及 OP 恢复。
-浏览器仍使用旧入口；候选组、精确引用、发现及角色 draft 已接通，角色正式保存已接通；新工作区与故事业务桥接由后续切片接入。
+MWT-025–028 增量实现 `/api/creative/free` 本人 API、独立会话身份、固定资产引用、只读工具、目标后绑定、两阶段执行及 OP 恢复。
+浏览器仍使用旧入口；候选组、精确引用、发现及角色 draft 已接通，角色正式保存已接通；同一会话的故事初始化、首章、续章和反向独立母版已接通；新工作区由后续切片接入。
 `FreeCallback` 的 `FreeToolHandler` 与 `FreeReferences` 的 `CandidateAccess` 是后续业务接入点。
-默认 handler 支持 discover_artifacts/read_artifact 及 save_character 的 draft/commit；故事生成和保存仍返回 `tool_not_available`。角色正式写入只来自后端核验绑定和真实 OP 收据。
+默认 handler 支持 discover_artifacts/read_artifact，以及 save_character/initialize_story/create_chapter 的 draft/commit。角色正式写入只来自后端核验绑定和真实 OP 收据。
 新 session 创建时仍固定完整十工具 v2 快照，因此后续接入无需改变旧 session 快照。
 
 ## 身份与引用
@@ -99,7 +99,7 @@ execute 同原 session、同 sourceMessageId，冻结 scope/refs/binding/draft_c
 所有 v2 过程记录使用 `recordType:"free"`、`schemaVersion:2`、`free:<type>:<UUID>`，位于 library/scopeId=library；不进入正式 head 列表或导出。
 OP directory 在 library 中与 task binding/conversation CAS 一起 create-only，固定 partition 与 binding digest，永不换目标。
 角色 ledger 位于 library，故事 ledger 位于 stories/projectId=storyId；只允许目标对应分区。
-`FreeOperations` 提供 active ledger 激活、撤回 tombstone、严格原 OP 查询与收据投影；角色正式 batch 已接通；故事业务 batch 留给故事桥接切片。
+`FreeOperations` 提供 active ledger 激活、撤回 tombstone、严格原 OP 查询与收据投影；角色与故事正式 batch 均已接通，过程与业务分区不混写。
 
 取消先 CAS 会话 epoch 并标记 cancel_pending，再在目标分区创建 revoked tombstone 或 CAS active→revoked。
 激活与撤回遇到同一 create-only/CAS 冲突时以目标 ledger 为准。业务先 committed 则保留收据，取消不会回滚。
@@ -131,6 +131,19 @@ unknown/缺失和 committed 都不释放候选，避免响应丢失后另建母�
 收据 kind 为 character_created/character_updated，content_hash 为完整 Content hash，revision 为正式逻辑版本字符串；head revision 仍是不透明 CAS 标记。
 投影失败不改变保存成功；响应未知只读原 OP。下一轮可读取最新 head 继续修改，已固定参考仍读取原版本。母版保存不改故事独立快照或其他资产。
 
+## 角色与故事衔接
+
+`initialize_story/2` draft 使用与旧入口共用的初始化构建器和包校验。新故事采用 execute 前预分配的 story ID；既有故事必须为 ready、零章、基础 revision 一致，且必须带首章。资料仍最多 8 项、业务最多 10 对象；不能更新已有章节作品的资料。
+仅建作品返回 story_initialized 并设置 initializationPending；作品加首章返回 first_chapter_saved 并清除该 guard。独立解释器可返回 `chapterEvidence:{start,end,text}`，仅 initialize_story 接受，必须精确匹配原 UTF-16 消息且含“首章”或“第一章”；明确新建并保存首章归约 save_first_chapter，无该证据的 initialize_story 仅允许建立作品。预览无 binding，save_current 从选定冻结包恢复唯一动作。证据片段不消除已接受的独立分类误判风险。
+
+角色候选作为新故事来源时不会被当作角色修改目标；同类型整稿引用仍可选作改写对象，member 引用只作为资料。`assets[].candidate_ref` 仅接受当前会话完整角色候选，不接受成员或其他类型，复制完整 Content，成员 sourceRef 固定实际候选版本，不填写 sourceAssetId/sourceVersion。母版来源必须已有 initial/explicit/agent_read 记录，以原版本读取全部 Content，包括未知合法 metadata，并保留 sourceAssetId/sourceVersion。成员 ID 由后端分配；母版或候选后续改写均不改变已冻结包。内部展开不伪记 agent_read。
+
+故事角色提炼为母版时生成完整独立 Content 与 `derivation:{source_ref,retained,rewritten,excluded}`，并可通过候选详情读取正文和说明。声明来自故事资产或初始化成员时必须提供说明且只能 new_character；derived_from 与 source_ref 同时存在时必须一致。模型应将剧情、关系的排除/改写落实到正文，后端不声称验证文学改写质量。正式保存 create-only，不覆盖来源或同名母版，不改变原故事快照。
+
+故事提交先在 library 中将 directory 的 draftRef/payloadHash 与独立 claim 同 batch CAS 冻结；该输入一经固定，即使响应未知也不能换稿。随后在目标故事分区 CAS 固定 ledger 的同一精确输入，最后将 OP committed/receipt、业务不可变版本与 head Create/IfMatch 同 batch 提交。取消与提交竞争同一目标 ledger；library 投影失败只核实原 OP，不重写业务。它们是分区内独立事务，未提供跨分区原子性。
+
+`create_chapter/2` draft 只对有效既有故事和非 pending 状态生成，冻结后端 chapterId；commit 验证相同故事/基础版本和 chapterId，只创建一章并与 OP 收据一起提交，story head CAS 参与 guard。候选章的正文 hash 与收据保持原规则。建立作品、写首章和后续章均沿用原 conversation/Mochi session；角色母版保存与故事保存各自一轮、各一 OP，后轮失败不回滚已成功成果。
+
 ## 兼容与验证
 
 v1 无工具/三工具/七工具 session、旧 `creative:` records、story 分区事务、`#creative` 链接及查看即引用 UI 保持原状，不迁移/升级旧快照。
@@ -139,4 +152,4 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 
 `npm run check` 覆盖新身份、目标证据、跨分区恢复、取消、API 与存储行为及既有 v1 测试。
 `MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration` 增加真实 HTTP、签名身份、Pi AgentSession 和假 provider 的 v2 两阶段/同 session 续聊、预算与事件验证。
-上述证据不表示云部署、真实模型、故事生成桥接或正式保存验收完成。
+上述确定性验证不表示云部署、真实模型或新工作区浏览器验收完成。

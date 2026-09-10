@@ -204,6 +204,8 @@ export interface Directory extends FreeBase {
   authorizationId: string;
   bindingDigest: string;
   stateProjection: string;
+  draftRef?: Extract<ExactRef, { type: "candidate" }>;
+  payloadHash?: string;
 }
 export interface Ledger extends FreeBase {
   kind: "op";

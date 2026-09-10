@@ -1,3 +1,4 @@
+import { appendStory, type StoryWrite } from "./free-story-operations.js";
 import {
   BulkOperationType,
   type Database,
@@ -27,6 +28,7 @@ export interface FreeStore {
     partition: string,
     writes: FreeWrite[],
     character?: CharacterWrite,
+    story?: StoryWrite,
   ): Promise<FreeRecord[]>;
 }
 export const freeRecordId = (kind: string, id: string) => `free:${kind}:${id}`;
@@ -34,6 +36,7 @@ export function freeOperations(
   partition: string,
   writes: FreeWrite[],
   character?: CharacterWrite,
+  story?: StoryWrite,
 ): OperationInput[] {
   if (
     !writes.length ||
@@ -77,6 +80,8 @@ export function freeOperations(
           resourceBody,
         };
   });
+  if (character && story) throw new AppError(400, "invalid_free_transaction");
+  if (story) appendStory(result, partition, writes, story);
   if (character) appendCharacter(result, partition, writes, character);
   if (Buffer.byteLength(JSON.stringify(result)) > 1024 * 1024)
     throw new AppError(400, "result_too_large");
@@ -184,8 +189,9 @@ export class CosmosFreeStore implements FreeStore {
     partition: string,
     writes: FreeWrite[],
     character?: CharacterWrite,
+    story?: StoryWrite,
   ) {
-    const ops = freeOperations(partition, writes, character);
+    const ops = freeOperations(partition, writes, character, story);
     try {
       const response = await this.db
         .container(partition === "library" ? "library" : "stories")

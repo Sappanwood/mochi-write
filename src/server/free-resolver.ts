@@ -58,6 +58,7 @@ export const classifierSchema = z
       })
       .strict(),
     changeEvidence: evidence.optional(),
+    chapterEvidence: evidence.optional(),
   })
   .strict();
 type Classification = z.infer<typeof classifierSchema>;
@@ -134,6 +135,7 @@ export async function resolveTarget(
     c.evidence,
     ...c.target.predicates.map((p) => p.evidence),
     ...(c.changeEvidence ? [c.changeEvidence] : []),
+    ...(c.chapterEvidence ? [c.chapterEvidence] : []),
   ];
   if (
     evs.some(
@@ -143,6 +145,12 @@ export async function resolveTarget(
     )
   )
     return reject("invalid_intent_evidence");
+  if (
+    c.chapterEvidence &&
+    (c.intent !== "initialize_story" ||
+      !/(?:首章|第一章)/u.test(c.chapterEvidence.text))
+  )
+    return reject("invalid_chapter_intent");
   const saving = [
     "save_current",
     "create_character",
@@ -175,13 +183,30 @@ export async function resolveTarget(
       c.target.kind !== "story")
   )
     return reject("invalid_action_kind");
+  const draftRefs = task.input.refs.filter((r) => r.type === "candidate");
+  const relevantDrafts =
+    c.intent === "draft" && references.candidates
+      ? (
+          await Promise.all(
+            draftRefs.map(async (r) => ({
+              ref: r,
+              value: await references.candidates!.read(conversation.id, r),
+            })),
+          )
+        ).filter(
+          (x) =>
+            (x.value.draftContext.mode.endsWith("character")
+              ? "character"
+              : "story") === c.target.kind && !x.ref.member_id,
+        )
+      : [];
   if (
     c.intent === "save_current" ||
-    (c.intent === "draft" &&
-      task.input.refs.some((r) => r.type === "candidate"))
+    (c.intent === "draft" && relevantDrafts.length > 0)
   ) {
-    const refs = task.input.refs.filter((r) => r.type === "candidate");
-    if (refs.length !== 1 || !references.candidates)
+    const refs =
+      c.intent === "draft" ? relevantDrafts.map((x) => x.ref) : draftRefs;
+    if (refs.length !== 1 || refs[0]?.member_id || !references.candidates)
       return reject("select_exact_candidate");
     const candidate = await references.candidates.read(
       conversation.id,
@@ -260,7 +285,13 @@ export async function resolveTarget(
     return {
       evidence: empty,
       ...(saving
-        ? { target, baseRevision: null, action: c.intent as Action }
+        ? {
+            target,
+            baseRevision: null,
+            action: c.chapterEvidence
+              ? "save_first_chapter"
+              : (c.intent as Action),
+          }
         : {}),
       draftContext: {
         mode: target.kind === "character" ? "new_character" : "new_story",
@@ -400,7 +431,8 @@ export async function resolveTarget(
       ? { kind: "character", asset_id: head.id }
       : { kind: "story", story_id: head.id };
   let action: Action | undefined;
-  if (saving) action = c.intent as Action;
+  if (saving)
+    action = c.chapterEvidence ? "save_first_chapter" : (c.intent as Action);
   if (target.kind === "story") {
     const chapters = await content.list({
       kind: "chapter",

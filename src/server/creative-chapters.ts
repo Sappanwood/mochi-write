@@ -13,7 +13,7 @@ const ref = z
     draft_hash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
   })
   .strict();
-const draftInput = z
+export const draftInput = z
   .object({
     mode: z.literal("draft"),
     title: z

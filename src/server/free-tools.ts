@@ -127,7 +127,7 @@ export const FREE_TOOLS = [
     version: "2",
     effect: "write",
     description:
-      "Draft a full character candidate. Commit the exact candidate only with trusted task authorization. Never infer update from name or source.",
+      "Draft a full character candidate. Commit the exact candidate only with trusted task authorization. Never infer update from name or source. Story extraction must supply derivation source_ref and retained/rewritten/excluded explanations, with a complete independent rewritten body; create a new master only.",
     parameters: {
       oneOf: [
         object(

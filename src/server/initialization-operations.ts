@@ -17,11 +17,6 @@ export function appendInitialization(
     (w) => w.record.kind === "conversation",
   )?.record;
   const receipt = task?.kind === "task" ? task.receipt : undefined;
-  const business = [
-    pack.story,
-    ...pack.assets,
-    ...(pack.chapter ? [pack.chapter] : []),
-  ];
   if (
     writes.length !== 3 ||
     writes.some((w) => !w.revision) ||
@@ -49,7 +44,23 @@ export function appendInitialization(
     task.authorization?.status !== "consumed" ||
     task.authorization.action !== "initialize_story" ||
     task.authorization.maxCreates !== 1 ||
-    task.authorization.includesChapter !== Boolean(pack.chapter) ||
+    task.authorization.includesChapter !== Boolean(pack.chapter)
+  )
+    throw new AppError(400, "初始化事务与精确草稿、授权或收据不一致");
+  appendInitializationBusiness(ops, storyId, pack, receipt);
+}
+export function appendInitializationBusiness(
+  ops: OperationInput[],
+  storyId: string,
+  pack: InitializationPackage,
+  receipt: import("../shared/creative.js").InitializationReceipt,
+) {
+  const business = [
+    pack.story,
+    ...pack.assets,
+    ...(pack.chapter ? [pack.chapter] : []),
+  ];
+  if (
     pack.assets.length > 8 ||
     business.length > 10 ||
     new Set(business.map((a) => a.entity.id)).size !== business.length ||

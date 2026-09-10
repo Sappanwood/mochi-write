@@ -1,3 +1,4 @@
+import { storyTool } from "./free-story-tools.js";
 import { z } from "zod";
 import { saveCharacter } from "./free-character-save.js";
 import { stableId } from "./entities.js";
@@ -49,6 +50,8 @@ export async function candidateTool(
   args: Record<string, unknown>,
   invocationId: string,
 ) {
+  if (name === "initialize_story" || name === "create_chapter")
+    return storyTool(free, task, name, args, invocationId);
   if (name === "discover_artifacts")
     return { data: await discoverCandidates(free, task.conversationId, args) };
   if (name === "read_artifact") {
@@ -107,6 +110,21 @@ export async function candidateTool(
       throw new AppError(409, "revision_conflict");
     metadata = doc.content.sourceMetadata;
   }
+  const source = a.derivation?.source_ref ?? a.derived_from;
+  const storySource =
+    source &&
+    (source.type === "asset"
+      ? Boolean(source.story_id)
+      : (await free.candidates.exact(task.conversationId, source))
+          .artifactKind !== "character");
+  if (storySource && (!a.derivation || context.mode !== "new_character"))
+    throw new AppError(403, "derivation_required");
+  if (
+    a.derivation &&
+    a.derived_from &&
+    freeDigest(a.derivation.source_ref) !== freeDigest(a.derived_from)
+  )
+    throw new AppError(400, "invalid_arguments");
   if (a.derivation) {
     if (Buffer.byteLength(JSON.stringify(a.derivation)) > 8192)
       throw new AppError(400, "result_too_large");

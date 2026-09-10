@@ -1,16 +1,13 @@
-import { randomUUID } from "node:crypto";
-import { AppError, type Content, type Entity } from "../shared/model.js";
+import { AppError } from "../shared/model.js";
 import type {
   CreativeDraft,
   CreativeTask,
-  InitializationPackage,
   InitializationReceipt,
-  InitializationWrite,
 } from "../shared/creative.js";
 import { ToolError } from "../shared/creative-tools.js";
 import type { ToolTaskContext } from "./tool-routes.js";
 import { activeTask, decodeWire, type Creative } from "./creative.js";
-import { clean, entity, hash, stableId } from "./entities.js";
+import { hash, stableId } from "./entities.js";
 import { libraryContentHash } from "./library-tools.js";
 import {
   initializationArgs,
@@ -19,13 +16,7 @@ import {
   checkPackageSize,
   initializationSummary,
 } from "./initialization-package.js";
-const content = (name: string, markdown: string): Content => ({
-  name,
-  markdown,
-  genres: [],
-  ageBand: "",
-  sourceMetadata: {},
-});
+import { buildInitialization } from "./initialization-builder.js";
 export class CreativeInitialization {
   constructor(private readonly host: Creative) {}
   async create(
@@ -94,36 +85,13 @@ export class CreativeInitialization {
         if (story && !args.chapter) throw new ToolError("forbidden_scope");
         const now = new Date().toISOString(),
           draftId = stableId(`${task.id}:${invocationId}`);
-        const storyEntity: Entity = story
-          ? {
-              ...clean(story),
-              content: {
-                ...story.content,
-                name: args.title,
-                ...(args.body !== undefined ? { markdown: args.body } : {}),
-              },
-              currentVersion: story.currentVersion + 1,
-              updatedAt: now,
-            }
-          : {
-              ...entity(
-                "story",
-                content(args.title, args.body ?? ""),
-                storyId,
-                storyId,
-              ),
-              status: "ready",
-            };
-        if (args.chapter) delete storyEntity.initializationPending;
-        else storyEntity.initializationPending = true;
-        const assets: InitializationWrite[] = [],
-          targets = new Set<string>();
-        for (const kind of ["setting", "outline"] as const)
-          if (args.assets.filter((a) => a.kind === kind).length > 1)
-            throw new ToolError("invalid_arguments");
-        for (const [index, a] of args.assets.entries()) {
-          let value: InitializationWrite;
-          if (a.source_id) {
+        const initialization = await buildInitialization(
+          this.host.content,
+          storyId,
+          story,
+          args,
+          draftId,
+          async (a) => {
             const source = conversation.librarySources?.find(
               (s) =>
                 s.asset_id === a.source_id &&
@@ -152,95 +120,9 @@ export class CreativeInitialization {
               60 * 1024
             )
               throw new ToolError("result_too_large");
-            const key = `source:${source.asset_id}:${source.version}`;
-            if (targets.has(key)) throw new ToolError("invalid_arguments");
-            targets.add(key);
-            value = {
-              entity: {
-                ...entity(
-                  "snapshot",
-                  structuredClone(master.content),
-                  storyId,
-                  stableId(`${draftId}:asset:${index}`),
-                ),
-                sourceAssetId: master.id,
-                sourceVersion: master.currentVersion,
-              },
-              baseRevision: null,
-              source,
-            };
-          } else if (a.asset_id) {
-            const current = await this.host.content.get(a.asset_id, storyId);
-            if (
-              !story ||
-              !current ||
-              current.projectId !== storyId ||
-              current.deleted ||
-              current.kind !== a.kind
-            )
-              throw new ToolError("forbidden_scope");
-            if (current.revision !== a.base_revision)
-              throw new ToolError("revision_conflict");
-            if (targets.has(current.id))
-              throw new ToolError("invalid_arguments");
-            targets.add(current.id);
-            value = {
-              entity: {
-                ...clean(current),
-                content: {
-                  ...structuredClone(current.content),
-                  name: a.title!,
-                  markdown: a.body!,
-                },
-                currentVersion: current.currentVersion + 1,
-                updatedAt: now,
-              },
-              baseRevision: current.revision,
-            };
-          } else
-            value = {
-              entity: entity(
-                a.kind,
-                content(a.title!, a.body!),
-                storyId,
-                stableId(`${draftId}:asset:${index}`),
-              ),
-              baseRevision: null,
-            };
-          if (a.kind === "setting" || a.kind === "outline") {
-            const existing = (
-              await this.host.content.list({
-                projectId: storyId,
-                kind: a.kind,
-                limit: 2,
-              })
-            ).items;
-            if (existing.some((e) => e.id !== value.entity.id))
-              throw new ToolError("revision_conflict");
-          }
-          assets.push(value);
-        }
-        const initialization: InitializationPackage = {
-          story: { entity: storyEntity, baseRevision: story?.revision ?? null },
-          assets,
-          ...(args.chapter
-            ? {
-                chapter: {
-                  entity: {
-                    ...entity(
-                      "chapter",
-                      content(args.chapter.title, args.chapter.body),
-                      storyId,
-                      randomUUID(),
-                    ),
-                    order: 1,
-                  },
-                  baseRevision: null,
-                },
-              }
-            : {}),
-        };
-        checkPackageSize(initialization);
+            return { source, master };
+          },
+        );
         const draft: CreativeDraft = {
           id: draftId,
           kind: "draft",
