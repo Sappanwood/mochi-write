@@ -6,7 +6,10 @@ import {
   type FreeStore,
   type FreeWrite,
 } from "../../src/server/free-store.js";
+import type { CharacterWrite } from "../../src/server/free-character-operations.js";
+import type { MemoryStore } from "./memory-store.js";
 export class MemoryFreeStore implements FreeStore {
+  constructor(readonly content?: MemoryStore) {}
   rows = new Map<string, FreeRecord>();
   failPartition?: string;
   async get<T extends FreeRecord>(
@@ -31,8 +34,12 @@ export class MemoryFreeStore implements FreeStore {
         .map(([, r]) => r),
     ) as T[];
   }
-  async transaction(p: string, writes: FreeWrite[]) {
-    freeOperations(p, writes);
+  async transaction(
+    p: string,
+    writes: FreeWrite[],
+    character?: CharacterWrite,
+  ) {
+    freeOperations(p, writes, character);
     if (this.failPartition === p)
       throw new AppError(503, "injected storage failure");
     for (const w of writes)
@@ -41,6 +48,25 @@ export class MemoryFreeStore implements FreeStore {
           null) !== w.revision
       )
         throw new AppError(409, "free_revision_conflict");
+    if (character) {
+      if (!this.content) throw Error("Missing content store");
+      const e = character.entity,
+        old = this.content.heads.get(`null:${e.id}`);
+      if (
+        (old?.revision ?? null) !== character.revision ||
+        this.content.history.has(`${e.id}:${e.currentVersion}`) ||
+        (old && e.currentVersion !== old.currentVersion + 1)
+      )
+        throw new AppError(409, "revision_conflict");
+      this.content.heads.set(`null:${e.id}`, {
+        ...structuredClone(e),
+        revision: randomUUID(),
+      });
+      this.content.history.set(
+        `${e.id}:${e.currentVersion}`,
+        structuredClone(e),
+      );
+    }
     const saved = writes.map((w) => ({
       ...structuredClone(w.record),
       revision: randomUUID(),

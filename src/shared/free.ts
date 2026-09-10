@@ -252,6 +252,13 @@ export interface RequestRecord extends FreeBase {
   taskId: string;
   inputDigest: string;
 }
+export interface DraftClaim extends FreeBase {
+  kind: "claim";
+  conversationId: string;
+  draftId: string;
+  operationId: string;
+  payloadHash: string;
+}
 export interface FreeEvent extends FreeBase {
   kind: "event";
   conversationId: string;
@@ -270,6 +277,7 @@ export type FreeRecord =
   | Ledger
   | RequestRecord
   | FreeEvent
+  | DraftClaim
   | import("./free-candidates.js").Candidate
   | import("./free-candidates.js").CandidateGroup;
 export interface CandidateAccess {

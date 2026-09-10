@@ -27,6 +27,7 @@ const configureRuntime = (pi, streamFactory) => {
     if (!context.tools?.length) {
       const message = input.user_message;
       const search = message.includes("侦探");
+      const selected = message.includes("选定");
       const candidate = message.includes("候选");
       const word = "侦探",
         start = message.indexOf(word),
@@ -36,15 +37,18 @@ const configureRuntime = (pi, streamFactory) => {
         {
           type: "text",
           text: JSON.stringify({
-            intent: candidate
-              ? "draft"
-              : search
-                ? "update_character"
-                : "discuss",
+            intent: selected
+              ? "save_current"
+              : candidate
+                ? "draft"
+                : search
+                  ? "update_character"
+                  : "discuss",
             evidence: { start: 0, end: message.length, text: message },
             target: {
               kind: "character",
-              mode: candidate ? "new" : search ? "search" : "unclear",
+              mode:
+                selected || candidate ? "new" : search ? "search" : "unclear",
               predicates: search
                 ? [
                     {
@@ -78,6 +82,39 @@ const configureRuntime = (pi, streamFactory) => {
           arguments: {},
         },
       ];
+    } else if (
+      input.phase === "execute" &&
+      input.binding &&
+      results.length < (input.binding.selectedDraft ? 2 : 3)
+    ) {
+      const last = JSON.parse(textOf(results.at(-1)));
+      assert.equal(last.outcome, "ok", JSON.stringify(last));
+      const selected = input.binding.selectedDraft;
+      const ref = selected ?? last.data;
+      reason = "toolUse";
+      content = [
+        {
+          type: "toolCall",
+          id: randomUUID(),
+          name: "save_character",
+          arguments:
+            !selected && results.length === 1
+              ? {
+                  mode: "draft",
+                  name: "合成记者",
+                  markdown: "精确修改正文\r\n",
+                  genres: [],
+                  age_band: "",
+                  occupation: "记者",
+                }
+              : {
+                  mode: "commit",
+                  draft_id: ref.draft_id,
+                  draft_revision: ref.draft_revision,
+                  draft_hash: ref.draft_hash,
+                },
+        },
+      ];
     } else if (input.user_message.includes("候选") && results.length < 3) {
       const result = JSON.parse(textOf(results.at(-1)));
       assert.equal(result.outcome, "ok", JSON.stringify(result));
@@ -106,9 +143,7 @@ const configureRuntime = (pi, streamFactory) => {
     } else {
       const result = JSON.parse(textOf(results.at(-1)));
       assert.equal(result.outcome, "ok", JSON.stringify(result));
-      content = [
-        { type: "text", text: "已核对本轮资料；正式保存工具由后续切片接入。" },
-      ];
+      content = [{ type: "text", text: "已核对本轮资料与真实工具结果。" }];
     }
     const stream = streamFactory();
     stream.push({
@@ -141,7 +176,12 @@ const configureRuntime = (pi, streamFactory) => {
 const h = await creativeHarness({ freeSession: true, configureRuntime });
 async function finish(id) {
   for (let i = 0; i < 1000; i++) {
-    const task = await h.free.task(id);
+    let task = await h.free.task(id);
+    if (task.state === "committed") {
+      await h.free.workflow.refresh(id);
+      task = await h.free.task(id);
+      if (task.executionRun?.status === "succeeded") return task;
+    }
     if (
       ["succeeded", "failed", "interrupted", "clarifying"].includes(task.state)
     )
@@ -180,7 +220,7 @@ try {
   const task = await finish(first.task.id);
   assert.equal(
     task.state,
-    "succeeded",
+    "committed",
     JSON.stringify({
       task,
       run: task.resolutionRun?.runId
@@ -202,6 +242,8 @@ try {
     [
       [2, "resolve", "library_vocabulary"],
       [2, "execute", "library_vocabulary"],
+      [2, "execute", "save_character"],
+      [2, "execute", "save_character"],
     ],
   );
   const savedSession = (await h.free.conversation(first.conversation.id))
@@ -250,7 +292,12 @@ try {
     [...new Set(events.events.map((e) => e.phase))],
     ["resolve", "execute"],
   );
-  assert.equal((await h.content.get(doc.id, null)).currentVersion, 1);
+  assert.equal((await h.content.get(doc.id, null)).currentVersion, 2);
+  assert.equal(
+    (await h.content.get(doc.id, null)).content.sourceMetadata.occupation,
+    "记者",
+  );
+  assert.equal(task.receipt.kind, "character_updated");
   const draftTask = await h.request(
     `/api/creative/free/conversations/${first.conversation.id}/tasks`,
     {
@@ -266,9 +313,12 @@ try {
   const groups = await h.request(
     `/api/creative/free/conversations/${first.conversation.id}/groups`,
   );
-  assert.equal(groups.items.length, 1);
+  assert.equal(groups.items.length, 2);
+  const candidateGroup = groups.items.find(
+    (g) => g.createdByTaskId === drafted.id,
+  );
   const versions = await h.request(
-    `/api/creative/free/conversations/${first.conversation.id}/groups/${groups.items[0].id}/drafts`,
+    `/api/creative/free/conversations/${first.conversation.id}/groups/${candidateGroup.id}/drafts`,
   );
   assert.equal(versions.items[0].ordinal, 1);
   const sources = await h.request(
@@ -280,11 +330,61 @@ try {
     `/api/creative/free/conversations/${first.conversation.id}/tasks/${drafted.id}/events?after=0`,
   );
   assert.ok(JSON.stringify(draftEvents).includes(versions.items[0].draft_id));
+  const exact = versions.items[0];
+  const saved = await h.request(
+    `/api/creative/free/conversations/${first.conversation.id}/tasks`,
+    {
+      clientRequestId: randomUUID(),
+      message: "保存选定角色稿",
+      provider: input.provider,
+      model: input.model,
+      refs: [
+        {
+          type: "candidate",
+          group_id: exact.group_id,
+          draft_id: exact.draft_id,
+          draft_revision: exact.draft_revision,
+          draft_hash: exact.draft_hash,
+        },
+      ],
+    },
+  );
+  h.loseNextCommitResponse();
+  const committed = await finish(saved.task.id);
+  assert.equal(committed.state, "committed", JSON.stringify(committed));
+  assert.equal(committed.receipt.kind, "character_created");
+  assert.equal(committed.receipt.draft_id, exact.draft_id);
+  const master = await h.content.get(committed.receipt.target.asset_id, null);
+  const frozen = await h.free.candidates.get(
+    first.conversation.id,
+    exact.draft_id,
+  );
+  assert.deepEqual(master.content, frozen.payload.content);
+  const viewed = await h.request(
+    `/api/creative/free/conversations/${first.conversation.id}/drafts/${exact.draft_id}`,
+  );
+  assert.deepEqual(viewed.receipt, committed.receipt);
+  assert.deepEqual(viewed.claim, {
+    operationId: committed.operationId,
+    status: "committed",
+  });
+  const callback = h.callbacks.findLast((c) => c.arguments.mode === "commit");
+  const retried = await h.callback(callback);
+  assert.deepEqual(retried.receipt, committed.receipt);
+  assert.equal((await h.content.get(master.id, null)).currentVersion, 1);
+  const old = await h.free.references.read(first.conversation.id, ref);
+  assert.equal(old.content.name, "合成侦探");
+  assert.equal(
+    (await h.free.conversation(first.conversation.id)).sessionId,
+    savedSession,
+  );
   console.log(
     JSON.stringify({
       status: "passed",
+      writeOrigin: h.origin,
+      mochiOrigin: h.mochiOrigin,
       scenario:
-        "free v2 real HTTP/Pi resolution, same-session candidate draft/read and exact source",
+        "free v2 real HTTP/Pi resolved update, exact selected character save, lost response receipt recovery and same session",
       providerCalls: contexts.length,
       callbacks: h.callbacks.length,
       events: events.events.length,

@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { saveCharacter } from "./free-character-save.js";
+import { stableId } from "./entities.js";
+import type { Candidate } from "../shared/free-candidates.js";
 import type { FreeSession } from "./free-session.js";
 import type { FreeTask } from "../shared/free.js";
 import { exactRefSchema, freeHash, freeId } from "../shared/free.js";
@@ -67,10 +70,27 @@ export async function candidateTool(
     await free.references.recordRead(task, ref, invocationId);
     return { data: { ...ref, ...result } };
   }
+  if (name === "save_character" && args.mode === "commit")
+    return saveCharacter(free, task, args);
   if (name !== "save_character" || args.mode !== "draft")
     throw new AppError(400, "tool_not_available");
   const a = draftSchema.parse(args),
     context = task.draftContext;
+  const toolInputDigest = freeDigest(args);
+  const prior = await free.records.get<Candidate>(
+    "library",
+    "candidate",
+    stableId(`candidate:${task.conversationId}:${task.id}:${invocationId}`),
+  );
+  if (prior) {
+    if (prior.payload.business?.characterInputDigest !== toolInputDigest)
+      throw new AppError(409, "operation_conflict");
+    return {
+      data: free.candidates.summary(
+        await free.candidates.get(task.conversationId, prior.id),
+      ),
+    };
+  }
   if (!context || !context.mode.endsWith("character"))
     throw new AppError(403, "forbidden_scope");
   let metadata = {};
@@ -123,7 +143,12 @@ export async function candidateTool(
       ...(a.derived_from ? { derived_from: a.derived_from } : {}),
     },
     invocationId,
-    a.derivation ? { business: { derivation: a.derivation } } : undefined,
+    {
+      business: {
+        characterInputDigest: toolInputDigest,
+        ...(a.derivation ? { derivation: a.derivation } : {}),
+      },
+    },
   );
   return { data: free.candidates.summary(d) };
 }

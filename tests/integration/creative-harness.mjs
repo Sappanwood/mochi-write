@@ -173,7 +173,7 @@ export async function creativeHarness(options = {}) {
   const free = options.freeSession
     ? new FreeSession(
         content,
-        new MemoryFreeStore(),
+        new MemoryFreeStore(content),
         { request: (path, body) => clientApi.request(path, body) },
         { pollMs: 10 },
       )
@@ -347,6 +347,9 @@ export async function creativeHarness(options = {}) {
   }
   return {
     origin,
+    get mochiOrigin() {
+      return serviceOrigin;
+    },
     content,
     records,
     creative,

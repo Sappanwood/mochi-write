@@ -110,6 +110,11 @@ export class FreeCallback {
               : "initialize_story";
         if (cb.tool.name !== expectedTool || cb.tool.version !== "2")
           throw new AppError(403, "forbidden_scope");
+        const directory = await this.free.operations.directory(
+          task.operationId,
+        );
+        if (!directory || directory.bindingDigest !== freeDigest(task.binding))
+          throw new AppError(409, "operation_conflict");
         const operation = await this.free.operation(task.operationId);
         if (operation.receipt) {
           const receipt = operation.receipt;

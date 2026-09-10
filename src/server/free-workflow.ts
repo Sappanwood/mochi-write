@@ -57,7 +57,7 @@ export class FreeWorkflow {
       .catch(async () => {
         try {
           await this.host.change(id, (t) => {
-            if (!t.cancelRequestedAt) {
+            if (!t.cancelRequestedAt && !t.receipt) {
               t.state = "interrupted";
               t.error = "execution_unknown_query_original";
             }
@@ -147,12 +147,13 @@ export class FreeWorkflow {
       }
       await this.host.change(id, (t) => {
         if (!t.cancelRequestedAt) {
-          t.state =
-            run.status === "succeeded"
-              ? "succeeded"
-              : run.status === "interrupted"
-                ? "interrupted"
-                : "failed";
+          if (!t.receipt)
+            t.state =
+              run.status === "succeeded"
+                ? "succeeded"
+                : run.status === "interrupted"
+                  ? "interrupted"
+                  : "failed";
           if (run.result?.text && Buffer.byteLength(run.result.text) <= 1048576)
             t.output = run.result.text;
         }
@@ -430,8 +431,10 @@ export class FreeWorkflow {
         if (field === "executionRun" && !t.cancelRequestedAt) {
           if (run.result?.text && Buffer.byteLength(run.result.text) <= 1048576)
             t.output = run.result.text;
-          if (run.status === "succeeded") t.state = "succeeded";
-          else if (!pending(run)) t.state = "interrupted";
+          if (!t.receipt) {
+            if (run.status === "succeeded") t.state = "succeeded";
+            else if (!pending(run)) t.state = "interrupted";
+          }
         }
       });
     }

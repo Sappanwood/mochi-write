@@ -5,6 +5,10 @@ import {
 } from "@azure/cosmos";
 import type { FreeRecord } from "../shared/free.js";
 import { AppError } from "../shared/model.js";
+import {
+  appendCharacter,
+  type CharacterWrite,
+} from "./free-character-operations.js";
 export interface FreeWrite {
   record: FreeRecord;
   revision: string | null;
@@ -19,12 +23,17 @@ export interface FreeStore {
     kind: T["kind"],
     conversationId?: string,
   ): Promise<T[]>;
-  transaction(partition: string, writes: FreeWrite[]): Promise<FreeRecord[]>;
+  transaction(
+    partition: string,
+    writes: FreeWrite[],
+    character?: CharacterWrite,
+  ): Promise<FreeRecord[]>;
 }
 export const freeRecordId = (kind: string, id: string) => `free:${kind}:${id}`;
 export function freeOperations(
   partition: string,
   writes: FreeWrite[],
+  character?: CharacterWrite,
 ): OperationInput[] {
   if (
     !writes.length ||
@@ -68,6 +77,7 @@ export function freeOperations(
           resourceBody,
         };
   });
+  if (character) appendCharacter(result, partition, writes, character);
   if (Buffer.byteLength(JSON.stringify(result)) > 1024 * 1024)
     throw new AppError(400, "result_too_large");
   return result;
@@ -170,8 +180,12 @@ export class CosmosFreeStore implements FreeStore {
       fail(e);
     }
   }
-  async transaction(partition: string, writes: FreeWrite[]) {
-    const ops = freeOperations(partition, writes);
+  async transaction(
+    partition: string,
+    writes: FreeWrite[],
+    character?: CharacterWrite,
+  ) {
+    const ops = freeOperations(partition, writes, character);
     try {
       const response = await this.db
         .container(partition === "library" ? "library" : "stories")

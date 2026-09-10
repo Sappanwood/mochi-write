@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { FreeSession } from "./free-session.js";
-import type { FreeConversation, FreeTask } from "../shared/free.js";
+import type { DraftClaim, FreeConversation, FreeTask } from "../shared/free.js";
 import { exactRefSchema } from "../shared/free.js";
 import { AppError } from "../shared/model.js";
 import { freeDigest } from "./free-references.js";
@@ -209,11 +209,44 @@ export function registerFree(app: FastifyInstance, free: FreeSession) {
   app.get(`${base}/drafts/:draftId`, async (request) => {
     const id = conversationId(request.params);
     await free.conversation(id);
+    const draft = await free.candidates.get(
+      id,
+      uuid.parse((request.params as { draftId: string }).draftId),
+    );
+    const claim = await free.records.get<DraftClaim>(
+      "library",
+      "claim",
+      draft.id,
+    );
+    const operation = claim
+      ? await free.operation(claim.operationId)
+      : undefined;
+    if (
+      claim &&
+      (claim.conversationId !== id ||
+        claim.draftId !== draft.id ||
+        claim.payloadHash !==
+          freeDigest({
+            draftRef: free.candidates.ref(draft),
+            content: draft.payload.content,
+          }) ||
+        (operation?.receipt &&
+          (operation.receipt.draft_id !== draft.id ||
+            operation.receipt.draft_revision !== draft.draftRevision ||
+            operation.receipt.draft_hash !== draft.draftHash)))
+    )
+      throw new AppError(409, "invalid_operation_receipt");
     return {
-      draft: await free.candidates.get(
-        id,
-        uuid.parse((request.params as { draftId: string }).draftId),
-      ),
+      draft,
+      ...(claim
+        ? {
+            claim: {
+              operationId: claim.operationId,
+              status: operation!.status,
+            },
+          }
+        : {}),
+      ...(operation?.receipt ? { receipt: operation.receipt } : {}),
     };
   });
   app.get(`${base}/references`, async (request) => {

@@ -2,10 +2,10 @@
 
 ## 当前范围
 
-MWT-025/026 增量实现 `/api/creative/free` 本人 API、独立会话身份、固定资产引用、只读工具、目标后绑定、两阶段执行及 OP 恢复。
-浏览器仍使用旧入口；候选组、精确引用、发现及角色 draft 已接通，新工作区、角色正式保存与故事业务桥接由后续切片接入。
+MWT-025/026/027 增量实现 `/api/creative/free` 本人 API、独立会话身份、固定资产引用、只读工具、目标后绑定、两阶段执行及 OP 恢复。
+浏览器仍使用旧入口；候选组、精确引用、发现及角色 draft 已接通，角色正式保存已接通；新工作区与故事业务桥接由后续切片接入。
 `FreeCallback` 的 `FreeToolHandler` 与 `FreeReferences` 的 `CandidateAccess` 是后续业务接入点。
-默认 handler 支持 discover_artifacts/read_artifact/save_character 的 draft；未接入的正式保存与故事生成返回 `tool_not_available`。不会写正式资产或用聊天文字冒充候选。
+默认 handler 支持 discover_artifacts/read_artifact 及 save_character 的 draft/commit；故事生成和保存仍返回 `tool_not_available`。角色正式写入只来自后端核验绑定和真实 OP 收据。
 新 session 创建时仍固定完整十工具 v2 快照，因此后续接入无需改变旧 session 快照。
 
 ## 身份与引用
@@ -46,7 +46,7 @@ character/world 禁止 story_id；故事及其资料必须提供 story_id，stor
 | GET /conversations/:id/tasks/:taskId/events | `after` 单调游标，事件带 phase/runId；library 持久投影并去重 |
 | GET /conversations/:id/groups | `{items,nextCursor}`，稳定成果组分页 |
 | GET /conversations/:id/groups/:groupId/drafts | `{items,nextCursor}`，按 ordinal 分页的精确稿摘要 |
-| GET /conversations/:id/drafts/:draftId | `{draft}`，本人读取本会话完整冻结包 |
+| GET /conversations/:id/drafts/:draftId | `{draft,claim?,receipt?}`，本人读取本会话完整冻结包及原 OP 状态 |
 | GET /conversations/:id/discover | `kind,query?,story_id?,limit?,cursor?`，`{items,next_cursor}`；kind 为资产类型或 candidate |
 | POST /conversations/:id/references/resolve | 资产 locator 或完整 candidate ref → `{ref}`，供 @ 和引用按钮统一使用，不发消息或记录为 Agent 已读 |
 | GET /conversations/:id/references | `ref` URL 编码 JSON，最多 4096 bytes；只读本会话已记录引用，返回 exact/unavailable |
@@ -99,7 +99,7 @@ execute 同原 session、同 sourceMessageId，冻结 scope/refs/binding/draft_c
 所有 v2 过程记录使用 `recordType:"free"`、`schemaVersion:2`、`free:<type>:<UUID>`，位于 library/scopeId=library；不进入正式 head 列表或导出。
 OP directory 在 library 中与 task binding/conversation CAS 一起 create-only，固定 partition 与 binding digest，永不换目标。
 角色 ledger 位于 library，故事 ledger 位于 stories/projectId=storyId；只允许目标对应分区。
-`FreeOperations` 提供 active ledger 激活、撤回 tombstone、严格原 OP 查询与收据投影；正式业务 batch 的具体实现留给保存切片。
+`FreeOperations` 提供 active ledger 激活、撤回 tombstone、严格原 OP 查询与收据投影；角色正式 batch 已接通；故事业务 batch 留给故事桥接切片。
 
 取消先 CAS 会话 epoch 并标记 cancel_pending，再在目标分区创建 revoked tombstone 或 CAS active→revoked。
 激活与撤回遇到同一 create-only/CAS 冲突时以目标 ledger 为准。业务先 committed 则保留收据，取消不会回滚。
@@ -109,6 +109,27 @@ intent/resolve/execute 的派发标记与有效 task、会话 epoch 在同一 li
 target ledger 是提交事实，library task/关联资产只是投影。投影失败可点读 directory 指向的同一 ledger，核对 binding/目标/精确稿后重复恢复。
 unknown/不存在不证明未提交；不新建 OP、不重跑模型或补业务对象。session 创建前持久 dispatch 标记，创建结果未知不重复创建；
 用户保留原记录，可另开新 conversation。run 已标 dispatch 后响应未知，核实只按持久 runId 或原 key GET。
+
+## 角色正式保存
+
+`save_character/2` commit 仅接受 `{mode:"commit",draft_id,draft_revision:"1",draft_hash}`。
+后端重读持久 task，核对 directory/binding digest、action、目标、baseRevision 和 active OP。
+`save_current` 只保存 binding.selectedDraft；直接创作保存只接受当前 task 生成的角色稿，不能由模型移用其他目标/轮次的候选。
+已绑定目标的旧稿必须匹配原目标和基础版本，无目标的新角色预览稿才可在后续保存轮分配新母版 ID。
+规范化在 draft 冻结前完成；commit 复用 Library 的 Content/词表校验，完整冻结 Content 原样写入，不改换行、不重新生成或自动 rebase。
+更新只覆盖允许的 Content 字段，保留实体 source/path/raw/sourceAssetId/sourceVersion 和所有合法 legacy metadata；metadata 中的 name/id/revision 不参与覆盖后端目标证据。
+
+独立 `free:claim:<draftId>` 在 library create-only/CAS 固定 `{draftId,operationId,payloadHash}`。
+正式业务提交前，同一 library batch 将 OP 的 `draftRef/payloadHash` CAS 冻结并创建/替换 claim。
+同 OP 此后仅允许该精确输入，响应未知也不能换稿；不同输入在产生新 claim 或业务写入前返回 operation_conflict。
+同 OP 可重入；其他 OP 仅在原 directory 指向的 ledger 明确 revoked/conflict 且没有收据时以原 claim revision 替换。
+unknown/缺失和 committed 都不释放候选，避免响应丢失后另建母版。draft API 的 claim 返回 operationId/status；receipt 点读原 OP，并核对 claim/稿 ID/revision/hash 一致，不依赖任务投影或显示其他稿的收据。
+
+角色提交为单个 library batch：OP Replace/IfMatch（消费授权并保存 receipt）、不可变 version Create、head Create 或 Replace/IfMatch。
+新建包括软删除 head 在内均 create-only 冲突；更新必须仍是同一未删角色和冻结 baseRevision。事务冲突关闭原 OP 为 conflict，保留输入和候选。
+同 OP 同精确输入、包括并发提交，返回原收据；不同稿/hash 返回 operation_conflict。取消和 commit CAS 同一 OP，先成功者决定。
+收据 kind 为 character_created/character_updated，content_hash 为完整 Content hash，revision 为正式逻辑版本字符串；head revision 仍是不透明 CAS 标记。
+投影失败不改变保存成功；响应未知只读原 OP。下一轮可读取最新 head 继续修改，已固定参考仍读取原版本。母版保存不改故事独立快照或其他资产。
 
 ## 兼容与验证
 

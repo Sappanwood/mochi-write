@@ -84,6 +84,7 @@ function matches(
 }
 function summary(d: Document): LibraryEntry {
   return {
+    ...d.content.sourceMetadata,
     asset_id: d.id,
     kind: d.kind as "character",
     name: d.content.name,
@@ -91,7 +92,6 @@ function summary(d: Document): LibraryEntry {
     version: d.currentVersion,
     genres: d.content.genres,
     age_band: d.content.ageBand,
-    ...d.content.sourceMetadata,
   };
 }
 export interface TargetResolution {
