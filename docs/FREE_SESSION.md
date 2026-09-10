@@ -3,7 +3,7 @@
 ## 当前范围
 
 MWT-025–028 增量实现 `/api/creative/free` 本人 API、独立会话身份、固定资产引用、只读工具、目标后绑定、两阶段执行及 OP 恢复。
-浏览器仍使用旧入口；候选组、精确引用、发现及角色 draft 已接通，角色正式保存已接通；同一会话的故事初始化、首章、续章和反向独立母版已接通；新工作区由后续切片接入。
+浏览器 `#free/new` 与 `#free/conversation/:id` 已接入候选组、精确引用、资产发现、角色和故事成果阅读及原 OP 核实。主导航与旧入口仍保持 v1，模式导航另行接入。角色正式保存、同一会话的故事初始化、首章、续章和反向独立母版已接通。
 `FreeCallback` 的 `FreeToolHandler` 与 `FreeReferences` 的 `CandidateAccess` 是后续业务接入点。
 默认 handler 支持 discover_artifacts/read_artifact，以及 save_character/initialize_story/create_chapter 的 draft/commit。角色正式写入只来自后端核验绑定和真实 OP 收据。
 新 session 创建时仍固定完整十工具 v2 快照，因此后续接入无需改变旧 session 快照。
@@ -49,7 +49,7 @@ character/world 禁止 story_id；故事及其资料必须提供 story_id，stor
 | GET /conversations/:id/drafts/:draftId | `{draft,claim?,receipt?}`，本人读取本会话完整冻结包及原 OP 状态 |
 | GET /conversations/:id/discover | `kind,query?,story_id?,limit?,cursor?`，`{items,next_cursor}`；kind 为资产类型或 candidate |
 | POST /conversations/:id/references/resolve | 资产 locator 或完整 candidate ref → `{ref}`，供 @ 和引用按钮统一使用，不发消息或记录为 Agent 已读 |
-| GET /conversations/:id/references | `ref` URL 编码 JSON，最多 4096 bytes；只读本会话已记录引用，返回 exact/unavailable |
+| GET /conversations/:id/references | `ref` URL 编码 JSON，最多 4096 bytes；只读本会话已记录引用，返回 exact/unavailable；exact 资产附当前 head 的 `currentVersion/currentDeleted`（若仍存在），正文始终为引用版本 |
 
 任务 DTO 只暴露目标/动作摘要、运行状态/用量与恢复信息，不暴露授权 ID、可信执行 payload 或完整 binding。
 401/403 为身份/范围失败，404 为缺失，409 为请求/版本/授权冲突；错误保留原输入和已持久成果。
@@ -153,3 +153,33 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 `npm run check` 覆盖新身份、目标证据、跨分区恢复、取消、API 与存储行为及既有 v1 测试。
 `MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration` 增加真实 HTTP、签名身份、Pi AgentSession 和假 provider 的 v2 两阶段/同 session 续聊、预算与事件验证。
 上述确定性验证不表示云部署、真实模型或新工作区浏览器验收完成。
+
+
+## 浏览器双关注点（MWT-029）
+
+`#free/new` 首次发送前选择模型/思考强度；成功后转到 `#free/conversation/:id` 并锁定设置。
+会话没有资产类型导航分支。桌面只有讨论与信息两主区，手机 390px 在讨论/信息切换；
+信息区在正式详情、单份候选与 explorer 间切换。组内第 N 稿仅作显示，发送和读取使用完整精确 ref。
+本会话多组候选可交错产生，新稿只增加提示，不替换当前阅读、不清空输入或引用。
+
+输入 `@名称` 直接补全角色、世界观、作品与本会话候选；进入故事资料范围后同时补全其资料。
+同名显示类型、范围/组及版本，方向键和 Enter 或点击选中。精确解析尚未返回时禁发；选择失败释放等待，迟到成功不清空后来输入，离开会话后不写回旧选择。补全与信息区“引用到对话”形成同一种可删除、可打开的标记。
+只打开详情、来源、候选或 explorer 不写入消息 refs。历史消息标出已固定显式引用；浏览也不改变 task 的目标。
+来源按 initial/explicit/agent_read 区分，仅搜索命中不算全文读取。已记录来源从 scoped references API 读取，
+当前 head 只用于版本关系/删除状态提示，不作为旧版内容替代；原版不可取得禁用引用按钮。
+首次发现的未记录资产经 resolve 固定版本，再读本人业务接口并核对 revision/version；期间变化明确拒绝，重新发现由用户触发。
+
+信息区显示正式/候选、所属范围、新建/更新和冻结基础版本；初始化复用完整包阅读组件展示资料与可选首章。
+角色反向母版显示保留、改写与排除说明。正式保存只显示真实 receipt；模型回复不产生保存标识。
+未绑定显示解析/检索/澄清，不把右侧对象作为默认目标。已绑定显示后端确切目标/动作，冲突、失败、取消、待核实分开。
+
+浏览器 sessionStorage 按 conversation ID 保留未发送输入、refs、当前阅读/滚动、最近六份内容与手机视图；
+只缓存 UI 状态，不缓存全文或作为权限依据。POST 前保存完整原请求，响应未知时保持原键与固定输入，
+“查询原请求”使用 GET by-request/task；“按原请求重试”才复用原 POST。迟到成功响应不清空用户后来编辑的内容。
+任务、来源、成果组与组内版本按服务端 cursor 完整读取；定时刷新只 GET 投影，不重放 task 或模型。
+显式“核实原任务与保存结果”调用公开 POST verify 查询原 run/OP 并修复投影。committed 但原 run 尚未终止仍禁止新消息；
+确认撤回且 stopPending=false 后允许继续。刷新期间不把 GET task 当作远端终态恢复。
+
+`tests/e2e/free.spec.ts` 使用隔离存储、真实本人 JWT/Fastify HTTP、实际 v2 callback 与确定性假 Mochi，
+覆盖桌面/390px、同名/交错旧稿、角色→故事→角色、来源变动和精确不可得、丢响应及公开 verify。
+它验证正式 UI，不代替 [MWT-024 原型历史走查](prototypes/free-session/README.md)、真实 Pi 集成或付费模型验收。

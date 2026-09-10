@@ -291,6 +291,20 @@ export function registerFree(app: FastifyInstance, free: FreeSession) {
       return {
         ref,
         ...(await free.references.read(id, ref)),
+        ...(ref.type === "asset"
+          ? await (async () => {
+              const head = await free.content.get(
+                ref.asset_id,
+                ref.story_id ?? null,
+              );
+              return head
+                ? {
+                    currentVersion: head.currentVersion,
+                    currentDeleted: head.deleted,
+                  }
+                : {};
+            })()
+          : {}),
         availability: "exact",
       };
     } catch (e) {

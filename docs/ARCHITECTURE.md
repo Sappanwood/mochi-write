@@ -242,3 +242,17 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 ## 自由会话过程存储
 
 `FreeSession` 与旧 `Creative` 并存。v2 过程记录在 library；不可变 OP directory 将任务绑定到角色 library 或故事 stories 分区的权威 ledger。角色正式事务包含 OP CAS、version Create 与 head Create/IfMatch，独立 draft claim 阻止跨 OP 重复保存同稿。故事保存先在 library 同 batch 固定 directory 精确输入与 claim，再由 stories 目标分区 OP CAS、业务 version/head 同 batch 提交；共享 initialization-builder 与初始化业务校验复用 v1 限制。续章事务包含 story head CAS guard。目标事务与会话投影分开恢复，取消以目标 ledger CAS 确认为准。候选组 CAS 和 create-only 候选与会话同分区，FreeCandidates 提供精确冻结/读取；资产发现采用元数据投影，来源兼容资产及候选不可变身份。独立解释与同 session 两阶段 run、只读 allowlist 及业务扩展点见 [自由会话服务](FREE_SESSION.md)。
+
+
+## 自由会话浏览器工作区
+
+`FreeWorkspace` 通过现有本人 `Api` 客户端消费 `/creative/free`；路由为 `#free/new`、`#free/conversation/:id`，不挂载旧 WritingHost。
+`FreeTimeline` 与 v1 `CreativeResults` 共用 `CreativeTurn` 消息结构；模型选择、Markdown 与初始化包全文继续复用既有组件。
+`FreeInformation` 在同一主区切换资产、候选和 explorer；`FreeReferences` 统一补全与可删除精确标记，`free-client` 负责分页、
+发现摘要到精确 ref 的解析和版本核对。候选 discover 返回无 type 的既有摘要，客户端在该接口边界明确归一化。
+
+当前阅读、composer refs 和后端 task target 三者分离。sessionStorage 仅保存每会话 UI 与未确认请求，消息、来源、候选与收据由后端持有。
+移动视图使用 CSS 切换而不卸载，阅读滚动与输入可刷新恢复；新候选不改变当前阅读。task/group/source 页面按 cursor 读取，
+常规轮询仅 GET 投影，用户核实通过 POST verify 读原 run/OP；committed 不自动意味着远端 run 已终止。
+已记录来源只经 scoped exact API 打开，当前 head 的版本与软删除状态仅作为提示；未记录资产核对 resolve 时 revision/version，
+不会用新版替代旧引用。对应确定性浏览器与恢复测试见 [自由会话服务](FREE_SESSION.md#浏览器双关注点mwt-029)。

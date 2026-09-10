@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type {
   CreativeDraft,
   CreativeTaskView,
@@ -145,6 +145,37 @@ function SourceView({
   );
 }
 
+export function CreativeTurn({
+  id,
+  message,
+  status,
+  references,
+  children,
+}: {
+  id: string;
+  message: string;
+  status?: ReactNode;
+  references?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="creative-turn" aria-label={`创作任务 ${id}`}>
+      <div className="creative-user">
+        <p className="eyebrow">你</p>
+        <p>{message}</p>
+        {references}
+      </div>
+      <div className="creative-assistant">
+        <div className="creative-response-heading">
+          <span>Mochi</span>
+          {status}
+        </div>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 export function CreativeResults({
   api,
   task,
@@ -175,169 +206,159 @@ export function CreativeResults({
     task.receipt?.status === "committed" &&
     task.receipt.story_id === task.storyId;
   return (
-    <section className="creative-turn" aria-label={`创作任务 ${task.id}`}>
-      <div className="creative-user">
-        <p className="eyebrow">你</p>
-        <p>{task.message}</p>
-      </div>
-      <div className="creative-assistant">
-        <div className="creative-response-heading">
-          <span>Mochi</span>
-          {task.status !== "succeeded" && (
-            <span role="status" className="creative-status">
-              {statusLabels[task.status]}
-            </span>
-          )}
-        </div>
-        {task.output && (
-          <>
-            <Markdown text={task.output} />
-          </>
-        )}
-        {task.error && <p className="error">{task.error}</p>}
-        {task.status === "unclear" && (
-          <p>
-            请明确是讨论、先看草稿，还是创作并保存一章；保存已有草稿时先选择具体版本。
-          </p>
-        )}
-        {progress.length > 0 && (
-          <details
-            className="creative-progress"
-            open={activeCreativeTask(task)}
-          >
-            <summary>
-              {activeCreativeTask(task) ? "正在取材与创作" : "创作过程"} ·{" "}
-              {progress.length} 项
-            </summary>
-            <section aria-label="工具进展">
-              <ul>
-                {progress.map((tool) => (
-                  <li key={tool.id}>
-                    {toolLabels[tool.name] ?? "故事工具"} ·{" "}
-                    {progressLabels[tool.status] ?? tool.status}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </details>
-        )}
-        {drafts.map((draft) => (
-          <section key={draft.id} className="creative-draft-card">
-            <p className="eyebrow">{draftKind(draft)}</p>
-            <strong>{draft.title}</strong>
-            <p className="muted">
-              {draft.receipt ? "此版本已保存" : "草稿已生成，尚未正式保存"}
-            </p>
-            <div className="creative-navigation">
-              <button
-                className="secondary"
-                onClick={() => onReadDraft?.(draft)}
-              >
-                查看草稿
-              </button>
-              <button
-                className="quiet"
-                onClick={() =>
-                  navigate(
-                    lifecycle || draft.artifactKind === "story_initialization"
-                      ? `creative/draft/${draft.storyId}/${draft.id}`
-                      : `story/${draft.storyId}/draft/${draft.id}`,
-                  )
-                }
-              >
-                阅读草稿
-              </button>
-            </div>
+    <CreativeTurn
+      id={task.id}
+      message={task.message}
+      status={
+        task.status !== "succeeded" ? (
+          <span role="status" className="creative-status">
+            {statusLabels[task.status]}
+          </span>
+        ) : undefined
+      }
+    >
+      {task.output && (
+        <>
+          <Markdown text={task.output} />
+        </>
+      )}
+      {task.error && <p className="error">{task.error}</p>}
+      {task.status === "unclear" && (
+        <p>
+          请明确是讨论、先看草稿，还是创作并保存一章；保存已有草稿时先选择具体版本。
+        </p>
+      )}
+      {progress.length > 0 && (
+        <details className="creative-progress" open={activeCreativeTask(task)}>
+          <summary>
+            {activeCreativeTask(task) ? "正在取材与创作" : "创作过程"} ·{" "}
+            {progress.length} 项
+          </summary>
+          <section aria-label="工具进展">
+            <ul>
+              {progress.map((tool) => (
+                <li key={tool.id}>
+                  {toolLabels[tool.name] ?? "故事工具"} ·{" "}
+                  {progressLabels[tool.status] ?? tool.status}
+                </li>
+              ))}
+            </ul>
           </section>
-        ))}
-        {task.sources.length > 0 && (
-          <details className="creative-sources">
-            <summary>本轮实际读取的资料 · {task.sources.length}</summary>
-            {task.sources.map((source) => (
-              <SourceView
-                key={`${source.asset_id}:${source.revision}`}
-                api={api}
-                storyId={task.storyId}
-                source={source}
-              />
-            ))}
-          </details>
-        )}
-        {saved && (
-          <div className="notice creative-receipt">
-            <strong>
-              {onlyStory(task.receipt!)
-                ? "作品已建立"
-                : "kind" in task.receipt!
-                  ? "首章已保存"
-                  : "章节已保存"}
-            </strong>
-            <p>
-              {onlyStory(task.receipt!) ? "作品" : "正式章节"}第{" "}
-              {"kind" in task.receipt! &&
-              task.receipt!.kind === "first_chapter_saved"
-                ? task.receipt!.chapter!.revision
-                : task.receipt!.revision}{" "}
-              版，保存结果已由后端确认。
-            </p>
-            {"kind" in task.receipt! && (
-              <p>
-                {onlyStory(task.receipt!)
-                  ? `已保存 ${task.receipt!.assets.length} 项初始资料，尚未保存章节。`
-                  : `已随首章保存 ${task.receipt!.assets.length} 项关联资料。`}
-              </p>
-            )}
-            {savedDraft?.initialization && (
-              <InitializationScope value={savedDraft.initialization} />
-            )}
-            <button
-              className="secondary"
-              onClick={() => navigate(savedPath(task.receipt!))}
-            >
-              {onlyStory(task.receipt!) ? "打开作品" : "打开章节"}
-            </button>
-          </div>
-        )}
-        {!saved && task.operationStatus === "unknown" && (
-          <div className="creative-unknown">
-            <strong>保存结果待核实</strong>
-            <p>暂时无法确认是否已创建章节。先核实原任务，避免重复保存。</p>
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={() => void action(task, "verify")}
-            >
-              核实保存结果
-            </button>
-          </div>
-        )}
-        {task.stopPending && (
-          <p className="error">
-            停止尚未确认，授权已撤回。请重试停止后再继续此会话。
+        </details>
+      )}
+      {drafts.map((draft) => (
+        <section key={draft.id} className="creative-draft-card">
+          <p className="eyebrow">{draftKind(draft)}</p>
+          <strong>{draft.title}</strong>
+          <p className="muted">
+            {draft.receipt ? "此版本已保存" : "草稿已生成，尚未正式保存"}
           </p>
-        )}
-        {(activeCreativeTask(task) || task.stopPending) && (
+          <div className="creative-navigation">
+            <button className="secondary" onClick={() => onReadDraft?.(draft)}>
+              查看草稿
+            </button>
+            <button
+              className="quiet"
+              onClick={() =>
+                navigate(
+                  lifecycle || draft.artifactKind === "story_initialization"
+                    ? `creative/draft/${draft.storyId}/${draft.id}`
+                    : `story/${draft.storyId}/draft/${draft.id}`,
+                )
+              }
+            >
+              阅读草稿
+            </button>
+          </div>
+        </section>
+      ))}
+      {task.sources.length > 0 && (
+        <details className="creative-sources">
+          <summary>本轮实际读取的资料 · {task.sources.length}</summary>
+          {task.sources.map((source) => (
+            <SourceView
+              key={`${source.asset_id}:${source.revision}`}
+              api={api}
+              storyId={task.storyId}
+              source={source}
+            />
+          ))}
+        </details>
+      )}
+      {saved && (
+        <div className="notice creative-receipt">
+          <strong>
+            {onlyStory(task.receipt!)
+              ? "作品已建立"
+              : "kind" in task.receipt!
+                ? "首章已保存"
+                : "章节已保存"}
+          </strong>
+          <p>
+            {onlyStory(task.receipt!) ? "作品" : "正式章节"}第{" "}
+            {"kind" in task.receipt! &&
+            task.receipt!.kind === "first_chapter_saved"
+              ? task.receipt!.chapter!.revision
+              : task.receipt!.revision}{" "}
+            版，保存结果已由后端确认。
+          </p>
+          {"kind" in task.receipt! && (
+            <p>
+              {onlyStory(task.receipt!)
+                ? `已保存 ${task.receipt!.assets.length} 项初始资料，尚未保存章节。`
+                : `已随首章保存 ${task.receipt!.assets.length} 项关联资料。`}
+            </p>
+          )}
+          {savedDraft?.initialization && (
+            <InitializationScope value={savedDraft.initialization} />
+          )}
+          <button
+            className="secondary"
+            onClick={() => navigate(savedPath(task.receipt!))}
+          >
+            {onlyStory(task.receipt!) ? "打开作品" : "打开章节"}
+          </button>
+        </div>
+      )}
+      {!saved && task.operationStatus === "unknown" && (
+        <div className="creative-unknown">
+          <strong>保存结果待核实</strong>
+          <p>暂时无法确认是否已创建章节。先核实原任务，避免重复保存。</p>
           <button
             className="secondary"
             disabled={busy}
-            onClick={() => void action(task, "cancel")}
+            onClick={() => void action(task, "verify")}
           >
-            {task.stopPending ? "重试停止" : "停止并撤回授权"}
+            核实保存结果
           </button>
-        )}
-        <details className="creative-usage">
-          <summary>本轮用量</summary>
-          <p className="muted">
-            创作 tokens：{task.usage?.total_tokens ?? "未知"} · 缓存读取：
-            {task.usage?.cache_read ?? "未知"}
-          </p>
-          <p className="muted">
-            意图解释 tokens：{task.intentUsage?.total_tokens ?? "未知"} ·
-            缓存读取：{task.intentUsage?.cache_read ?? "未知"}
-          </p>
-        </details>
-      </div>
-    </section>
+        </div>
+      )}
+      {task.stopPending && (
+        <p className="error">
+          停止尚未确认，授权已撤回。请重试停止后再继续此会话。
+        </p>
+      )}
+      {(activeCreativeTask(task) || task.stopPending) && (
+        <button
+          className="secondary"
+          disabled={busy}
+          onClick={() => void action(task, "cancel")}
+        >
+          {task.stopPending ? "重试停止" : "停止并撤回授权"}
+        </button>
+      )}
+      <details className="creative-usage">
+        <summary>本轮用量</summary>
+        <p className="muted">
+          创作 tokens：{task.usage?.total_tokens ?? "未知"} · 缓存读取：
+          {task.usage?.cache_read ?? "未知"}
+        </p>
+        <p className="muted">
+          意图解释 tokens：{task.intentUsage?.total_tokens ?? "未知"} ·
+          缓存读取：{task.intentUsage?.cache_read ?? "未知"}
+        </p>
+      </details>
+    </CreativeTurn>
   );
 }
 

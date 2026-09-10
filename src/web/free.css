@@ -1,0 +1,235 @@
+.free-session {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.free-session-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+.free-session-heading h1 {
+  font-size: 24px;
+  margin: 0;
+}
+.free-session-heading p {
+  margin: 4px 0;
+}
+.free-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+.free-discussion,
+.free-information {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  overflow: hidden;
+}
+.free-timeline {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+.free-composer {
+  position: relative;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line, #ddd);
+  flex-shrink: 0;
+}
+.free-composer textarea {
+  width: 100%;
+  min-height: 76px;
+  max-height: 140px;
+  resize: vertical;
+}
+.free-composer p {
+  margin: 5px 0;
+}
+.free-send {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+.free-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 4px 0;
+}
+.free-reference {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  background: var(--paper, #f5f3ee);
+  border-radius: 8px;
+  border: 1px solid var(--line, #ddd);
+}
+.free-reference button {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  text-align: left;
+  padding: 5px 8px;
+}
+.free-reference button:first-child {
+  min-width: 0;
+}
+.free-pane-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line, #ddd);
+}
+.free-pane-heading h2 {
+  font-size: 17px;
+  margin: 0 auto 0 0;
+}
+.free-recent {
+  position: relative;
+}
+.free-recent[open] {
+  max-width: 100%;
+}
+.free-recent button {
+  display: block;
+}
+.free-info-heading {
+  padding: 12px 16px 0;
+}
+.free-info-heading p {
+  font-size: 12px;
+  margin: 5px 0;
+}
+.free-info-heading h3 {
+  font-size: 20px;
+  margin: 5px 0;
+}
+.free-identity {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.free-version-controls {
+  display: flex;
+  gap: 10px;
+}
+.free-version-controls label {
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+}
+.free-version-controls select {
+  width: 100%;
+}
+.free-reading {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+.free-info-actions {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line, #ddd);
+}
+.free-explorer {
+  padding: 16px;
+  overflow: auto;
+}
+.free-explorer-filters {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  margin: 10px 0;
+}
+.free-search-results button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  overflow-wrap: anywhere;
+  padding: 10px;
+  border-bottom: 1px solid var(--line, #ddd);
+}
+.free-completion {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(100% - 24px);
+  max-height: 240px;
+  overflow: auto;
+  z-index: 3;
+  background: white;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 10px;
+  box-shadow: 0 5px 24px #0002;
+}
+.free-mobile-tabs {
+  display: none;
+}
+@media (max-width: 700px) {
+  .free-session-heading h1 {
+    font-size: 19px;
+  }
+  .free-session-heading > div > .muted {
+    display: none;
+  }
+  .free-columns {
+    display: flex;
+    gap: 0;
+  }
+  .free-discussion,
+  .free-information {
+    width: 100%;
+    flex: 1;
+  }
+  .free-mobile-tabs {
+    display: flex;
+    gap: 8px;
+  }
+  .free-mobile-tabs button[aria-selected="true"] {
+    background: var(--accent, #49634e);
+    color: white;
+  }
+  .free-view-discussion .free-information,
+  .free-view-information .free-discussion {
+    display: none;
+  }
+  .free-composer {
+    padding: 10px;
+  }
+  .free-composer textarea {
+    min-height: 64px;
+  }
+  .free-session-heading details {
+    font-size: 12px;
+    max-width: 45%;
+  }
+  .free-info-heading {
+    padding: 10px 12px 0;
+  }
+  .free-pane-heading {
+    padding: 10px 12px;
+  }
+  .free-info-actions {
+    padding: 10px;
+  }
+}

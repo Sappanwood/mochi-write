@@ -255,6 +255,8 @@ it("discovers same names without bodies, rejects stale selections, and returns e
   expect(old.json()).toMatchObject({
     availability: "exact",
     content: { markdown: "v1" },
+    currentVersion: 3,
+    currentDeleted: true,
   });
   (f.free.content as MemoryStore).history.delete(first.id + ":1");
   const missing = await f.app.inject({ url, headers: f.headers });

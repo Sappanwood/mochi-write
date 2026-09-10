@@ -1,3 +1,4 @@
+import { FreeWorkspace } from "./FreeWorkspace.js";
 import { WritingHost } from "./WritingHost.js";
 import {
   NewCreativeStory,
@@ -132,7 +133,16 @@ export function App({
     );
   const [area, id, section, documentId, selectedDraftId] = route.split("/");
   let view;
-  if (area === "library" && (id === "character" || id === "world"))
+  if (area === "free" && (id === "new" || (id === "conversation" && section)))
+    view = (
+      <FreeWorkspace
+        key={section ?? "new"}
+        api={api}
+        conversationId={id === "conversation" ? section : undefined}
+        navigate={navigate}
+      />
+    );
+  else if (area === "library" && (id === "character" || id === "world"))
     view = <LibraryView key={route} api={api} kind={id} navigate={navigate} />;
   else if (area === "asset" && id)
     view = (
@@ -223,7 +233,7 @@ export function App({
   else view = <div className="empty">页面不存在。请从侧栏选择资产或故事。</div>;
   return (
     <div
-      className={`workspace${(area === "creative" && id === "conversation") || (area === "story" && section === "creative") ? " workspace-creative" : ""}`}
+      className={`workspace${area === "free" || (area === "creative" && id === "conversation") || (area === "story" && section === "creative") ? " workspace-creative" : ""}`}
     >
       <aside className="sidebar">
         <a className="wordmark" href="#library/character">
@@ -291,6 +301,7 @@ export function App({
       </aside>
       <main className="main-content">{view}</main>
       {!(
+        area === "free" ||
         area === "creative" ||
         (area === "story" && (section === "creative" || section === "draft"))
       ) && <WritingHost api={api} route={route} />}
