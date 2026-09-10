@@ -18,18 +18,18 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async () => {
   await f?.close();
 });
-test("empty and ordinary shelves open natural conversation before any title or asset is required", async ({
+test("legacy shelf entry opens the original conversation without title or asset", async ({
   page,
 }) => {
   await expect(
-    page.getByRole("button", { name: "新建故事", exact: true }),
+    page.getByRole("button", { name: "旧版新建故事", exact: true }),
   ).toBeVisible();
   f.store.heads.clear();
   await page.reload();
   await expect(
     page.getByText("书架上还没有故事。先聊聊你的想法。", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "新建故事", exact: true }).click();
+  await page.getByRole("button", { name: "旧版新建故事", exact: true }).click();
   await expect(page).toHaveURL(/#creative\/new$/);
   await expect(
     page.getByRole("heading", { name: "从一个想法开始", exact: true }),
@@ -42,7 +42,7 @@ test("empty and ordinary shelves open natural conversation before any title or a
 });
 
 async function first(page: Page, message: string) {
-  await page.getByRole("button", { name: "新建故事", exact: true }).click();
+  await page.getByRole("button", { name: "旧版新建故事", exact: true }).click();
   return send(page, message, true);
 }
 async function send(page: Page, message: string, initial = false) {
@@ -95,7 +95,7 @@ test("lost first response resumes the unestablished conversation by GET and neve
     await route.fetch();
     await route.abort("failed");
   });
-  await page.getByRole("button", { name: "新建故事", exact: true }).click();
+  await page.getByRole("button", { name: "旧版新建故事", exact: true }).click();
   await page.getByLabel("思考强度", { exact: true }).selectOption("high");
   await page
     .getByLabel("对故事说点什么", { exact: true })
@@ -143,7 +143,7 @@ test("initialize only, inspect frozen sources, and save the first chapter with r
   page,
 }) => {
   const libraryRequests: string[] = [];
-  await page.getByRole("button", { name: "新建故事", exact: true }).click();
+  await page.getByRole("button", { name: "旧版新建故事", exact: true }).click();
   page.on("request", (request) => {
     if (request.url().includes("/api/library"))
       libraryRequests.push(request.url());
@@ -292,7 +292,9 @@ test("initialize only, inspect frozen sources, and save the first chapter with r
   await expect(
     page.getByRole("heading", { name: "第一章 灯灭", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "返回创作会话", exact: true }).click();
+  await page
+    .getByRole("button", { name: "旧故事创作会话", exact: true })
+    .click();
   await expect(page).toHaveURL(
     new RegExp(`#creative/conversation/${task.conversationId}$`),
   );
@@ -379,7 +381,7 @@ test("rewritten initialization preview saves exactly the chosen package and keep
 test("a rejected first message remains editable instead of being trapped in unknown recovery", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: "新建故事", exact: true }).click();
+  await page.getByRole("button", { name: "旧版新建故事", exact: true }).click();
   const input = page.getByLabel("对故事说点什么", { exact: true });
   await input.fill("雾".repeat(12000));
   const response = page.waitForResponse(

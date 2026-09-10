@@ -1,7 +1,8 @@
+import { AssetCreativeEntry } from "./FreeEntry.js";
 import { useEffect, useState } from "react";
 import type { Document, Page } from "../shared/model.js";
 import { type Api, message } from "./api.js";
-import { Markdown } from "./Markdown.js";
+import { ContentReading } from "./ContentReading.js";
 export function StoriesView({
   api,
   navigate,
@@ -44,13 +45,16 @@ export function StoriesView({
         <div>
           <p className="eyebrow">故事书架</p>
           <h1>你的故事</h1>
-          <p>回到故事会话，让下一章继续发生。</p>
+          <p>阅读已保存的故事，也可以继续创作。</p>
         </div>
         <div className="creative-navigation">
-          <button onClick={() => navigate("creative/new")}>新建故事</button>
+          <button onClick={() => navigate("free/new/story")}>新建故事</button>
+          <button className="quiet" onClick={() => navigate("creative/new")}>
+            旧版新建故事
+          </button>
           <button
             className="secondary"
-            onClick={() => navigate("creative/conversations")}
+            onClick={() => navigate("free/conversations")}
           >
             创作会话
           </button>
@@ -70,7 +74,7 @@ export function StoriesView({
           <button
             className="story-card"
             key={s.id}
-            onClick={() => navigate(`story/${s.id}/creative`)}
+            onClick={() => navigate(`story/${s.id}/chapter`)}
           >
             <div className={`book-cover cover-${i % 3}`}>
               <span>MOCHI WRITE</span>
@@ -78,11 +82,11 @@ export function StoriesView({
               <span>
                 {s.initializationPending
                   ? "作品已建立 · 尚无章节"
-                  : "故事 · 创作会话"}
+                  : "故事 · 正式内容"}
               </span>
             </div>
             <h3>{s.content.name}</h3>
-            <p>进入会话 · 继续故事 →</p>
+            <p>阅读故事 →</p>
           </button>
         ))}
       </div>
@@ -171,9 +175,10 @@ export function StoryReader({
           className="secondary"
           onClick={() => navigate(`story/${id}/creative`)}
         >
-          返回创作会话
+          旧故事创作会话
         </button>
       </header>
+      <AssetCreativeEntry api={api} id={id} kind="story" navigate={navigate} />
       <nav className="tabs" aria-label="故事内容">
         {Object.entries(labels).map(([key, label]) => (
           <button
@@ -242,7 +247,7 @@ export function StoryReader({
                     · 当前故事第 {current.currentVersion} 版
                   </p>
                 )}
-                <Markdown text={current.content.markdown} />
+                <ContentReading content={current.content} />
                 {section === "chapter" && (
                   <div className="reader-navigation">
                     <button

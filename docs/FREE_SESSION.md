@@ -3,7 +3,7 @@
 ## 当前范围
 
 MWT-025–028 增量实现 `/api/creative/free` 本人 API、独立会话身份、固定资产引用、只读工具、目标后绑定、两阶段执行及 OP 恢复。
-浏览器 `#free/new` 与 `#free/conversation/:id` 已接入候选组、精确引用、资产发现、角色和故事成果阅读及原 OP 核实。主导航与旧入口仍保持 v1，模式导航另行接入。角色正式保存、同一会话的故事初始化、首章、续章和反向独立母版已接通。
+浏览器 `#free/new` 与 `#free/conversation/:id` 已接入候选组、精确引用、资产发现、角色和故事成果阅读及原 OP 核实。默认首页与创作导航使用自由会话；资产模式保留独立阅览及轻量直接编辑，旧 v1 入口明确保留。角色正式保存、同一会话的故事初始化、首章、续章和反向独立母版已接通。
 `FreeCallback` 的 `FreeToolHandler` 与 `FreeReferences` 的 `CandidateAccess` 是后续业务接入点。
 默认 handler 支持 discover_artifacts/read_artifact，以及 save_character/initialize_story/create_chapter 的 draft/commit。角色正式写入只来自后端核验绑定和真实 OP 收据。
 新 session 创建时仍固定完整十工具 v2 快照，因此后续接入无需改变旧 session 快照。
@@ -183,3 +183,16 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 `tests/e2e/free.spec.ts` 使用隔离存储、真实本人 JWT/Fastify HTTP、实际 v2 callback 与确定性假 Mochi，
 覆盖桌面/390px、同名/交错旧稿、角色→故事→角色、来源变动和精确不可得、丢响应及公开 verify。
 它验证正式 UI，不代替 [MWT-024 原型历史走查](prototypes/free-session/README.md)、真实 Pi 集成或付费模型验收。
+
+
+## 模式导航与资产往返（MWT-030）
+
+默认无 hash 和 `#free/new` 打开自由创作。`#free/conversations` 按 conversation 展示最近任务时间、候选成果组、已确认保存数和关联资产；无正式成果的会话同样可恢复，多资产关联不重复会话行。列表读取现有 conversations/tasks/groups 分页，不新增创意对象或业务保存目标。
+
+资产模式的 `#library/character`、`#library/world` 和 `#stories` 展示正式内容，故事书架默认进入 `#story/:id/chapter` 阅读。角色详情默认阅读，保留编辑和 CAS 冲突后的草稿对照。`ContentReading` 复用资产与自由信息区的标签、基础属性和 Markdown 正文；explorer 仅是自由信息区的查找状态。
+
+`#free/new/character` 与 `#free/new/story` 预填可编辑创作意图；发送前不建立会话或资产。`#free/new/asset/:id`、`#free/new/story/:id` 点读正式 head 并 resolve 精确 initialRefs，在输入上方明确展示。仅初始资料进入 initialRefs，进入后浏览不会附加引用或切换目标；世界观可以浏览与显式引用，Agent 世界观母版保存仍未提供。
+
+每个未发起入口分别保留输入；精确初始资料缓存于 sessionStorage，刷新不替换已展示版本；版本冲突保留输入，可显式“重新读取初始资料”后继续。每个已建会话保留自己的输入、引用、阅读对象和阅读位置。真实收据的“打开正式内容”进入资产／故事阅读页（角色使用 `#asset/:id/read` 读取正式 head，绕开已有人工草稿；章节收据打开实际保存的章），“返回原自由会话”恢复原会话；正式资产页同时提供关联会话及带当前已保存资料另开会话入口。正式角色阅读提供“继续未保存编辑”，恢复原人工正文及原 CAS 基线，不因阅读新 head 自动 rebase。人工编辑沿用页面内草稿与版本检查，明确标为临时人工编辑，不混同持久候选，也不自动发送正文给 Agent。
+
+`#creative/new`、`#creative/conversations`、`#creative/conversation/:id`、`#creative/draft/:storyId/:draftId`、`#story/:id/creative` 与 `#story/:id/draft/:draftId` 继续使用原协议；导航保留“旧创作会话与草稿”，书架保留“旧版新建故事”，故事阅读保留“旧故事创作会话”。历史不迁移、不删除，旧侧栏仍限原资产／阅读页面，自由会话不挂载 WritingHost。移动端自由会话提供独立模式与内容导航。

@@ -22,7 +22,7 @@ Mochi 不直接持有或修改正式小说数据，认证共享不挂载给本�
 
 ## 单 Agent 写作
 
-已有故事的主要入口为 `CreativeWorkspace`。浏览器只提交自然语言消息、模型选择和可选的精确草稿引用，
+旧故事创作入口为 `CreativeWorkspace`；默认自由会话使用下文 `FreeWorkspace`。浏览器只提交自然语言消息、模型选择和可选的精确草稿引用，
 Write 生成有限授权与故事 scope；Mochi 保存固定工具快照并执行自主取材、草稿和新章工具。
 Write 持久 task 的原始消息与最终文字构成 UI 会话时间线，Mochi 完整 Pi 历史仍是后续模型回合的权威上下文，
 前端不导入或重建可执行模型历史。草稿在会话双栏中直接阅读，正式章节保留阅读页，保存只由业务收据确认。
@@ -256,3 +256,7 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 常规轮询仅 GET 投影，用户核实通过 POST verify 读原 run/OP；committed 不自动意味着远端 run 已终止。
 已记录来源只经 scoped exact API 打开，当前 head 的版本与软删除状态仅作为提示；未记录资产核对 resolve 时 revision/version，
 不会用新版替代旧引用。对应确定性浏览器与恢复测试见 [自由会话服务](FREE_SESSION.md#浏览器双关注点mwt-029)。
+
+
+`App` 提供资产阅览／创作互动导航，默认打开自由会话，书架打开正式章节。`FreeNewEntry` 为不同未发送入口分开缓存 UI，正式资产经点读与 resolve 得到可见 initialRefs；不读取人工编辑草稿。`FreeConversations` 基于既有 conversations/tasks/groups 分页构造按 session 唯一的最近任务与成果关联列表，也供正式资产页恢复关联会话。未新增服务端路由、存储 schema 或身份类别。
+`ContentReading` 复用资产编辑器阅读态、故事正文和自由信息区的基础内容呈现；`FreeTimeline` 从真实 receipt 目标生成正式内容路径，以 sessionStorage 保存返回会话 ID。旧 v1 组件与路由独立保留，不升级历史 session 快照。

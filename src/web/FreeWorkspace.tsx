@@ -66,14 +66,24 @@ export function FreeWorkspace({
   conversationId,
   navigate,
   initialRefs = [],
+  entryKey = "new",
+  initialMessage = "",
+  refreshInitial,
 }: {
   api: Api;
   conversationId?: string;
   navigate: (path: string) => void;
   initialRefs?: ExactRef[];
+  entryKey?: string;
+  initialMessage?: string;
+  refreshInitial?: () => void;
 }) {
-  const key = `mochi-free:${conversationId ?? "new"}`;
-  const [local, setLocal] = useState<Local>(() => stored(key)),
+  const key = `mochi-free:${conversationId ?? entryKey}`;
+  const [local, setLocal] = useState<Local>(() => {
+      const state = stored(key);
+      if (!sessionStorage.getItem(key)) state.composer.message = initialMessage;
+      return state;
+    }),
     [conversation, setConversation] = useState<FreeConversation>(),
     [models, setModels] = useState<CreativeModel[]>([]),
     [model, setModel] = useState(""),
@@ -259,6 +269,7 @@ export function FreeWorkspace({
         JSON.stringify(next),
       );
       sessionStorage.removeItem(key);
+      sessionStorage.removeItem(`mochi-free:initial:${entryKey}`);
       navigate(`free/conversation/${result.conversation.id}`);
     } else {
       setLocal(next);
@@ -381,6 +392,28 @@ export function FreeWorkspace({
           />
         </details>
       </header>
+      {(conversation?.initialRefs ?? initialRefs).length > 0 && (
+        <div className="free-initial">
+          <p>初始上下文 · 仅作为资料</p>
+          {refreshInitial && (
+            <button
+              className="quiet"
+              disabled={busy || !!local.pending}
+              onClick={refreshInitial}
+            >
+              重新读取初始资料
+            </button>
+          )}
+          <ReferenceChips
+            values={(conversation?.initialRefs ?? initialRefs).map((ref) => ({
+              ref,
+              title: refLabel(ref),
+              recorded: !!conversationId,
+            }))}
+            open={open}
+          />
+        </div>
+      )}
       <div
         className="free-mobile-tabs"
         role="tablist"
@@ -415,6 +448,7 @@ export function FreeWorkspace({
           >
             <FreeTimeline
               details={details}
+              navigate={navigate}
               open={open}
               busy={busy}
               operate={(id, operation) =>

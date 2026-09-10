@@ -217,7 +217,7 @@ assets 每项含 `{asset_id,kind,revision,content_hash}`，资料 hash 对完整
 
 ## 浏览器新建与恢复（MWT-018）
 
-普通与空书架的「新建故事」都进入 `#creative/new`，无需作品标题或资产向导。首次消息 POST 前将原输入与
+普通与空书架的「旧版新建故事」继续进入 `#creative/new`，无需作品标题或资产向导；主「新建故事」进入自由会话 `#free/new/story`。首次消息 POST 前将原输入与
 clientRequestId 写入 sessionStorage；响应未知时保留，刷新仅 GET by-request，显式重试仍复用原键和输入。
 明确 400／权限／冲突等拒绝清除待核实提示，保留输入供修改。后续消息也保留待核实请求，刷新只查询原任务。
 `#creative/conversations` 是原会话入口列表，不创建独立创意对象。列表标出是否已建立作品；

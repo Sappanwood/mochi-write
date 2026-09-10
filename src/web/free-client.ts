@@ -260,3 +260,12 @@ export async function readInformation(
     currentVersion: doc.currentVersion,
   };
 }
+
+export function assetPath(
+  target: ReceiptV2["target"],
+  chapter?: ReceiptV2["chapter"],
+) {
+  return target.kind === "character"
+    ? `asset/${target.asset_id}`
+    : `story/${target.story_id}/chapter${chapter ? `/${chapter.chapter_id}` : ""}`;
+}

@@ -87,6 +87,10 @@ export async function creativeFixture() {
     checkStorage: async () => {},
   });
   registerBusiness(server, store);
+  server.get("/api/creative/free/conversations", async () => ({
+    items: [],
+    nextCursor: null,
+  }));
   const records = new MemoryCreativeStore(store);
   const mochi = new BrowserMochi();
   const creative = new Creative(store, records, mochi, { pollMs: 10 });

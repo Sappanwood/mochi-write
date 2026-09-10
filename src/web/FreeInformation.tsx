@@ -1,3 +1,4 @@
+import { ContentReading } from "./ContentReading.js";
 import { useEffect, useRef, useState } from "react";
 import type { Api } from "./api.js";
 import { message } from "./api.js";
@@ -296,9 +297,9 @@ export function FreeInformation({
                         } as CreativeDraft
                       }
                     />
-                  ) : (
-                    <Markdown text={info.content?.markdown ?? ""} />
-                  ))}
+                  ) : info.content ? (
+                    <ContentReading content={info.content} />
+                  ) : null)}
                 {currentDraft?.payload.members?.map((m) => (
                   <details key={m.member_id}>
                     <summary>

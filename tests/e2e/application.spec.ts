@@ -62,6 +62,10 @@ test.beforeAll(async () => {
     checkStorage: async () => {},
   });
   registerBusiness(server, store);
+  server.get("/api/creative/free/conversations", async () => ({
+    items: [],
+    nextCursor: null,
+  }));
   writingRecords = new MemoryWritingStore(store);
   mochi = new FakeMochi();
   registerWriting(server, new Writing(store, writingRecords, mochi));
@@ -94,7 +98,7 @@ test.beforeEach(async ({ page }) => {
     randomUUID(),
   );
   asset = (await store.list({ projectId: null, kind: "character" })).items[0]!;
-  await page.goto(address);
+  await page.goto(`${address}/#library/character`);
   await page.getByRole("button", { name: "使用 Microsoft 账号登录" }).click();
   await expect(
     page.getByRole("heading", { name: "角色", exact: true }),
@@ -152,7 +156,6 @@ test("reads ordered chapters, settings and independent snapshots with safe Markd
   });
   await page.getByRole("link", { name: "故事书架" }).click();
   await page.getByRole("button", { name: /灯塔.*故事/ }).click();
-  await page.getByRole("button", { name: "阅读章节", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "第一章 来信", exact: true }),
   ).toBeVisible();

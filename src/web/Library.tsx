@@ -1,3 +1,5 @@
+import { ContentReading } from "./ContentReading.js";
+import { AssetCreativeEntry } from "./FreeEntry.js";
 import { useEffect, useState } from "react";
 import type { Content, Document, Page } from "../shared/model.js";
 import type { Api } from "./api.js";
@@ -76,7 +78,13 @@ export function LibraryView({
           <h1>{kind === "character" ? "角色" : "世界观"}</h1>
           <p>保存可复用的设定，让每个故事拥有自己的起点。</p>
         </div>
-        <button onClick={() => navigate(`new/${kind}`)}>
+        <button
+          onClick={() =>
+            navigate(
+              kind === "character" ? "free/new/character" : `new/${kind}`,
+            )
+          }
+        >
           新建{kind === "character" ? "角色" : "世界观"}
         </button>
       </header>
@@ -167,6 +175,7 @@ export function AssetEditor({
   id,
   kind,
   draft,
+  formalRead = false,
   setDraft,
   navigate,
 }: {
@@ -174,13 +183,15 @@ export function AssetEditor({
   id?: string;
   kind: "character" | "world";
   draft?: Draft;
+  formalRead?: boolean;
   setDraft: (id: string, value?: Draft) => void;
   navigate: (path: string) => void;
 }) {
-  const [base, setBase] = useState<Document | undefined>(draft?.base);
+  const initialDraft = formalRead ? undefined : draft;
+  const [base, setBase] = useState<Document | undefined>(initialDraft?.base);
   const [remote, setRemote] = useState<Document>();
   const [content, setContent] = useState<Content>(
-    draft?.content ?? {
+    initialDraft?.content ?? {
       name: "",
       markdown: "",
       genres: [],
@@ -192,7 +203,7 @@ export function AssetEditor({
     genres: [],
     ageBands: [],
   });
-  const [editing, setEditing] = useState(!id || !!draft),
+  const [editing, setEditing] = useState(!id || !!initialDraft),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
@@ -200,7 +211,7 @@ export function AssetEditor({
     void api<typeof terms>("/vocabulary")
       .then(setTerms)
       .catch((e) => setError(message(e)));
-    if (id && !draft) {
+    if (id && (formalRead || !draft)) {
       let active = true;
       void api<Document>(`/library/${id}`)
         .then((doc) => {
@@ -216,7 +227,7 @@ export function AssetEditor({
         active = false;
       };
     }
-  }, [api, id]);
+  }, [api, id, formalRead]);
   function change(next: Content) {
     setContent(next);
     setNotice("");
@@ -306,8 +317,33 @@ export function AssetEditor({
           </h1>
           <p>母版的变化不会影响已有故事。</p>
         </div>
-        {!editing && <button onClick={() => setEditing(true)}>编辑资产</button>}
+        {!editing &&
+          (formalRead && draft ? (
+            <button onClick={() => navigate(`asset/${id}`)}>
+              继续未保存编辑
+            </button>
+          ) : (
+            <button onClick={() => setEditing(true)}>编辑资产</button>
+          ))}
       </header>
+      {formalRead && draft && !editing && (
+        <p className="notice">
+          正在阅读正式内容；未保存人工编辑及其原始版本仍保留，可单独继续编辑。
+        </p>
+      )}
+      {id && (
+        <AssetCreativeEntry
+          api={api}
+          id={id}
+          kind="asset"
+          navigate={navigate}
+        />
+      )}
+      {editing && (
+        <p className="notice">
+          临时人工编辑 · 尚未保存，不是会话候选；不会自动发送给 Agent。
+        </p>
+      )}
       {notice && (
         <p role="status" className="notice">
           {notice}
@@ -442,49 +478,7 @@ export function AssetEditor({
         </form>
       ) : (
         <>
-          <div className="tags">
-            {content.genres.map((t) => (
-              <span key={t}>{t}</span>
-            ))}
-            {content.ageBand && <span>{content.ageBand}</span>}
-          </div>
-          <dl className="metadata">
-            {(
-              [
-                "gender",
-                "age",
-                "occupation",
-                "era",
-                "region",
-                "traits",
-                "tags",
-              ] as const
-            )
-              .filter((k) => content.sourceMetadata[k] !== undefined)
-              .map((k) => (
-                <div key={k}>
-                  <dt>
-                    {
-                      {
-                        gender: "性别",
-                        age: "年龄",
-                        occupation: "职业",
-                        era: "时代",
-                        region: "地区",
-                        traits: "特征",
-                        tags: "标签",
-                      }[k]
-                    }
-                  </dt>
-                  <dd>
-                    {Array.isArray(content.sourceMetadata[k])
-                      ? content.sourceMetadata[k].join("、")
-                      : String(content.sourceMetadata[k])}
-                  </dd>
-                </div>
-              ))}
-          </dl>
-          <Markdown text={content.markdown} />
+          <ContentReading content={content} />
           <button
             className="danger quiet"
             disabled={busy}

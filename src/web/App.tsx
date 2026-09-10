@@ -1,3 +1,4 @@
+import { FreeNewEntry, FreeConversations } from "./FreeEntry.js";
 import { FreeWorkspace } from "./FreeWorkspace.js";
 import { WritingHost } from "./WritingHost.js";
 import {
@@ -24,7 +25,7 @@ export function App({
     [error, setError] = useState("");
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [route, setRoute] = useState(
-    () => location.hash.slice(1) || "library/character",
+    () => location.hash.slice(1) || "free/new",
   );
   const api = useMemo(() => (auth ? apiClient(auth) : undefined), [auth]);
   useEffect(() => {
@@ -47,8 +48,7 @@ export function App({
     };
   }, [initialization]);
   useEffect(() => {
-    const update = () =>
-      setRoute(location.hash.slice(1) || "library/character");
+    const update = () => setRoute(location.hash.slice(1) || "free/new");
     window.addEventListener("hashchange", update);
     return () => window.removeEventListener("hashchange", update);
   }, []);
@@ -133,12 +133,24 @@ export function App({
     );
   const [area, id, section, documentId, selectedDraftId] = route.split("/");
   let view;
-  if (area === "free" && (id === "new" || (id === "conversation" && section)))
+  if (area === "free" && id === "conversations")
+    view = <FreeConversations api={api} />;
+  else if (area === "free" && id === "new")
+    view = (
+      <FreeNewEntry
+        key={route}
+        api={api}
+        source={section}
+        sourceId={documentId}
+        navigate={navigate}
+      />
+    );
+  else if (area === "free" && id === "conversation" && section)
     view = (
       <FreeWorkspace
-        key={section ?? "new"}
+        key={section}
         api={api}
-        conversationId={id === "conversation" ? section : undefined}
+        conversationId={section}
         navigate={navigate}
       />
     );
@@ -152,6 +164,7 @@ export function App({
         id={id}
         kind="character"
         draft={drafts[id]}
+        formalRead={section === "read"}
         setDraft={setDraft}
         navigate={navigate}
       />
@@ -233,14 +246,35 @@ export function App({
   else view = <div className="empty">页面不存在。请从侧栏选择资产或故事。</div>;
   return (
     <div
-      className={`workspace${area === "free" || (area === "creative" && id === "conversation") || (area === "story" && section === "creative") ? " workspace-creative" : ""}`}
+      className={`workspace${(area === "free" && id !== "conversations") || (area === "creative" && id === "conversation") || (area === "story" && section === "creative") ? " workspace-creative" : ""}`}
     >
       <aside className="sidebar">
-        <a className="wordmark" href="#library/character">
+        <a className="wordmark" href="#free/new">
           <span className="seal">文</span>
           <span>Mochi Write</span>
         </a>
-        <p className="sidebar-label">创作资料</p>
+        <p className="sidebar-label">工作模式</p>
+        <nav aria-label="工作模式">
+          <a
+            href="#free/new"
+            aria-current={area === "free" ? "page" : undefined}
+          >
+            创作互动
+          </a>
+          <a
+            href="#library/character"
+            aria-current={
+              ["library", "asset", "stories", "story", "new"].includes(
+                area ?? "",
+              )
+                ? "page"
+                : undefined
+            }
+          >
+            资产阅览
+          </a>
+        </nav>
+        <p className="sidebar-label">内容与会话</p>
         <nav aria-label="主导航">
           <a
             href="#stories"
@@ -251,8 +285,10 @@ export function App({
             <span aria-hidden="true">▤</span>故事书架
           </a>
           <a
-            href="#creative/conversations"
-            aria-current={area === "creative" ? "page" : undefined}
+            href="#free/conversations"
+            aria-current={
+              area === "free" && id === "conversations" ? "page" : undefined
+            }
           >
             <span aria-hidden="true">◌</span>创作会话
           </a>
@@ -273,6 +309,7 @@ export function App({
             <span aria-hidden="true">◎</span>世界观
           </a>
         </nav>
+        <a href="#creative/conversations">旧创作会话与草稿</a>
         <p className="sidebar-label">资料管理</p>
         <nav>
           <a
@@ -299,7 +336,27 @@ export function App({
           </button>
         </div>
       </aside>
-      <main className="main-content">{view}</main>
+      <main className={`main-content${area === "free" ? " free-main" : ""}`}>
+        {area === "free" && id !== "conversations" && (
+          <nav className="mobile-mode-nav" aria-label="移动导航">
+            <a href="#free/new">创作互动</a>
+            <a href="#library/character">资产阅览</a>
+            <a href="#free/conversations">创作会话</a>
+            <a href="#library/character">角色库</a>
+            <a href="#stories">故事书架</a>
+            <a href="#library/world">世界观</a>
+          </nav>
+        )}
+        {area !== "free" && sessionStorage.getItem("mochi-free:return") && (
+          <a
+            className="back-link"
+            href={`#free/conversation/${sessionStorage.getItem("mochi-free:return")}`}
+          >
+            返回原自由会话
+          </a>
+        )}
+        {view}
+      </main>
       {!(
         area === "free" ||
         area === "creative" ||

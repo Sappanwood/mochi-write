@@ -60,3 +60,16 @@ it("blocks pending targets and unresolved original runs even after a receipt, bu
     }),
   ).toBe(false);
 });
+it("opens the actual saved chapter from a receipt instead of the story's first chapter", async () => {
+  const { assetPath } = await import("../src/web/free-client.js");
+  expect(
+    assetPath(
+      { kind: "story", story_id: "story" },
+      { chapter_id: "third", revision: "1", content_hash: "hash" },
+    ),
+  ).toBe("story/story/chapter/third");
+  expect(assetPath({ kind: "story", story_id: "story" })).toBe(
+    "story/story/chapter",
+  );
+  expect(assetPath({ kind: "character", asset_id: "role" })).toBe("asset/role");
+});

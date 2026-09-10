@@ -2,6 +2,7 @@ import { CreativeTurn } from "./CreativeResults.js";
 import { Markdown } from "./Markdown.js";
 import { ReferenceChips } from "./FreeReferences.js";
 import {
+  assetPath,
   blocksMessage,
   actionLabel,
   refLabel,
@@ -27,11 +28,13 @@ const labels: Record<string, string> = {
 };
 export function FreeTimeline({
   details,
+  navigate,
   open,
   operate,
   busy,
 }: {
   details: TaskDetail[];
+  navigate: (path: string) => void;
   open: (r: Reference) => void;
   operate: (id: string, action: "cancel" | "verify") => void;
   busy: boolean;
@@ -144,6 +147,23 @@ export function FreeTimeline({
                   }[task.receipt.kind]
                 }
               </strong>
+              <button
+                className="secondary"
+                onClick={() => {
+                  sessionStorage.setItem(
+                    "mochi-free:return",
+                    task.conversationId,
+                  );
+                  navigate(
+                    assetPath(task.receipt!.target, task.receipt!.chapter) +
+                      (task.receipt!.target.kind === "character"
+                        ? "/read"
+                        : ""),
+                  );
+                }}
+              >
+                打开正式内容
+              </button>
               <p>真实收据 · 第 {task.receipt.revision} 版</p>
               <p className="free-identity">
                 {task.receipt.operation_id} · {task.receipt.draft_id}

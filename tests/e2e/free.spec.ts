@@ -343,6 +343,18 @@ test("public verify reconciles the original committed OP and remote terminal sta
   ).toBe(posts);
   expect(f.store.heads.size).toBe(writes);
   await page.screenshot({ path: "/tmp/mwt029-public-verify.png" });
+  await page.getByRole("button", { name: "打开正式内容", exact: true }).click();
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/chapter/${(await f.free.task(saving.id)).receipt!.chapter!.chapter_id}$`,
+    ),
+  );
+  await expect(
+    page.getByRole("heading", { name: "首章", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("准确正文", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "返回原自由会话", exact: true }).click();
+  await expect(page.getByLabel("下一条消息")).toHaveValue("下一轮保留请求");
 });
 
 test("one session moves from unsaved role to story and back to an independently saved master", async ({
