@@ -19,7 +19,9 @@ import { FreeOperations } from "./free-operations.js";
 import { resolveTarget } from "./free-resolver.js";
 import { freeEvents } from "./free-events.js";
 import { FreeWorkflow } from "./free-workflow.js";
+import { FreeCandidates } from "./free-candidates.js";
 export class FreeSession {
+  readonly candidates: FreeCandidates;
   readonly references: FreeReferences;
   readonly operations: FreeOperations;
   readonly workflow: FreeWorkflow;
@@ -33,7 +35,12 @@ export class FreeSession {
       candidates?: CandidateAccess;
     } = {},
   ) {
-    this.references = new FreeReferences(content, records, options.candidates);
+    this.candidates = new FreeCandidates(this);
+    this.references = new FreeReferences(
+      content,
+      records,
+      options.candidates ?? this.candidates,
+    );
     this.operations = new FreeOperations(records);
     this.workflow = new FreeWorkflow(this, options.pollMs ?? 500);
   }
@@ -180,21 +187,17 @@ export class FreeSession {
       ...[
         ...initialRefs.map((ref) => ({ ref, origin: "initial" as const })),
         ...task.input.refs.map((ref) => ({ ref, origin: "explicit" as const })),
-      ].flatMap(({ ref, origin }) =>
-        ref.type === "asset"
-          ? [
-              {
-                record: this.references.source(
-                  task.conversationId,
-                  task.id,
-                  ref,
-                  origin,
-                ),
-                revision: null,
-              },
-            ]
-          : [],
-      ),
+      ].flatMap(({ ref, origin }) => [
+        {
+          record: this.references.source(
+            task.conversationId,
+            task.id,
+            ref,
+            origin,
+          ),
+          revision: null,
+        },
+      ]),
     ];
   }
   async submit(conversationId: string, raw: unknown) {

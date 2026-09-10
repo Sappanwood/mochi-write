@@ -34,6 +34,7 @@ export function freeOperations(
     writes.some(
       (w) =>
         !w.record.id ||
+        (w.record.kind === "candidate" && w.revision !== null) ||
         (partition !== "library" && w.record.kind !== "op") ||
         (w.record.kind === "op" &&
           (w.record.target.kind === "character"

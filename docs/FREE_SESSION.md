@@ -2,10 +2,10 @@
 
 ## 当前范围
 
-MWT-025 增量实现 `/api/creative/free` 本人 API、独立会话身份、固定资产引用、只读工具、目标后绑定、两阶段执行及 OP 恢复。
-浏览器仍使用旧入口；新工作区、候选组/候选引用存储、角色正式保存与故事业务桥接分别由后续切片接入。
+MWT-025/026 增量实现 `/api/creative/free` 本人 API、独立会话身份、固定资产引用、只读工具、目标后绑定、两阶段执行及 OP 恢复。
+浏览器仍使用旧入口；候选组、精确引用、发现及角色 draft 已接通，新工作区、角色正式保存与故事业务桥接由后续切片接入。
 `FreeCallback` 的 `FreeToolHandler` 与 `FreeReferences` 的 `CandidateAccess` 是后续业务接入点。
-没有 handler 时候选发现/读稿/写工具返回 `tool_not_available`，不会写正式资产或用聊天文字冒充候选。
+默认 handler 支持 discover_artifacts/read_artifact/save_character 的 draft；未接入的正式保存与故事生成返回 `tool_not_available`。不会写正式资产或用聊天文字冒充候选。
 新 session 创建时仍固定完整十工具 v2 快照，因此后续接入无需改变旧 session 快照。
 
 ## 身份与引用
@@ -23,7 +23,7 @@ character/world 禁止 story_id；故事及其资料必须提供 story_id，stor
 
 成功全文读取先持久化 source，才返回正文；搜索命中不算已读。来源带 initial/explicit/agent_read、task、调用 ID、读取时间和精确引用。
 工具只读 allowlist 包括 library，以及本轮初始/显式引用或后端核验的故事，最多 8 个；模型无法扩展。
-每 task 最多 20 条来源，单次完整 Content 最多 60 KiB。
+每 task 最多 20 条来源，单次完整 Content 最多 60 KiB。实际读取记录先固定 conversation CAS revision，再查询同 invocation 和计数；冲突使用原 invocation 重读校验，不重复计数或越过上限。来源 ref 同时支持资产和候选，候选成员按 member_id 固定；初始化成员目录本身不计作全文读取。
 
 ## 本人 API
 
@@ -32,20 +32,49 @@ character/world 禁止 story_id；故事及其资料必须提供 story_id，stor
 
 | 方法与路径 | 行为 |
 |---|---|
+| GET /discover | 首条消息前的正式资产发现，参数同会话 discover；不允许 candidate、不创建会话 |
+| POST /references/resolve | 首条消息前解析正式资产 locator，不允许 candidate |
 | POST /conversations | `{clientRequestId,message,provider,model,thinkingLevel?,initialRefs?,refs?}` → `{conversation,task}` |
 | GET /conversations | `cursor?,limit?` → `{items,nextCursor}`，只列 v2 |
 | GET /conversations/by-request/:clientRequestId | 恢复原 `{conversation,task}`，不派发 |
 | GET /conversations/:id | `{conversation,activeTask?,associations,nextCursor}` |
 | GET /conversations/:id/tasks | 会话任务分页 `{items,nextCursor}` |
 | POST /conversations/:id/tasks | 原输入及 refs，无 initialRefs/target/action/authorizationId → `{task}` |
-| GET /conversations/:id/tasks/:taskId | `{task,receipts,sources,nextCursor}`；跨会话拒绝 |
+| GET /conversations/:id/tasks/:taskId | `{task,receipts,candidates,sources,nextCursor}`；跨会话拒绝 |
 | POST /conversations/:id/tasks/:taskId/cancel | 撤回业务 OP 并停止原 run；stopPending 时 HTTP202/cancel_pending |
 | POST /conversations/:id/tasks/:taskId/verify | 只查原 run/OP 并修复投影；不发模型或重做业务提交 |
 | GET /conversations/:id/tasks/:taskId/events | `after` 单调游标，事件带 phase/runId；library 持久投影并去重 |
+| GET /conversations/:id/groups | `{items,nextCursor}`，稳定成果组分页 |
+| GET /conversations/:id/groups/:groupId/drafts | `{items,nextCursor}`，按 ordinal 分页的精确稿摘要 |
+| GET /conversations/:id/drafts/:draftId | `{draft}`，本人读取本会话完整冻结包 |
+| GET /conversations/:id/discover | `kind,query?,story_id?,limit?,cursor?`，`{items,next_cursor}`；kind 为资产类型或 candidate |
+| POST /conversations/:id/references/resolve | 资产 locator 或完整 candidate ref → `{ref}`，供 @ 和引用按钮统一使用，不发消息或记录为 Agent 已读 |
 | GET /conversations/:id/references | `ref` URL 编码 JSON，最多 4096 bytes；只读本会话已记录引用，返回 exact/unavailable |
 
 任务 DTO 只暴露目标/动作摘要、运行状态/用量与恢复信息，不暴露授权 ID、可信执行 payload 或完整 binding。
 401/403 为身份/范围失败，404 为缺失，409 为请求/版本/授权冲突；错误保留原输入和已持久成果。
+
+## 候选与轻量发现
+
+`FreeCandidates.freeze` 只在有效 task 的 authorized/running 状态工作。`free:group` 保存稳定组身份和 nextOrdinal；
+`free:candidate` create-only 保存完整 payload，draftRevision 恒为 `"1"`。conversation、task、group CAS 与 candidate create 在同一 library batch；
+正常并发冲突后以原 invocation 重试，失败不消耗编号。每 task 最多 8 稿、冻结包合计 1 MiB；角色/章包 60 KiB，初始化包 256 KiB。
+同 invocation 同输入读回原稿，异输入 operation_conflict。改写必须同时传 group_id/parent_ref，父稿同组同类型，允许从旧稿分叉；
+新组可传 derived_from。parent/derived/derivation 保留冻结 provenance，内部校验读取不记为 Agent 已读；只有 read 工具向 Agent 返回全文才记 agent_read。draftHash 覆盖 id/groupId/artifactKind/完整 payload（Content、可信 draftContext、动作、父稿、派生与成员）；ordinal 和时间不参与 hash。
+来源与保存状态不写回候选；候选不进入正式 head、导出或自动清理。
+
+save_character draft 共享 Library 的 Content/词表验证，只允许有界角色字段；更新保留未知合法 metadata，
+正文原换行不变，规范化在冻结前完成。候选冻结目标及 baseRevision 与正式授权分开，参考世界观/故事/其他资料不会成为保存目标。
+选定候选可以和多份背景资料一起发送；save_current 仍只接受一份精确候选，并核验原消息全部目标条件及候选冻结目标/当前基础版本。
+`freeze` 的服务端 extra 接口承载初始化 members/business 包与 action，供故事桥接消费；此接口不作为客户端或模型可传的授权。
+成员 ID 由业务桥接分配，冻结后独立于来源后续变化；read_artifact 无 member_id 的初始化响应仅返回成员目录。
+
+资产发现使用存储层的名称、类型、ID、所属 story_id、revision/version 投影，不读取正文。character/world 查 library，story 跨故事查询，
+setting/outline/snapshot/chapter 必须指定可读 story_id；候选仅当前 conversation。limit 默认/最多 20，cursor 绑定会话及检索条件。
+同名保留各自身份和所属信息，不自动选唯一同名对象。候选发现返回草稿摘要；用 `{type:"candidate",group_id,draft_id,draft_revision,draft_hash,member_id?}` 引用。
+资产 locator 为 `{type:"asset",kind,asset_id,story_id?,revision,version}`，resolve 点读所选当前 head 并生成 content_hash；
+编辑/删除/换版本返回 reference_changed/reference_unavailable，不偷偷选择最新版。发送仍重新核验完整 typed ref，原消息文字与 refs 分开保存；浏览与 resolve 不附加输入或授予写权限。
+本人原版本查看仅接受本会话已记录资产或本会话候选；旧资产 history 缺失/hash 不符返回 unavailable，绝不用当前 head 替代。
 
 ## 独立核验与运行
 
@@ -89,4 +118,4 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 
 `npm run check` 覆盖新身份、目标证据、跨分区恢复、取消、API 与存储行为及既有 v1 测试。
 `MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration` 增加真实 HTTP、签名身份、Pi AgentSession 和假 provider 的 v2 两阶段/同 session 续聊、预算与事件验证。
-上述证据不表示云部署、真实模型、完整候选业务或正式保存验收完成。
+上述证据不表示云部署、真实模型、故事生成桥接或正式保存验收完成。

@@ -241,4 +241,4 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 
 ## 自由会话过程存储
 
-`FreeSession` 与旧 `Creative` 并存。v2 过程记录在 library；不可变 OP directory 将任务绑定到角色 library 或故事 stories 分区的权威 ledger。目标事务与会话投影分开恢复，取消以目标 ledger CAS 确认为准。独立解释与同 session 两阶段 run、只读 allowlist 及业务扩展点见 [自由会话服务](FREE_SESSION.md)。
+`FreeSession` 与旧 `Creative` 并存。v2 过程记录在 library；不可变 OP directory 将任务绑定到角色 library 或故事 stories 分区的权威 ledger。目标事务与会话投影分开恢复，取消以目标 ledger CAS 确认为准。候选组 CAS 和 create-only 候选与会话同分区，FreeCandidates 提供精确冻结/读取；资产发现采用元数据投影，来源兼容资产及候选不可变身份。独立解释与同 session 两阶段 run、只读 allowlist 及业务扩展点见 [自由会话服务](FREE_SESSION.md)。

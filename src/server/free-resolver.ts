@@ -198,14 +198,29 @@ export async function resolveTarget(
       (c.target.mode === "new" && context.baseRevision !== null)
     )
       return reject("candidate_target_conflict");
-    const explicit = task.input.refs.filter((r) => r.type === "asset");
+    const terms = await new LibraryTools(content).vocabulary();
     if (
-      explicit.some(
-        (r) =>
-          r.type === "asset" &&
-          (target.kind === "character"
-            ? r.asset_id !== target.asset_id
-            : r.story_id !== target.story_id),
+      c.target.predicates.some(
+        (p) =>
+          !p.evidence.text.includes(p.value) ||
+          (p.field === "genre" && !terms.genres.includes(p.value)) ||
+          (p.field === "age_band" && !terms.ageBands.includes(p.value)) ||
+          (["gender", "age_band", "genre", "tag"].includes(p.field) &&
+            p.operator !== "eq"),
+      ) ||
+      !matches(
+        {
+          ...candidate.content.sourceMetadata,
+          asset_id:
+            target.kind === "character" ? target.asset_id : target.story_id,
+          kind: "character",
+          name: candidate.content.name,
+          revision: refs[0]!.draft_revision,
+          version: 1,
+          genres: candidate.content.genres,
+          age_band: candidate.content.ageBand,
+        },
+        c.target.predicates,
       )
     )
       return reject("candidate_target_conflict");

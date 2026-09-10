@@ -73,6 +73,20 @@ export class MemoryStore implements Store {
         : {}),
     };
   }
+  async discoverAssets(f: Filter) {
+    const page = await this.list(f);
+    return {
+      items: page.items.map((d) => ({
+        asset_id: d.id,
+        kind: d.kind as import("../../src/server/store.js").DiscoveryEntry["kind"],
+        name: d.content.name,
+        revision: d.revision,
+        version: d.currentVersion,
+        ...(d.projectId ? { story_id: d.projectId } : {}),
+      })),
+      ...(page.cursor ? { cursor: page.cursor } : {}),
+    };
+  }
   async list(f: Filter): Promise<Page> {
     const all = [...this.heads.values()]
       .filter(

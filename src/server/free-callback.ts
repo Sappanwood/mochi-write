@@ -8,6 +8,7 @@ import { freeScope } from "./free-workflow.js";
 import { FREE_TOOLS } from "./free-tools.js";
 import { LibraryTools } from "./library-tools.js";
 import { AssetTools } from "./asset-tools.js";
+import { candidateTool } from "./free-candidate-tools.js";
 const target = z.union([
   z.object({ kind: z.literal("character"), asset_id: freeId }).strict(),
   z.object({ kind: z.literal("story"), story_id: freeId }).strict(),
@@ -204,13 +205,15 @@ export class FreeCallback {
           if (tool.name !== expectedTool)
             throw new AppError(403, "forbidden_scope");
         }
-        if (!this.handler) throw new AppError(400, "tool_not_available");
-        result = await this.handler.invoke(
-          task,
-          tool.name,
-          args,
-          cb.invocation_id,
-        );
+        result = this.handler
+          ? await this.handler.invoke(task, tool.name, args, cb.invocation_id)
+          : await candidateTool(
+              this.free,
+              task,
+              tool.name,
+              args,
+              cb.invocation_id,
+            );
       }
       const response = { ...base, outcome: "ok", ...result };
       if (Buffer.byteLength(JSON.stringify(response)) > 65536)

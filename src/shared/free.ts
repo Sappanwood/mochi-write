@@ -188,7 +188,7 @@ export interface ResolutionEvidence {
 export interface SourceRecord extends FreeBase {
   kind: "source";
   conversationId: string;
-  ref: AssetRef;
+  ref: ExactRef;
   origin: "initial" | "explicit" | "agent_read";
   task_id: string;
   invocation_id?: string;
@@ -269,7 +269,9 @@ export type FreeRecord =
   | Directory
   | Ledger
   | RequestRecord
-  | FreeEvent;
+  | FreeEvent
+  | import("./free-candidates.js").Candidate
+  | import("./free-candidates.js").CandidateGroup;
 export interface CandidateAccess {
   read(
     conversationId: string,

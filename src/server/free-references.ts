@@ -4,6 +4,7 @@ import type {
   CandidateAccess,
   ExactRef,
   FreeConversation,
+  FreeTask,
   SourceRecord,
 } from "../shared/free.js";
 import { exactRefSchema } from "../shared/free.js";
@@ -59,7 +60,7 @@ export class FreeReferences {
   source(
     conversationId: string,
     taskId: string,
-    ref: AssetRef,
+    ref: ExactRef,
     origin: SourceRecord["origin"],
     invocationId?: string,
   ): SourceRecord {
@@ -77,6 +78,49 @@ export class FreeReferences {
       ...(invocationId ? { invocation_id: invocationId } : {}),
     };
   }
+  async recordRead(task: FreeTask, ref: ExactRef, invocationId: string) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const c = await this.records.get<FreeConversation>(
+        "library",
+        "conversation",
+        task.conversationId,
+      );
+      if (
+        !c ||
+        c.epoch !== task.epoch ||
+        c.activeTaskId !== task.id ||
+        task.cancelRequestedAt
+      )
+        throw new AppError(409, "authorization_revoked");
+      const reads = (await this.sources(task.conversationId)).filter(
+        (s) => s.task_id === task.id,
+      );
+      const old = reads.find((s) => s.invocation_id === invocationId);
+      if (old) {
+        if (freeDigest(old.ref) !== freeDigest(ref))
+          throw new AppError(409, "operation_conflict");
+        return;
+      }
+      if (reads.length >= 20) throw new AppError(400, "result_too_large");
+      try {
+        await this.records.transaction("library", [
+          { record: c, revision: c.revision },
+          {
+            record: this.source(c.id, task.id, ref, "agent_read", invocationId),
+            revision: null,
+          },
+        ]);
+        return;
+      } catch (e) {
+        if (
+          !(e instanceof AppError) ||
+          e.message !== "free_revision_conflict" ||
+          attempt === 2
+        )
+          throw e;
+      }
+    }
+  }
   async agentRead(
     conversation: FreeConversation,
     taskId: string,
@@ -85,11 +129,12 @@ export class FreeReferences {
   ) {
     const prior = (await this.sources(conversation.id)).find(
       (s) =>
+        s.ref.type === "asset" &&
         s.ref.asset_id === args.asset_id &&
         s.ref.revision === args.revision &&
         s.ref.story_id === args.story_id,
     );
-    let ref = prior?.ref;
+    let ref = prior?.ref as AssetRef | undefined;
     if (!ref) {
       const doc = await this.content.get(args.asset_id, args.story_id ?? null);
       if (!doc || doc.deleted) throw new AppError(404, "reference_unavailable");
@@ -106,40 +151,14 @@ export class FreeReferences {
       }) as AssetRef;
     }
     const result = await this.read(conversation.id, ref);
-    const reads = (await this.sources(conversation.id)).filter(
-      (s) => s.task_id === taskId,
-    );
+    const task = await this.records.get<FreeTask>("library", "task", taskId);
     if (
-      reads.length >= 20 &&
-      !reads.some((s) => s.invocation_id === invocationId)
+      !task ||
+      task.conversationId !== conversation.id ||
+      task.epoch !== conversation.epoch
     )
-      throw new AppError(400, "result_too_large");
-    if (!reads.some((s) => s.invocation_id === invocationId)) {
-      const current = await this.records.get<FreeConversation>(
-        "library",
-        "conversation",
-        conversation.id,
-      );
-      if (
-        !current ||
-        current.epoch !== conversation.epoch ||
-        current.activeTaskId !== taskId
-      )
-        throw new AppError(409, "authorization_revoked");
-      await this.records.transaction("library", [
-        { record: current, revision: current.revision },
-        {
-          record: this.source(
-            conversation.id,
-            taskId,
-            ref,
-            "agent_read",
-            invocationId,
-          ),
-          revision: null,
-        },
-      ]);
-    }
+      throw new AppError(403, "forbidden_scope");
+    await this.recordRead(task, ref, invocationId);
     return { ...ref, ...result };
   }
 }

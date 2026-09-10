@@ -111,6 +111,17 @@ export class CosmosStore implements Store {
       (row) => row as unknown as import("../shared/model.js").LibraryEntry,
     );
   }
+  async discoverAssets(f: Filter) {
+    return this.query<import("./store.js").DiscoveryEntry>(
+      f,
+      "SELECT c.id AS asset_id, c.kind, c.projectId AS story_id, c.content.name AS name, c._etag AS revision, c.currentVersion AS version FROM c",
+      (row) => {
+        const value = { ...row };
+        if (!value.story_id) delete value.story_id;
+        return value as unknown as import("./store.js").DiscoveryEntry;
+      },
+    );
+  }
   async list(f: Filter): Promise<Page> {
     return this.query(f, "SELECT * FROM c", deserialize);
   }

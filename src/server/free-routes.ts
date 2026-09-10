@@ -5,6 +5,7 @@ import type { FreeConversation, FreeTask } from "../shared/free.js";
 import { exactRefSchema } from "../shared/free.js";
 import { AppError } from "../shared/model.js";
 import { freeDigest } from "./free-references.js";
+import { discoverReferences, resolveReference } from "./free-discovery.js";
 const uuid = z.uuid();
 const paging = z
   .object({
@@ -84,6 +85,12 @@ export function registerFree(app: FastifyInstance, free: FreeSession) {
       throw new AppError(403, "forbidden_scope");
     return task;
   }
+  app.get(`${root}/discover`, async (request) =>
+    discoverReferences(free, null, request.query),
+  );
+  app.post(`${root}/references/resolve`, { bodyLimit: 4096 }, async (request) =>
+    resolveReference(free, null, request.body),
+  );
   app.post(`${root}/conversations`, { bodyLimit: 32768 }, async (request) => {
     const r = await free.start(request.body);
     return { ...r, task: freeTaskDto(r.task) };
@@ -147,6 +154,9 @@ export function registerFree(app: FastifyInstance, free: FreeSession) {
     return {
       task: freeTaskDto(task),
       receipts: task.receipt ? [task.receipt] : [],
+      candidates: (await free.candidates.drafts(task.conversationId))
+        .filter((d) => d.createdByTaskId === task.id)
+        .map((d) => free.candidates.summary(d)),
       sources: sources.items,
       nextCursor: sources.nextCursor,
     };
@@ -170,6 +180,41 @@ export function registerFree(app: FastifyInstance, free: FreeSession) {
       .strict()
       .parse(request.query);
     return free.events(task.id, after);
+  });
+  app.get(`${base}/discover`, async (request) =>
+    discoverReferences(free, conversationId(request.params), request.query),
+  );
+  app.post(`${base}/references/resolve`, { bodyLimit: 4096 }, async (request) =>
+    resolveReference(free, conversationId(request.params), request.body),
+  );
+  app.get(`${base}/groups`, async (request) => {
+    const id = conversationId(request.params);
+    return page(
+      await free.candidates.groups(id),
+      request.query,
+      "groups:" + id,
+    );
+  });
+  app.get(`${base}/groups/:groupId/drafts`, async (request) => {
+    const id = conversationId(request.params),
+      groupId = uuid.parse((request.params as { groupId: string }).groupId);
+    return page(
+      (await free.candidates.drafts(id, groupId)).map((d) =>
+        free.candidates.summary(d),
+      ),
+      request.query,
+      "drafts:" + id + ":" + groupId,
+    );
+  });
+  app.get(`${base}/drafts/:draftId`, async (request) => {
+    const id = conversationId(request.params);
+    await free.conversation(id);
+    return {
+      draft: await free.candidates.get(
+        id,
+        uuid.parse((request.params as { draftId: string }).draftId),
+      ),
+    };
   });
   app.get(`${base}/references`, async (request) => {
     const id = conversationId(request.params);
@@ -197,7 +242,10 @@ export function registerFree(app: FastifyInstance, free: FreeSession) {
         (t) => t.input.refs,
       ),
     ];
-    if (!known.some((r) => freeDigest(r) === freeDigest(ref)))
+    if (
+      ref.type !== "candidate" &&
+      !known.some((r) => freeDigest(r) === freeDigest(ref))
+    )
       throw new AppError(403, "forbidden_scope");
     try {
       return {
