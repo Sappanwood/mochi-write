@@ -356,3 +356,7 @@ POST tasks 的 selectedDraft 必须在新任务占位／停止旧任务前通过
 ## 自由会话协议 v2
 
 `/api/creative/free` 与 v1 路由并存；记录使用 free 命名空间，callback 按 protocol_version 分流，不放宽旧 story scope。十工具快照、独立目标核验、任务预算、本人 API、候选组/不可变版本、统一显式引用解析、有界发现、角色完整 Content 精确保存（OP/版本/head 同分区原子、候选 claim、create-only/IfMatch）、故事初始化/首章/续章及反向独立角色母版（固定来源、目标故事分区 OP/业务 batch、library directory/claim CAS）与来源/OP 恢复详见 [自由会话服务](FREE_SESSION.md)。
+
+## 单故事资料候选
+
+资料包角色来源可为本会话未保存完整候选。snapshot 实体可选 sourceCandidate={conversationId,groupId,draftId,draftRevision:"1",draftHash}，严格身份/hash 格式，供正式独立快照溯源；不代表可跨会话访问候选，也不修改 Content。母版来源仍用 sourceAssetId/sourceVersion。资料候选由后端固定成员 ID/版本/来源，完整契约见 FREE_SESSION 的单故事资料候选章节。

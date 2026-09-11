@@ -1,3 +1,4 @@
+import { materialTool } from "./free-material-tools.js";
 import { worldTool } from "./free-world-tool.js";
 import { storyTool } from "./free-story-tools.js";
 import { z } from "zod";
@@ -51,6 +52,8 @@ export async function candidateTool(
   args: Record<string, unknown>,
   invocationId: string,
 ) {
+  if (name === "revise_story_materials")
+    return materialTool(free, task, args, invocationId);
   if (name === "save_world") return worldTool(free, task, args, invocationId);
   if (name === "initialize_story" || name === "create_chapter")
     return storyTool(free, task, name, args, invocationId);
@@ -69,7 +72,10 @@ export async function candidateTool(
     const d = await free.candidates.get(task.conversationId, a.draft_id),
       ref = { ...free.candidates.ref(d), ...a };
     await free.candidates.exact(task.conversationId, ref);
-    if (d.artifactKind === "story_initialization" && !a.member_id)
+    if (
+      ["story_initialization", "story_materials"].includes(d.artifactKind) &&
+      !a.member_id
+    )
       return { data: free.candidates.summary(d) };
     const result = await free.candidates.read(task.conversationId, ref);
     await free.references.recordRead(task, ref, invocationId);
@@ -181,7 +187,13 @@ export async function discoverCandidates(
     .object({
       query: z.string().max(128),
       kind: z
-        .enum(["world", "character", "story_initialization", "chapter"])
+        .enum([
+          "world",
+          "character",
+          "story_initialization",
+          "story_materials",
+          "chapter",
+        ])
         .optional(),
       limit: z.coerce.number().int().min(1).max(20).default(20),
       cursor: z.string().max(4096).optional(),

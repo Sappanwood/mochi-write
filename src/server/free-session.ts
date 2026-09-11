@@ -100,7 +100,7 @@ export class FreeSession {
       kind: "conversation",
       id,
       protocolVersion: 2,
-      toolsetVersion: "world-v1",
+      toolsetVersion: "materials-v1",
       revision: "",
       createdAt: now,
       epoch: 1,
@@ -313,6 +313,9 @@ export class FreeSession {
           target: result.target,
           action: result.action,
           baseRevision: result.baseRevision ?? null,
+          ...(result.draftContext?.materials
+            ? { materials: result.draftContext.materials }
+            : {}),
           evidenceDigest: freeDigest(result.evidence),
           ...(task.input.refs.filter((r) => r.type === "candidate").length ===
             1 && (raw as { intent?: string })?.intent === "save_current"

@@ -35,7 +35,20 @@ export async function worldFixture() {
     provider: "fake",
     model: "fake",
   });
-  return { content, records, free, calls, ...start };
+  await records.transaction("library", [
+    {
+      record: { ...start.conversation, toolsetVersion: "world-v1" },
+      revision: start.conversation.revision,
+    },
+  ]);
+  return {
+    content,
+    records,
+    free,
+    calls,
+    ...start,
+    conversation: await free.conversation(start.conversation.id),
+  };
 }
 export async function worldResolve(
   free: FreeSession,

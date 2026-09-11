@@ -29,6 +29,7 @@ const freezeSchema = z
       "world",
       "character",
       "story_initialization",
+      "story_materials",
       "chapter",
     ]),
     content: contentSchema,
@@ -218,7 +219,12 @@ export class FreeCandidates {
       (input.artifactKind === "character") !==
         context.mode.endsWith("character") ||
       (input.artifactKind === "world") !== context.mode.endsWith("world") ||
-      (input.artifactKind === "world" && gate.toolsetVersion !== "world-v1")
+      (input.artifactKind === "world" && !gate.toolsetVersion)
+    )
+      throw new AppError(403, "forbidden_scope");
+    if (
+      input.artifactKind === "story_materials" &&
+      (gate.toolsetVersion !== "materials-v1" || !context.materials?.length)
     )
       throw new AppError(403, "forbidden_scope");
     const now = new Date().toISOString(),
@@ -266,7 +272,10 @@ export class FreeCandidates {
     const bytes = Buffer.byteLength(JSON.stringify(payload));
     if (
       bytes >
-      (input.artifactKind === "story_initialization" ? 256 : 60) * 1024
+      (["story_initialization", "story_materials"].includes(input.artifactKind)
+        ? 256
+        : 60) *
+        1024
     )
       throw new AppError(400, "result_too_large");
     const drafts = (await this.drafts(task.conversationId)).filter(

@@ -148,6 +148,7 @@ export function FreeTimeline({
                     character_updated: "角色母版已更新",
                     story_initialized: "作品已建立",
                     first_chapter_saved: "作品与首章已保存",
+                    story_materials_saved: "故事资料已保存",
                     chapter_created: "章节已保存",
                   }[task.receipt.kind]
                 }

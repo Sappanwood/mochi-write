@@ -243,5 +243,67 @@ export const WORLD_TOOLS = [
     parameters: { oneOf: [worldDraft, commit] },
   },
 ];
-export const freeTools = (conversation: { toolsetVersion?: "world-v1" }) =>
-  conversation.toolsetVersion === "world-v1" ? WORLD_TOOLS : FREE_TOOLS;
+const materialDiscovery = structuredClone(worldDiscovery);
+materialDiscovery.version = "4";
+(
+  materialDiscovery.parameters as unknown as {
+    properties: { kind: { enum: string[] } };
+  }
+).properties.kind.enum.push("story_materials");
+const materialRead = {
+  ...structuredClone(FREE_TOOLS[6]!),
+  version: "3",
+  description:
+    "Read an exact candidate or material member. Whole material/initialization packages return a directory; read each member for complete content.",
+};
+export const MATERIAL_TOOLS = [
+  ...WORLD_TOOLS.map((t) =>
+    t.name === "discover_artifacts"
+      ? materialDiscovery
+      : t.name === "read_artifact"
+        ? materialRead
+        : t,
+  ),
+  {
+    name: "revise_story_materials",
+    version: "2",
+    effect: "write",
+    description:
+      "Draft a complete single-story material package from trusted draft_context.materials. Include every key exactly once. Update full name/markdown, never infer targets from references or browsing. For a requested source copy use only key and copy_source=true to expand complete immutable Content. Feedback supplies group_id and exact parent_ref and keeps original members/baselines. Commit only the exact authorized draft, never initialize_story for existing chaptered-story materials.",
+    parameters: {
+      oneOf: [
+        object(
+          {
+            mode: { type: "string", enum: ["draft"] },
+            members: {
+              type: "array",
+              minItems: 1,
+              maxItems: 8,
+              items: object(
+                {
+                  key: id,
+                  name: { type: "string", maxLength: 200 },
+                  markdown: { type: "string", maxLength: 49152 },
+                  copy_source: { type: "boolean" },
+                },
+                ["key"],
+              ),
+            },
+            group_id: id,
+            parent_ref: candidateRef,
+          },
+          ["mode", "members"],
+        ),
+        commit,
+      ],
+    },
+  },
+];
+export const freeTools = (conversation: {
+  toolsetVersion?: "world-v1" | "materials-v1";
+}) =>
+  conversation.toolsetVersion === "materials-v1"
+    ? MATERIAL_TOOLS
+    : conversation.toolsetVersion === "world-v1"
+      ? WORLD_TOOLS
+      : FREE_TOOLS;

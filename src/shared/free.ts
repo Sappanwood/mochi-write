@@ -68,7 +68,8 @@ export type Action =
   | "update_character"
   | "initialize_story"
   | "save_first_chapter"
-  | "create_chapter";
+  | "create_chapter"
+  | "revise_story_materials";
 export interface Binding {
   operationId: string;
   authorizationId: string;
@@ -76,6 +77,7 @@ export interface Binding {
   action: Action;
   baseRevision: string | null;
   selectedDraft?: Extract<ExactRef, { type: "candidate" }>;
+  materials?: import("./story-materials.js").MaterialSpec[];
   evidenceDigest: string;
 }
 export interface DraftContext {
@@ -88,6 +90,7 @@ export interface DraftContext {
     | "existing_story";
   target?: Target;
   baseRevision: string | null;
+  materials?: import("./story-materials.js").MaterialSpec[];
   chapterId?: string;
   reference?: ExactRef;
   evidenceDigest?: string;
@@ -103,6 +106,7 @@ export interface ScopeV2 {
   binding_digest?: string;
   authorization_id?: string;
   action?: Action;
+  material_members?: import("./story-materials.js").MaterialMember[];
   target?: Target;
 }
 export interface FreeBase {
@@ -115,7 +119,7 @@ export interface FreeBase {
 export interface FreeConversation extends FreeBase {
   kind: "conversation";
   protocolVersion: 2;
-  toolsetVersion?: "world-v1";
+  toolsetVersion?: "world-v1" | "materials-v1";
   sessionId?: string;
   sessionDispatchStarted?: boolean;
   initialRefs: ExactRef[];
@@ -245,7 +249,8 @@ export interface ReceiptV2 {
     | "character_updated"
     | "story_initialized"
     | "first_chapter_saved"
-    | "chapter_created";
+    | "chapter_created"
+    | "story_materials_saved";
   target: Target;
   draft_id: string;
   draft_revision: "1";
@@ -254,6 +259,7 @@ export interface ReceiptV2 {
   revision: string;
   assets?: {
     asset_id: string;
+    mode?: "create" | "update";
     kind: string;
     revision: string;
     content_hash: string;

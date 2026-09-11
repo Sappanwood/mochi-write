@@ -137,6 +137,7 @@ export class FreeOperations {
       initialize_story: "story_initialized",
       save_first_chapter: "first_chapter_saved",
       create_chapter: "chapter_created",
+      revise_story_materials: "story_materials_saved",
     };
     if (
       !r ||

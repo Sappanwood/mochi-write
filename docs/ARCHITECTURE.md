@@ -260,3 +260,7 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 
 `App` 提供资产阅览／创作互动导航，默认打开自由会话，书架打开正式章节。`FreeNewEntry` 为不同未发送入口分开缓存 UI，正式资产经点读与 resolve 得到可见 initialRefs；不读取人工编辑草稿。`FreeConversations` 基于既有 conversations/tasks/groups 分页构造按 session 唯一的最近任务与成果关联列表，也供正式资产页恢复关联会话。未新增服务端路由、存储 schema 或身份类别。
 `ContentReading` 复用资产编辑器阅读态、故事正文和自由信息区的基础内容呈现；`FreeTimeline` 从真实 receipt 目标生成正式内容路径，以 sessionStorage 保存返回会话 ID。旧 v1 组件与路由独立保留，不升级历史 session 快照。
+
+## 单故事资料候选
+
+FreeSession 新建持久 materials-v1；free-material-resolver 核验本轮成员意图并固定 story/成员身份与版本，free-material-tools 展开完整来源和候选。资料候选沿 library FreeCandidates 不可变组/稿，不写正式故事；新资料 commit 尚未接通。shared/story-materials 定义成员身份和目标包，来源候选 provenance 独立保存到实体 sourceCandidate，不污染 Content/hash。

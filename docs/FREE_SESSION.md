@@ -6,7 +6,7 @@ MWT-025–028 增量实现 `/api/creative/free` 本人 API、独立会话身份�
 浏览器 `#free/new` 与 `#free/conversation/:id` 已接入候选组、精确引用、资产发现、角色和故事成果阅读及原 OP 核实。默认首页与创作导航使用自由会话；资产模式保留独立阅览及轻量直接编辑，旧 v1 入口明确保留。角色正式保存、同一会话的故事初始化、首章、续章和反向独立母版已接通。
 `FreeCallback` 的 `FreeToolHandler` 与 `FreeReferences` 的 `CandidateAccess` 是后续业务接入点。
 默认 handler 支持 discover_artifacts/read_artifact，以及 save_character/initialize_story/create_chapter 的 draft/commit。角色正式写入只来自后端核验绑定和真实 OP 收据。
-新 conversation 由后端持久化 `toolsetVersion:"world-v1"`，固定十一工具快照；无该字段的旧 conversation 仍使用原十工具，HTTP 输入不能设置或升级能力。世界观 draft/commit、发现/精确引用与目标绑定已接通。
+新 conversation 固定 materials-v1 十二工具；此前 world-v1 十一工具及无标记十工具仍按持久快照继续。HTTP 输入不能设置或升级能力。世界观保存已接通；新增资料能力的实现边界见文末。
 
 ## 身份与引用
 
@@ -227,3 +227,10 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 `#creative/new`、`#creative/conversations`、`#creative/conversation/:id`、`#creative/draft/:storyId/:draftId`、`#story/:id/creative` 与 `#story/:id/draft/:draftId` 继续使用原协议；导航保留“旧创作会话与草稿”，书架保留“旧版新建故事”，故事阅读保留“旧故事创作会话”。历史不迁移、不删除，旧侧栏仍限原资产／阅读页面，自由会话不挂载 WritingHost。移动端自由会话提供独立模式与内容导航。
 
 新建世界观默认进入自由会话，原 `#new/world` 直接编辑链接仍可用。旧 conversation 顶部明确列出世界观仅可讨论/阅读，并提供主动新建入口；新入口只预填意图，未发送前不建记录，不转移旧聊天、候选或授权。原侧栏及章节新版本功能保留。
+
+## 单故事资料候选
+
+新建 conversation 现在使用 materials-v1 十二工具快照：world-v1 基础上 discover_artifacts/4、read_artifact/3，追加 revise_story_materials/2。旧 world-v1/十工具/v1 保留持久能力，不升级。
+资料候选已实现，正式 commit 尚待后续保存任务。目标限定 ready、非 pending、已有章节的单故事。独立解释 materials 请求并核验原文证据后固定 1–8 个成员；snapshot 可新建或更新，setting/outline 仅更新唯一既有对象。缺失/多匹配澄清，不能 upsert。包成员逐项固定后端 ID、模式、基础 revision/version 与来源，创作工具只按 key 提供完整 name/markdown 或 copy_source，不得漏项/增项。
+同组反馈保持原成员和基线，即使正式资料后来变化；改变成员范围需明确另建组。来源复制完整 Content 与合法 metadata，母版保留 sourceAssetId/sourceVersion；同会话未保存角色复制保留 sourceCandidate 的 conversationId/groupId/draftId/draftRevision/draftHash，不要求先存母版。候选 sourceRef 保持精确来源；内部展开不伪记 agent_read。跨会话候选、世界观候选入故事仍拒绝。
+单 Content 60 KiB、参数120 KiB、完整包256 KiB，每task八稿/1 MiB沿用原限制。候选成员目录不算全文读取，read_artifact/3 按 member_id 返回全文并记录来源。

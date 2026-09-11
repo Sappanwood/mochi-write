@@ -47,6 +47,16 @@ export const entitySchema = z
     initializationPending: z.literal(true).optional(),
     sourceAssetId: z.uuid().optional(),
     sourceVersion: z.number().int().positive().optional(),
+    sourceCandidate: z
+      .object({
+        conversationId: z.uuid(),
+        groupId: z.uuid(),
+        draftId: z.uuid(),
+        draftRevision: z.literal("1"),
+        draftHash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+      })
+      .strict()
+      .optional(),
     source: z
       .object({
         path: z.string(),

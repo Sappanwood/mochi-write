@@ -35,8 +35,7 @@ export async function worldTool(
   invocationId: string,
 ) {
   const c = await free.conversation(task.conversationId);
-  if (c.toolsetVersion !== "world-v1")
-    throw new AppError(403, "forbidden_scope");
+  if (!c.toolsetVersion) throw new AppError(403, "forbidden_scope");
   if (args.mode === "commit")
     return saveLibraryAsset(free, task, args, "world");
   const a = schema.parse(args),

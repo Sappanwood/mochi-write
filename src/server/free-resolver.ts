@@ -1,3 +1,8 @@
+import {
+  materialRequestSchema,
+  resolveMaterials,
+} from "./free-material-resolver.js";
+import { AppError } from "../shared/model.js";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import type {
@@ -48,6 +53,7 @@ export const classifierSchema = z
       "update_character",
       "initialize_story",
       "create_chapter",
+      "revise_story_materials",
       "revoke",
       "unclear",
     ]),
@@ -61,6 +67,7 @@ export const classifierSchema = z
       .strict(),
     changeEvidence: evidence.optional(),
     chapterEvidence: evidence.optional(),
+    materials: z.array(materialRequestSchema).min(1).max(8).optional(),
   })
   .strict();
 type Classification = z.infer<typeof classifierSchema>;
@@ -161,6 +168,7 @@ export async function resolveTarget(
     "update_character",
     "initialize_story",
     "create_chapter",
+    "revise_story_materials",
   ].includes(c.intent);
   if (
     saving &&
@@ -178,7 +186,7 @@ export async function resolveTarget(
       c.target.mode === "new")
   )
     return reject("invalid_update_intent");
-  if (c.target.kind === "world" && conversation.toolsetVersion !== "world-v1")
+  if (c.target.kind === "world" && !conversation.toolsetVersion)
     return reject("world_creation_unavailable");
   if (
     c.target.kind === "world" &&
@@ -201,6 +209,26 @@ export async function resolveTarget(
       c.target.kind !== "story")
   )
     return reject("invalid_action_kind");
+  if (
+    (c.materials || c.intent === "revise_story_materials") &&
+    conversation.toolsetVersion !== "materials-v1"
+  )
+    return reject("story_materials_unavailable");
+  if (
+    c.materials &&
+    (c.target.kind !== "story" ||
+      !["draft", "revise_story_materials"].includes(c.intent) ||
+      c.target.mode === "new")
+  )
+    return reject("invalid_material_intent");
+  if (
+    c.intent === "revise_story_materials" &&
+    (!c.materials ||
+      !c.changeEvidence ||
+      c.target.kind !== "story" ||
+      c.target.mode === "new")
+  )
+    return reject("invalid_material_intent");
   const draftRefs = task.input.refs.filter((r) => r.type === "candidate");
   const relevantDrafts =
     c.intent === "draft" && c.target.mode !== "new" && references.candidates
@@ -233,6 +261,11 @@ export async function resolveTarget(
       refs[0]!,
     );
     const context = candidate.draftContext;
+    if (
+      candidate.action === "revise_story_materials" &&
+      (conversation.toolsetVersion !== "materials-v1" || c.materials)
+    )
+      return reject("story_materials_unavailable");
     const target = context.target ?? {
       kind: context.mode.endsWith("world")
         ? ("world" as const)
@@ -471,6 +504,30 @@ export async function resolveTarget(
     )
       action = "save_first_chapter";
   }
+  let materials;
+  if (c.materials) {
+    if (
+      target.kind !== "story" ||
+      head.status !== "ready" ||
+      head.initializationPending ||
+      !(await content.list({ projectId: head.id, kind: "chapter", limit: 1 }))
+        .items.length
+    )
+      return reject("material_target_unavailable");
+    try {
+      materials = await resolveMaterials(
+        content,
+        references,
+        task,
+        head.id,
+        c.materials,
+      );
+    } catch (error) {
+      if (error instanceof AppError && error.statusCode < 500)
+        return reject(error.message);
+      throw error;
+    }
+  }
   return {
     evidence: empty,
     ...(saving ? { target, baseRevision: head.revision, action } : {}),
@@ -483,6 +540,7 @@ export async function resolveTarget(
             : "existing_story",
       target,
       baseRevision: head.revision,
+      ...(materials ? { materials } : {}),
       ...(target.kind === "story" ? { chapterId: randomUUID() } : {}),
     },
   };

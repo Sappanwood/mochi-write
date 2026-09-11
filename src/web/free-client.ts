@@ -75,6 +75,7 @@ export const kindLabel: Record<string, string> = {
   chapter: "章节",
   candidate: "候选",
   story_initialization: "作品初始化",
+  story_materials: "故事资料",
 };
 export const actionLabel: Record<Action, string> = {
   create_world: "新建世界观母版",
@@ -84,6 +85,7 @@ export const actionLabel: Record<Action, string> = {
   initialize_story: "建立作品",
   save_first_chapter: "保存作品与首章",
   create_chapter: "新建章节",
+  revise_story_materials: "修订故事资料",
 };
 export function refKey(ref: ExactRef) {
   return ref.type === "asset"

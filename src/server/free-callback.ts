@@ -1,3 +1,4 @@
+import { materialMemberSchema } from "../shared/story-materials.js";
 import { z } from "zod";
 import { freeId, freeHash, type FreeTask } from "../shared/free.js";
 import { AppError } from "../shared/model.js";
@@ -32,9 +33,11 @@ const scope = z
         "initialize_story",
         "save_first_chapter",
         "create_chapter",
+        "revise_story_materials",
       ])
       .optional(),
     target: target.optional(),
+    material_members: z.array(materialMemberSchema).min(1).max(8).optional(),
   })
   .strict();
 const schema = z
@@ -76,11 +79,7 @@ export class FreeCallback {
       const tool = freeTools(c).find(
         (t) => t.name === cb.tool.name && t.version === cb.tool.version,
       );
-      if (
-        !tool ||
-        (task.binding?.target.kind === "world" &&
-          c.toolsetVersion !== "world-v1")
-      )
+      if (!tool || (task.binding?.target.kind === "world" && !c.toolsetVersion))
         throw new AppError(403, "forbidden_scope");
       if (
         cb.tool.name === "discover_artifacts" &&
@@ -120,13 +119,15 @@ export class FreeCallback {
           .strict()
           .parse(cb.arguments);
         const expectedTool =
-          task.binding.target.kind === "world"
-            ? "save_world"
-            : task.binding.target.kind === "character"
-              ? "save_character"
-              : task.binding.action === "create_chapter"
-                ? "create_chapter"
-                : "initialize_story";
+          task.binding.action === "revise_story_materials"
+            ? "revise_story_materials"
+            : task.binding.target.kind === "world"
+              ? "save_world"
+              : task.binding.target.kind === "character"
+                ? "save_character"
+                : task.binding.action === "create_chapter"
+                  ? "create_chapter"
+                  : "initialize_story";
         if (cb.tool.name !== expectedTool || cb.tool.version !== "2")
           throw new AppError(403, "forbidden_scope");
         const directory = await this.free.operations.directory(
@@ -219,13 +220,15 @@ export class FreeCallback {
           if (op.status === "conflict")
             throw new AppError(409, "revision_conflict");
           const expectedTool =
-            task.binding.target.kind === "world"
-              ? "save_world"
-              : task.binding.target.kind === "character"
-                ? "save_character"
-                : task.binding.action === "create_chapter"
-                  ? "create_chapter"
-                  : "initialize_story";
+            task.binding.action === "revise_story_materials"
+              ? "revise_story_materials"
+              : task.binding.target.kind === "world"
+                ? "save_world"
+                : task.binding.target.kind === "character"
+                  ? "save_character"
+                  : task.binding.action === "create_chapter"
+                    ? "create_chapter"
+                    : "initialize_story";
           if (tool.name !== expectedTool)
             throw new AppError(403, "forbidden_scope");
         }
