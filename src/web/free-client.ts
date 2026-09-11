@@ -77,6 +77,8 @@ export const kindLabel: Record<string, string> = {
   story_initialization: "作品初始化",
 };
 export const actionLabel: Record<Action, string> = {
+  create_world: "新建世界观母版",
+  update_world: "更新世界观母版",
   create_character: "新建角色母版",
   update_character: "更新角色母版",
   initialize_story: "建立作品",
@@ -265,7 +267,7 @@ export function assetPath(
   target: ReceiptV2["target"],
   chapter?: ReceiptV2["chapter"],
 ) {
-  return target.kind === "character"
+  return target.kind !== "story"
     ? `asset/${target.asset_id}`
     : `story/${target.story_id}/chapter${chapter ? `/${chapter.chapter_id}` : ""}`;
 }

@@ -5,12 +5,12 @@ import { ToolError } from "../shared/creative-tools.js";
 import type { FreeSession } from "./free-session.js";
 import { freeDigest } from "./free-references.js";
 import { freeScope } from "./free-workflow.js";
-import { FREE_TOOLS } from "./free-tools.js";
+import { freeTools } from "./free-tools.js";
 import { LibraryTools } from "./library-tools.js";
 import { AssetTools } from "./asset-tools.js";
 import { candidateTool } from "./free-candidate-tools.js";
 const target = z.union([
-  z.object({ kind: z.literal("character"), asset_id: freeId }).strict(),
+  z.object({ kind: z.enum(["character", "world"]), asset_id: freeId }).strict(),
   z.object({ kind: z.literal("story"), story_id: freeId }).strict(),
 ]);
 const scope = z
@@ -25,6 +25,8 @@ const scope = z
     authorization_id: freeId.optional(),
     action: z
       .enum([
+        "create_world",
+        "update_world",
         "create_character",
         "update_character",
         "initialize_story",
@@ -71,6 +73,21 @@ export class FreeCallback {
     try {
       let task = await this.free.task(cb.task_id);
       const c = await this.free.conversation(task.conversationId);
+      const tool = freeTools(c).find(
+        (t) => t.name === cb.tool.name && t.version === cb.tool.version,
+      );
+      if (
+        !tool ||
+        (task.binding?.target.kind === "world" &&
+          c.toolsetVersion !== "world-v1")
+      )
+        throw new AppError(403, "forbidden_scope");
+      if (
+        cb.tool.name === "discover_artifacts" &&
+        cb.tool.version === "2" &&
+        cb.arguments.kind === "world"
+      )
+        throw new AppError(400, "invalid_arguments");
       const expected = freeScope(task, cb.scope.phase);
       const { task_id: _taskId, ...expectedScope } = expected;
       void _taskId;
@@ -103,11 +120,13 @@ export class FreeCallback {
           .strict()
           .parse(cb.arguments);
         const expectedTool =
-          task.binding.target.kind === "character"
-            ? "save_character"
-            : task.binding.action === "create_chapter"
-              ? "create_chapter"
-              : "initialize_story";
+          task.binding.target.kind === "world"
+            ? "save_world"
+            : task.binding.target.kind === "character"
+              ? "save_character"
+              : task.binding.action === "create_chapter"
+                ? "create_chapter"
+                : "initialize_story";
         if (cb.tool.name !== expectedTool || cb.tool.version !== "2")
           throw new AppError(403, "forbidden_scope");
         const directory = await this.free.operations.directory(
@@ -141,9 +160,7 @@ export class FreeCallback {
             throw new AppError(403, "forbidden_scope");
           t[field]!.runId = cb.run_id;
         });
-      const tool = FREE_TOOLS.find(
-        (t) => t.name === cb.tool.name && t.version === cb.tool.version,
-      );
+
       if (!tool) throw new AppError(400, "invalid_arguments");
       if (tool.effect === "write" && cb.scope.phase === "resolve")
         throw new AppError(403, "authorization_required");
@@ -202,11 +219,13 @@ export class FreeCallback {
           if (op.status === "conflict")
             throw new AppError(409, "revision_conflict");
           const expectedTool =
-            task.binding.target.kind === "character"
-              ? "save_character"
-              : task.binding.action === "create_chapter"
-                ? "create_chapter"
-                : "initialize_story";
+            task.binding.target.kind === "world"
+              ? "save_world"
+              : task.binding.target.kind === "character"
+                ? "save_character"
+                : task.binding.action === "create_chapter"
+                  ? "create_chapter"
+                  : "initialize_story";
           if (tool.name !== expectedTool)
             throw new AppError(403, "forbidden_scope");
         }

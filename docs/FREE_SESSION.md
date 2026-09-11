@@ -6,11 +6,11 @@ MWT-025–028 增量实现 `/api/creative/free` 本人 API、独立会话身份�
 浏览器 `#free/new` 与 `#free/conversation/:id` 已接入候选组、精确引用、资产发现、角色和故事成果阅读及原 OP 核实。默认首页与创作导航使用自由会话；资产模式保留独立阅览及轻量直接编辑，旧 v1 入口明确保留。角色正式保存、同一会话的故事初始化、首章、续章和反向独立母版已接通。
 `FreeCallback` 的 `FreeToolHandler` 与 `FreeReferences` 的 `CandidateAccess` 是后续业务接入点。
 默认 handler 支持 discover_artifacts/read_artifact，以及 save_character/initialize_story/create_chapter 的 draft/commit。角色正式写入只来自后端核验绑定和真实 OP 收据。
-新 session 创建时仍固定完整十工具 v2 快照，因此后续接入无需改变旧 session 快照。
+新 conversation 由后端持久化 `toolsetVersion:"world-v1"`，固定十一工具快照；无该字段的旧 conversation 仍使用原十工具，HTTP 输入不能设置或升级能力。当前新增世界观 draft/发现/精确引用与目标绑定，world commit 尚未接通。
 
 ## 身份与引用
 
-空白、角色、故事入口都用同一种 `protocolVersion:2` conversation，不带 `kind` 或 `storyId` 保存目标。
+空白、角色、世界观、故事入口都用同一种 `protocolVersion:2` conversation，不带 `kind` 或 `storyId` 保存目标。
 记录本身的 `kind:"conversation"` 只是存储分类。首次 POST 才在 library 同一事务创建 conversation、首 task、请求索引和来源记录；
 同键同输入返回原结果，异输入 409。初始 `initialRefs` 与每条消息 `refs` 分离，各最多 8 项；原消息最多 16 KiB，完整输入最多 32 KiB。
 仅查看资料不改变输入或目标。初始关联和成功收据构成关联投影，不授予写权限；一会话可关联多个资产，同一资产可被多个会话关联。
@@ -58,7 +58,7 @@ character/world 禁止 story_id；故事及其资料必须提供 story_id，stor
 
 `FreeCandidates.freeze` 只在有效 task 的 authorized/running 状态工作。`free:group` 保存稳定组身份和 nextOrdinal；
 `free:candidate` create-only 保存完整 payload，draftRevision 恒为 `"1"`。conversation、task、group CAS 与 candidate create 在同一 library batch；
-正常并发冲突后以原 invocation 重试，失败不消耗编号。每 task 最多 8 稿、冻结包合计 1 MiB；角色/章包 60 KiB，初始化包 256 KiB。
+正常并发冲突后以原 invocation 重试，失败不消耗编号。每 task 最多 8 稿、冻结包合计 1 MiB；角色/世界观/章包 60 KiB，初始化包 256 KiB。
 同 invocation 同输入读回原稿，异输入 operation_conflict。改写必须同时传 group_id/parent_ref，父稿同组同类型，允许从旧稿分叉；
 新组可传 derived_from。parent/derived/derivation 保留冻结 provenance，内部校验读取不记为 Agent 已读；只有 read 工具向 Agent 返回全文才记 agent_read。draftHash 覆盖 id/groupId/artifactKind/完整 payload（Content、可信 draftContext、动作、父稿、派生与成员）；ordinal 和时间不参与 hash。
 来源与保存状态不写回候选；候选不进入正式 head、导出或自动清理。
@@ -77,6 +77,12 @@ setting/outline/snapshot/chapter 必须指定可读 story_id；候选仅当前 c
 编辑/删除/换版本返回 reference_changed/reference_unavailable，不偷偷选择最新版。发送仍重新核验完整 typed ref，原消息文字与 refs 分开保存；浏览与 resolve 不附加输入或授予写权限。
 本人原版本查看仅接受本会话已记录资产或本会话候选；旧资产 history 缺失/hash 不符返回 unavailable，绝不用当前 head 替代。
 
+## 世界观候选
+
+`save_world/2` draft 接受完整 name、markdown、genres；age_band、era、tags 可省略，更新时保留原值。角色专属写字段被拒绝；未知合法 metadata 保留，完整 Content 冻结前规范化，正文不改换行。新世界观预览不创建正式身份，既有世界观预览固定目标及 baseRevision；同组反馈沿用 parent，另建只作取材。derived_from 只接受世界观母版或本会话完整世界观候选，不支持故事资料提升或世界观候选导入故事。
+
+自然目标条件仅 name、genre、age_band、era、tag，复用完整查询、唯一性与当前 head 核验。旧 conversation 的世界观讨论/阅读照常，draft/save 在派发创作前进入 `world_creation_unavailable` 澄清。
+
 ## 独立核验与运行
 
 Write 先持久原消息、refs、epoch、sourceMessageId、taskId、operationId，再以独立无工具 session 解释原消息与可信引用摘要。
@@ -92,7 +98,7 @@ Write 先持久原消息、refs、epoch、sourceMessageId、taskId、operationId
 已明确目标或新建意图可直接 execute，不能从上轮 binding 推导本轮授权。明确引用仍须核验全部冻结条件的合法性及当前 head 的 AND 匹配；只有一条引用不免除该检查。
 
 绑定只生成一次 `{operationId,authorizationId,target,action,baseRevision,selectedDraft?,evidenceDigest}`。
-action 为 create_character/update_character/initialize_story/save_first_chapter/create_chapter；save_current 按精确候选归约。
+action 为 create_character/update_character/create_world/update_world/initialize_story/save_first_chapter/create_chapter；save_current 按精确候选归约。
 没有正式保存意图时仅冻结 `draftContext`，不创建 ledger 或有权 scope；新故事候选的 ID 由后端预分配，既有故事候选保留原目标。
 execute 同原 session、同 sourceMessageId，冻结 scope/refs/binding/draft_context_digest，不能改写已派发 run 或换 key 绕过 unknown。
 两阶段共享 8 次模型、20 次工具、300000ms（排队除外）；execute 扣除 resolve 实际 execution_usage，缺失用量不能猜余额继续。
@@ -101,7 +107,7 @@ execute 同原 session、同 sourceMessageId，冻结 scope/refs/binding/draft_c
 
 所有 v2 过程记录使用 `recordType:"free"`、`schemaVersion:2`、`free:<type>:<UUID>`，位于 library/scopeId=library；不进入正式 head 列表或导出。
 OP directory 在 library 中与 task binding/conversation CAS 一起 create-only，固定 partition 与 binding digest，永不换目标。
-角色 ledger 位于 library，故事 ledger 位于 stories/projectId=storyId；只允许目标对应分区。
+角色和世界观 ledger 位于 library，故事 ledger 位于 stories/projectId=storyId；只允许目标对应分区。
 `FreeOperations` 提供 active ledger 激活、撤回 tombstone、严格原 OP 查询与收据投影；角色与故事正式 batch 均已接通，过程与业务分区不混写。
 
 取消先 CAS 会话 epoch 并标记 cancel_pending，再在目标分区创建 revoked tombstone 或 CAS active→revoked。
@@ -150,7 +156,8 @@ unknown/缺失和 committed 都不释放候选，避免响应丢失后另建母�
 ## 兼容与验证
 
 v1 无工具/三工具/七工具 session、旧 `creative:` records、story 分区事务、`#creative` 链接及查看即引用 UI 保持原状，不迁移/升级旧快照。
-新工具白名单顺序为 library_vocabulary/1、search_library/1、read_library/1、search_assets/2、read_asset/2、discover_artifacts/2、read_artifact/2、save_character/2、initialize_story/2、create_chapter/2。
+旧 v2 工具白名单顺序为 library_vocabulary/1、search_library/1、read_library/1、search_assets/2、read_asset/2、discover_artifacts/2、read_artifact/2、save_character/2、initialize_story/2、create_chapter/2。
+新集合将 discover_artifacts/2 替换为 /3（kind 增加 world），末尾新增 save_world/2；其余工具保持原版本。两种集合都沿用 tool_protocol_version=2，恢复以持久能力字段为准，不更换已有运行时 session。
 v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/scope；请求/响应上限仍 128/64 KiB。
 角色候选先读取受控词表；非法题材或年龄层返回协议 invalid_arguments，不把 Library 的界面错误文案当作工具错误码。
 新工具快照的来源引用用嵌套 type 判别联合区分 asset/candidate，禁止混入另一类字段；parent_ref 与初始化 candidate_ref 只接受完整候选，derived_from/source_ref 保留合法 member 引用。改写必须同时提供 group_id 和精确 parent_ref。初始化复制候选角色使用完整 `{kind: "snapshot", candidate_ref}`，不混入 title/body 或母版复制字段；顶层 derived_from 只记录来源，不创建角色快照。身份关系、hash、范围和版本仍由 Write 校验；旧持久工具快照不原地修改。

@@ -49,7 +49,7 @@ export function freeOperations(
         (w.record.kind === "candidate" && w.revision !== null) ||
         (partition !== "library" && w.record.kind !== "op") ||
         (w.record.kind === "op" &&
-          (w.record.target.kind === "character"
+          (w.record.target.kind !== "story"
             ? "library"
             : w.record.target.story_id) !== partition) ||
         (w.revision !== null && !w.revision),

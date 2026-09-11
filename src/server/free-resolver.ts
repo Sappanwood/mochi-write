@@ -42,6 +42,8 @@ export const classifierSchema = z
       "discuss",
       "draft",
       "save_current",
+      "create_world",
+      "update_world",
       "create_character",
       "update_character",
       "initialize_story",
@@ -153,6 +155,8 @@ export async function resolveTarget(
     return reject("invalid_chapter_intent");
   const saving = [
     "save_current",
+    "create_world",
+    "update_world",
     "create_character",
     "update_character",
     "initialize_story",
@@ -174,9 +178,23 @@ export async function resolveTarget(
       c.target.mode === "new")
   )
     return reject("invalid_update_intent");
-  if (c.target.kind === "world" && saving)
-    return reject("unsupported_write_scope");
+  if (c.target.kind === "world" && conversation.toolsetVersion !== "world-v1")
+    return reject("world_creation_unavailable");
   if (
+    c.target.kind === "world" &&
+    c.target.predicates.some(
+      (p) => !["name", "genre", "age_band", "era", "tag"].includes(p.field),
+    )
+  )
+    return reject("unsupported_predicates");
+  if (
+    c.intent === "update_world" &&
+    (!c.changeEvidence || c.target.kind !== "world" || c.target.mode === "new")
+  )
+    return reject("invalid_update_intent");
+  if (
+    (c.intent === "create_world" &&
+      (c.target.kind !== "world" || c.target.mode !== "new")) ||
     (c.intent === "create_character" &&
       (c.target.kind !== "character" || c.target.mode !== "new")) ||
     (["initialize_story", "create_chapter"].includes(c.intent) &&
@@ -195,9 +213,11 @@ export async function resolveTarget(
           )
         ).filter(
           (x) =>
-            (x.value.draftContext.mode.endsWith("character")
-              ? "character"
-              : "story") === c.target.kind && !x.ref.member_id,
+            (x.value.draftContext.mode.endsWith("world")
+              ? "world"
+              : x.value.draftContext.mode.endsWith("character")
+                ? "character"
+                : "story") === c.target.kind && !x.ref.member_id,
         )
       : [];
   if (
@@ -214,7 +234,9 @@ export async function resolveTarget(
     );
     const context = candidate.draftContext;
     const target = context.target ?? {
-      kind: "character" as const,
+      kind: context.mode.endsWith("world")
+        ? ("world" as const)
+        : ("character" as const),
       asset_id: randomUUID(),
     };
     if (
@@ -236,8 +258,7 @@ export async function resolveTarget(
       !matches(
         {
           ...candidate.content.sourceMetadata,
-          asset_id:
-            target.kind === "character" ? target.asset_id : target.story_id,
+          asset_id: target.kind !== "story" ? target.asset_id : target.story_id,
           kind: "character",
           name: candidate.content.name,
           revision: refs[0]!.draft_revision,
@@ -251,8 +272,8 @@ export async function resolveTarget(
       return reject("candidate_target_conflict");
     if (saving && context.target) {
       const head = await content.get(
-        target.kind === "character" ? target.asset_id : target.story_id,
-        target.kind === "character" ? null : target.story_id,
+        target.kind !== "story" ? target.asset_id : target.story_id,
+        target.kind !== "story" ? null : target.story_id,
       );
       if ((head?.revision ?? null) !== context.baseRevision || head?.deleted)
         return reject("revision_conflict");
@@ -275,11 +296,10 @@ export async function resolveTarget(
     };
   }
   if (c.target.mode === "new") {
-    if (c.target.kind === "world" || c.intent === "create_chapter")
-      return reject("target_required");
+    if (c.intent === "create_chapter") return reject("target_required");
     const target: Target =
-      c.target.kind === "character"
-        ? { kind: "character", asset_id: randomUUID() }
+      c.target.kind !== "story"
+        ? { kind: c.target.kind, asset_id: randomUUID() }
         : { kind: "story", story_id: randomUUID() };
     empty.complete = true;
     return {
@@ -294,7 +314,12 @@ export async function resolveTarget(
           }
         : {}),
       draftContext: {
-        mode: target.kind === "character" ? "new_character" : "new_story",
+        mode:
+          target.kind === "world"
+            ? "new_world"
+            : target.kind === "character"
+              ? "new_character"
+              : "new_story",
         ...(target.kind === "story" || saving ? { target } : {}),
         baseRevision: null,
       },
@@ -344,8 +369,7 @@ export async function resolveTarget(
     if (!matches(summary(head), c.target.predicates))
       return reject("explicit_predicate_mismatch");
   } else {
-    if (!c.target.predicates.length || c.target.kind === "world")
-      return reject("unsupported_predicates");
+    if (!c.target.predicates.length) return reject("unsupported_predicates");
     empty.queryDigest = freeDigest({ kind: c.target.kind, filters });
     let cursor: string | undefined;
     for (let page = 0; page < 5; page++) {
@@ -362,7 +386,7 @@ export async function resolveTarget(
         cursor = result.cursor;
       } else {
         const result = await content.searchLibrary({
-          kind: "character",
+          kind: c.target.kind,
           ...filters,
           ageBand: filters.age_band,
           limit: 20,
@@ -401,7 +425,7 @@ export async function resolveTarget(
           (r) => r.type === "asset" && r.asset_id === row.asset_id,
         ) ||
         conversation.associatedAssets.some((t) =>
-          t.kind === "character"
+          t.kind !== "story"
             ? t.asset_id === row.asset_id
             : t.story_id === row.asset_id,
         );
@@ -427,8 +451,8 @@ export async function resolveTarget(
   empty.matchedId = head.id;
   empty.headRevision = head.revision;
   const target: Target =
-    head.kind === "character"
-      ? { kind: "character", asset_id: head.id }
+    head.kind === "character" || head.kind === "world"
+      ? { kind: head.kind, asset_id: head.id }
       : { kind: "story", story_id: head.id };
   let action: Action | undefined;
   if (saving)
@@ -452,7 +476,11 @@ export async function resolveTarget(
     ...(saving ? { target, baseRevision: head.revision, action } : {}),
     draftContext: {
       mode:
-        target.kind === "character" ? "existing_character" : "existing_story",
+        target.kind === "world"
+          ? "existing_world"
+          : target.kind === "character"
+            ? "existing_character"
+            : "existing_story",
       target,
       baseRevision: head.revision,
       ...(target.kind === "story" ? { chapterId: randomUUID() } : {}),

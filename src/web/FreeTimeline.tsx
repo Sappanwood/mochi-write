@@ -82,8 +82,8 @@ export function FreeTimeline({
           {task.target && (
             <p className="notice free-identity">
               已绑定：{task.action && actionLabel[task.action]} ·{" "}
-              {task.target.kind === "character"
-                ? `角色 ${task.target.asset_id}`
+              {task.target.kind !== "story"
+                ? `${task.target.kind === "world" ? "世界观" : "角色"} ${task.target.asset_id}`
                 : `故事 ${task.target.story_id}`}
             </p>
           )}
@@ -139,6 +139,8 @@ export function FreeTimeline({
               <strong>
                 {
                   {
+                    world_created: "独立世界观母版已新建",
+                    world_updated: "世界观母版已更新",
                     character_created: "独立角色母版已新建",
                     character_updated: "角色母版已更新",
                     story_initialized: "作品已建立",
@@ -156,9 +158,7 @@ export function FreeTimeline({
                   );
                   navigate(
                     assetPath(task.receipt!.target, task.receipt!.chapter) +
-                      (task.receipt!.target.kind === "character"
-                        ? "/read"
-                        : ""),
+                      (task.receipt!.target.kind !== "story" ? "/read" : ""),
                   );
                 }}
               >

@@ -25,7 +25,12 @@ export const groupFields = {
 };
 const freezeSchema = z
   .object({
-    artifactKind: z.enum(["character", "story_initialization", "chapter"]),
+    artifactKind: z.enum([
+      "world",
+      "character",
+      "story_initialization",
+      "chapter",
+    ]),
     content: contentSchema,
     ...groupFields,
   })
@@ -211,7 +216,9 @@ export class FreeCandidates {
     }
     if (
       (input.artifactKind === "character") !==
-      context.mode.endsWith("character")
+        context.mode.endsWith("character") ||
+      (input.artifactKind === "world") !== context.mode.endsWith("world") ||
+      (input.artifactKind === "world" && gate.toolsetVersion !== "world-v1")
     )
       throw new AppError(403, "forbidden_scope");
     const now = new Date().toISOString(),
@@ -229,13 +236,17 @@ export class FreeCandidates {
     };
     const action: Action =
       extra?.action ??
-      (input.artifactKind === "character"
-        ? context.mode === "existing_character"
-          ? "update_character"
-          : "create_character"
-        : input.artifactKind === "chapter"
-          ? "create_chapter"
-          : "initialize_story");
+      (input.artifactKind === "world"
+        ? context.mode === "existing_world"
+          ? "update_world"
+          : "create_world"
+        : input.artifactKind === "character"
+          ? context.mode === "existing_character"
+            ? "update_character"
+            : "create_character"
+          : input.artifactKind === "chapter"
+            ? "create_chapter"
+            : "initialize_story");
     const payload: CandidatePayload = {
       content: input.content,
       draftContext: context,

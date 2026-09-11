@@ -131,8 +131,7 @@ export function FreeConversations({
               (r.asset_id === assetId || r.story_id === assetId),
           ) ||
           c.associatedAssets.some(
-            (t) =>
-              (t.kind === "character" ? t.asset_id : t.story_id) === assetId,
+            (t) => (t.kind !== "story" ? t.asset_id : t.story_id) === assetId,
           ),
       );
       const rows = await Promise.all(
@@ -210,8 +209,8 @@ export function FreeConversations({
           <div className="free-associations">
             {c.associatedAssets.map((t) => (
               <a key={assetPath(t)} href={`#${assetPath(t)}`}>
-                {t.kind === "character" ? "角色" : "故事"} ·{" "}
-                {t.kind === "character" ? t.asset_id : t.story_id}
+                {kindLabel[t.kind]} ·{" "}
+                {t.kind !== "story" ? t.asset_id : t.story_id}
               </a>
             ))}
             {c.initialRefs

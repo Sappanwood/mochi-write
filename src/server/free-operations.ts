@@ -11,7 +11,7 @@ import { AppError } from "../shared/model.js";
 import type { FreeStore } from "./free-store.js";
 import { freeDigest } from "./free-references.js";
 export const targetPartition = (t: Target) =>
-  t.kind === "character" ? "library" : t.story_id;
+  t.kind !== "story" ? "library" : t.story_id;
 export class FreeOperations {
   constructor(readonly records: FreeStore) {}
   async directory(id: string) {
@@ -130,6 +130,8 @@ export class FreeOperations {
   validateReceipt(d: Directory, op: Ledger): ReceiptV2 {
     const r = op.receipt;
     const kinds = {
+      create_world: "world_created",
+      update_world: "world_updated",
       create_character: "character_created",
       update_character: "character_updated",
       initialize_story: "story_initialized",
@@ -153,7 +155,7 @@ export class FreeOperations {
       !r.revision
     )
       throw new AppError(409, "invalid_operation_receipt");
-    if (d.target.kind === "character" && (r.assets || r.chapter))
+    if (d.target.kind !== "story" && (r.assets || r.chapter))
       throw new AppError(409, "invalid_operation_receipt");
     if (op.action === "initialize_story" && (!r.assets || r.chapter))
       throw new AppError(409, "invalid_operation_receipt");

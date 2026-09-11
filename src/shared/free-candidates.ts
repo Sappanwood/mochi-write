@@ -1,7 +1,8 @@
 import type { Action, DraftContext, ExactRef, FreeBase } from "./free.js";
 import type { Content } from "./model.js";
 export type CandidateRef = Extract<ExactRef, { type: "candidate" }>;
-export type ArtifactKind = "character" | "story_initialization" | "chapter";
+export type ArtifactKind =
+  "world" | "character" | "story_initialization" | "chapter";
 export interface CandidateGroup extends FreeBase {
   kind: "group";
   conversationId: string;

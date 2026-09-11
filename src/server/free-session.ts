@@ -100,17 +100,20 @@ export class FreeSession {
       kind: "conversation",
       id,
       protocolVersion: 2,
+      toolsetVersion: "world-v1",
       revision: "",
       createdAt: now,
       epoch: 1,
       initialRefs,
       associatedAssets: initialRefs
         .filter(
-          (r) => r.type === "asset" && ["character", "story"].includes(r.kind),
+          (r) =>
+            r.type === "asset" &&
+            ["character", "world", "story"].includes(r.kind),
         )
         .map((r) =>
-          r.type === "asset" && r.kind === "character"
-            ? { kind: "character", asset_id: r.asset_id }
+          r.type === "asset" && (r.kind === "character" || r.kind === "world")
+            ? { kind: r.kind, asset_id: r.asset_id }
             : {
                 kind: "story",
                 story_id: r.type === "asset" ? r.story_id! : "",

@@ -59,8 +59,11 @@ export const freeInputSchema = z
   .strict();
 export type FreeInput = z.infer<typeof freeInputSchema>;
 export type Target =
-  { kind: "character"; asset_id: string } | { kind: "story"; story_id: string };
+  | { kind: "character" | "world"; asset_id: string }
+  | { kind: "story"; story_id: string };
 export type Action =
+  | "create_world"
+  | "update_world"
   | "create_character"
   | "update_character"
   | "initialize_story"
@@ -76,7 +79,13 @@ export interface Binding {
   evidenceDigest: string;
 }
 export interface DraftContext {
-  mode: "new_character" | "existing_character" | "new_story" | "existing_story";
+  mode:
+    | "new_world"
+    | "existing_world"
+    | "new_character"
+    | "existing_character"
+    | "new_story"
+    | "existing_story";
   target?: Target;
   baseRevision: string | null;
   chapterId?: string;
@@ -106,6 +115,7 @@ export interface FreeBase {
 export interface FreeConversation extends FreeBase {
   kind: "conversation";
   protocolVersion: 2;
+  toolsetVersion?: "world-v1";
   sessionId?: string;
   sessionDispatchStarted?: boolean;
   initialRefs: ExactRef[];
@@ -229,6 +239,8 @@ export interface ReceiptV2 {
   conversation_id: string;
   task_id: string;
   kind:
+    | "world_created"
+    | "world_updated"
     | "character_created"
     | "character_updated"
     | "story_initialized"

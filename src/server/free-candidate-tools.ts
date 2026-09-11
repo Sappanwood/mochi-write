@@ -1,3 +1,4 @@
+import { worldTool } from "./free-world-tool.js";
 import { storyTool } from "./free-story-tools.js";
 import { z } from "zod";
 import { saveCharacter } from "./free-character-save.js";
@@ -50,6 +51,7 @@ export async function candidateTool(
   args: Record<string, unknown>,
   invocationId: string,
 ) {
+  if (name === "save_world") return worldTool(free, task, args, invocationId);
   if (name === "initialize_story" || name === "create_chapter")
     return storyTool(free, task, name, args, invocationId);
   if (name === "discover_artifacts")
@@ -178,7 +180,9 @@ export async function discoverCandidates(
   const { cursor, limit, ...q } = z
     .object({
       query: z.string().max(128),
-      kind: z.enum(["character", "story_initialization", "chapter"]).optional(),
+      kind: z
+        .enum(["world", "character", "story_initialization", "chapter"])
+        .optional(),
       limit: z.coerce.number().int().min(1).max(20).default(20),
       cursor: z.string().max(4096).optional(),
     })

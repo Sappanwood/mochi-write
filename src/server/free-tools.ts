@@ -204,3 +204,44 @@ export const FREE_TOOLS = [
   writing("initialize_story"),
   writing("create_chapter"),
 ];
+
+const worldDiscovery = structuredClone(FREE_TOOLS[5]!);
+worldDiscovery.version = "3";
+(
+  worldDiscovery.parameters as unknown as {
+    properties: { kind: { enum: string[] } };
+  }
+).properties.kind.enum.push("world");
+const worldDraft = object(
+  {
+    mode: { type: "string", enum: ["draft"] },
+    name: { type: "string", minLength: 1, maxLength: 200 },
+    markdown: { type: "string", minLength: 1, maxLength: 49152 },
+    genres: {
+      type: "array",
+      items: { type: "string", maxLength: 40 },
+      maxItems: 30,
+    },
+    age_band: { type: "string", maxLength: 40 },
+    era: { type: "string", maxLength: 128 },
+    tags: { type: "array", items: id, maxItems: 16 },
+    ...group,
+  },
+  ["mode", "name", "markdown", "genres"],
+);
+export const WORLD_TOOLS = [
+  ...FREE_TOOLS.map((t) =>
+    t.name === "discover_artifacts" ? worldDiscovery : t,
+  ),
+  {
+    name: "save_world",
+    version: "2",
+    effect: "write",
+    description:
+      "Draft a complete world master; read library_vocabulary for controlled genres and optional age_band. Omitted era/tags/age_band preserve existing values on updates. Commit only the exact authorized candidate. Never infer an update from reference material. derived_from accepts only a world master or whole world candidate, never a story member." +
+      referenceGuidance,
+    parameters: { oneOf: [worldDraft, commit] },
+  },
+];
+export const freeTools = (conversation: { toolsetVersion?: "world-v1" }) =>
+  conversation.toolsetVersion === "world-v1" ? WORLD_TOOLS : FREE_TOOLS;
