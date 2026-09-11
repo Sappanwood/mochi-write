@@ -328,3 +328,5 @@ Actions 日志，Actions 外执行的验收引用已有任务或 execution 的�
 ## 已开篇故事资料修订（本地）
 
 新自由会话已支持角色快照、设定和大纲的完整资料候选与整包保存；信息区显示每项模式、来源和基础版本，可选择旧稿保存并从收据往返正式资料。旧 conversation 保留原能力，通过提示主动新建。保存后的下一轮可读取新资料续章。云端发布须按兼容 Mochi runtime → CCP 19 条配置 → Write 的顺序另行执行。
+
+本地资料增量通过 Write 335 项单测、55 项浏览器测试与跨 Repo HTTP/Pi 集成，Mochi 131 项测试及 CCP 44 项 Python/31 项 Terraform mock 检查。合成资料的真实 deepseek-v4-flash 路径已验收完整五成员包、精确旧稿保存和读取新设定续章；包含失败重提与提示修正，详细证据由对应 ProjectOps execution/Report 保存。不得将其解释为首次无人纠正或云端验收。

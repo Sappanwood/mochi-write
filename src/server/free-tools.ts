@@ -269,7 +269,7 @@ export const MATERIAL_TOOLS = [
     version: "2",
     effect: "write",
     description:
-      "Draft a complete single-story material package from trusted draft_context.materials. Include every key exactly once. Update full name/markdown, never infer targets from references or browsing. For a requested source copy use only key and copy_source=true to expand complete immutable Content. Feedback supplies group_id and exact parent_ref and keeps original members/baselines. Commit only the exact authorized draft, never initialize_story for existing chaptered-story materials.",
+      'Draft a complete single-story material package from trusted draft_context.materials. Include every key exactly once. Update full name/markdown, never infer targets from references or browsing. ONLY on the initial draft (no parent_ref), each source-copy member MUST be exactly {"key":"the_key","copy_source":true}; OMIT name and markdown entirely. The backend expands complete immutable Content. Feedback MUST supply full name and markdown for EVERY member including copied sources; copy_source is INVALID with parent_ref. Read exact parent members with read_artifact member_id when needed. Feedback supplies group_id and exact parent_ref and keeps original members/baselines. Commit only the exact authorized draft, never initialize_story for existing chaptered-story materials.',
     parameters: {
       oneOf: [
         object(

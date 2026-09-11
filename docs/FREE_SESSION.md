@@ -232,7 +232,7 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 
 新建 conversation 现在使用 materials-v1 十二工具快照：world-v1 基础上 discover_artifacts/4、read_artifact/3，追加 revise_story_materials/2。旧 world-v1/十工具/v1 保留持久能力，不升级。
 资料候选与正式 commit 已实现。目标限定 ready、非 pending、已有章节的单故事。独立解释 materials 请求并核验原文证据后固定 1–8 个成员；snapshot 可新建或更新，setting/outline 仅更新唯一既有对象。缺失/多匹配澄清，不能 upsert。包成员逐项固定后端 ID、模式、基础 revision/version 与来源，创作工具只按 key 提供完整 name/markdown 或 copy_source，不得漏项/增项。
-同组反馈保持原成员和基线，即使正式资料后来变化；改变成员范围需明确另建组。来源复制完整 Content 与合法 metadata，母版保留 sourceAssetId/sourceVersion；同会话未保存角色复制保留 sourceCandidate 的 conversationId/groupId/draftId/draftRevision/draftHash，不要求先存母版。候选 sourceRef 保持精确来源；内部展开不伪记 agent_read。跨会话候选、世界观候选入故事仍拒绝。
+同组反馈保持原成员和基线，即使正式资料后来变化；改变成员范围需明确另建组。首次来源复制只传 key/copy_source=true，不同时传 name/markdown；同组反馈每项都传完整 name/markdown（包括既有来源成员），不再使用 copy_source。来源复制完整 Content 与合法 metadata，母版保留 sourceAssetId/sourceVersion；同会话未保存角色复制保留 sourceCandidate 的 conversationId/groupId/draftId/draftRevision/draftHash，不要求先存母版。候选 sourceRef 保持精确来源；内部展开不伪记 agent_read。跨会话候选、世界观候选入故事仍拒绝。
 单 Content 60 KiB、参数120 KiB、完整包256 KiB，每task八稿/1 MiB沿用原限制。候选成员目录不算全文读取，read_artifact/3 按 member_id 返回全文并记录来源。
 
 ## 单故事资料正式保存
@@ -248,3 +248,5 @@ head Create/IfMatch、未修改业务内容的 story head IfMatch guard 与 OP/r
 ## 资料候选阅读
 
 信息区逐项显示新增/更新、冻结的基础业务版本、完整正文与属性、母版或本会话候选的精确入包来源。参考来源独立列示，引用不自动增加成员。浏览、切换旧稿和新稿提醒不授权保存。资料真实收据列出各成员模式与结果版本，可进入对应资料阅读页并返回原会话。旧十工具/world-v1 会话提示资料能力限制并提供主动新建入口，原聊天、候选和授权不转移。
+
+资料分类器提示短消息（最多 256 个 UTF-16 code units）使用完整原文证据，长消息按位置表选择精确片段；这不改变后端的逐字核验和意图授权。模型仍可能产生非法结构、位置或目标，拒绝后由用户澄清；产品不自动修正授权或重试。
