@@ -7,7 +7,7 @@ import type {
   CreativeDraft,
   InitializationPackage,
 } from "../shared/creative.js";
-import { Markdown } from "./Markdown.js";
+import type { MaterialPackage } from "../shared/story-materials.js";
 import { InitializationReading } from "./InitializationReading.js";
 import { ReferenceSearch } from "./FreeReferences.js";
 import {
@@ -81,6 +81,11 @@ export function FreeInformation({
     if (info && pane.current) pane.current.scrollTop = reading.scroll;
   }, [info, reading.explorer]);
   const currentDraft = info?.draft;
+  const materials =
+    currentDraft?.artifactKind === "story_materials"
+      ? (currentDraft.payload.business?.materials as
+          MaterialPackage | undefined)
+      : undefined;
   const versions = currentDraft
     ? drafts.filter((d) => d.group_id === currentDraft.groupId)
     : [];
@@ -242,16 +247,19 @@ export function FreeInformation({
                     </div>
                     <p>
                       {actionLabel[currentDraft.payload.action]} ·{" "}
-                      {currentDraft.payload.draftContext.target
-                        ? JSON.stringify(
-                            currentDraft.payload.draftContext.target,
-                          )
-                        : "新建独立母版，发送保存请求后核验目标"}
+                      {materials
+                        ? `${materials.story.content.name} · ${materials.members.length} 项资料`
+                        : currentDraft.payload.draftContext.target
+                          ? JSON.stringify(
+                              currentDraft.payload.draftContext.target,
+                            )
+                          : "新建独立母版，发送保存请求后核验目标"}
                     </p>
                     <p className="muted">
                       基础版本：
                       {currentDraft.payload.draftContext.baseRevision ?? "新建"}
                       。浏览此稿不代表保存授权。
+                      {materials && "仅列明的成员会写入；对话引用仅作参考。"}
                     </p>
                   </>
                 )}
@@ -305,7 +313,52 @@ export function FreeInformation({
                     <summary>
                       {kindLabel[m.kind] ?? m.kind} · {m.content.name}
                     </summary>
-                    <Markdown text={m.content.markdown} />
+                    {materials && (
+                      <p>
+                        {m.mode === "create"
+                          ? "新增 · 无基础版本"
+                          : `更新 · 基于 v${m.baseVersion}`}{" "}
+                        ·{" "}
+                        {info?.receipt?.assets?.find(
+                          (a) => a.asset_id === m.member_id,
+                        )
+                          ? `已保存为 v${info.receipt.assets.find((a) => a.asset_id === m.member_id)!.revision}`
+                          : "尚未保存"}
+                      </p>
+                    )}
+                    {materials &&
+                      (m.sourceRef ? (
+                        <button
+                          className="quiet"
+                          onClick={() =>
+                            open({
+                              ref: m.sourceRef!,
+                              title: `入包来源：${m.content.name}`,
+                              recorded: true,
+                            })
+                          }
+                        >
+                          入包来源：{m.content.name} ·{" "}
+                          {m.sourceRef.type === "asset"
+                            ? `母版 v${m.sourceRef.version}`
+                            : "角色候选固定版本"}
+                        </button>
+                      ) : (
+                        <p className="muted">
+                          {m.mode === "update"
+                            ? "基于故事既有资料修订"
+                            : "原创故事资料"}
+                        </p>
+                      ))}
+                    <ContentReading content={m.content} />
+                    {materials && (
+                      <details>
+                        <summary>完整属性</summary>
+                        <pre className="free-identity">
+                          {JSON.stringify(m.content.sourceMetadata, null, 2)}
+                        </pre>
+                      </details>
+                    )}
                     <button
                       className="quiet"
                       onClick={() =>

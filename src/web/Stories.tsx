@@ -243,7 +243,9 @@ export function StoryReader({
                   <p className="muted">
                     {current.sourceAssetId
                       ? `从母版第 ${current.sourceVersion} 版复制`
-                      : "原创资料"}{" "}
+                      : current.sourceCandidate
+                        ? "来自角色候选 · 固定版本"
+                        : "原创资料"}{" "}
                     · 当前故事第 {current.currentVersion} 版
                   </p>
                 )}

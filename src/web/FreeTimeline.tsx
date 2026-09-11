@@ -115,7 +115,7 @@ export function FreeTimeline({
             <summary>本轮参考资料 · {sources.length}</summary>
             <p className="muted">
               用户显式引用与 Agent
-              实际全文读取分别记录。仅搜索命中不代表已读取。
+              实际全文读取分别记录。仅搜索命中不代表已读取。参考资料不会自动成为资料包成员。
             </p>
             {sources.map((s) => (
               <div key={s.id}>
@@ -160,15 +160,48 @@ export function FreeTimeline({
                     "mochi-free:return",
                     task.conversationId,
                   );
+                  const member =
+                    task.receipt!.kind === "story_materials_saved"
+                      ? task.receipt!.assets?.[0]
+                      : undefined;
                   navigate(
-                    assetPath(task.receipt!.target, task.receipt!.chapter) +
-                      (task.receipt!.target.kind !== "story" ? "/read" : ""),
+                    member && task.receipt!.target.kind === "story"
+                      ? `story/${task.receipt!.target.story_id}/${member.kind}/${member.asset_id}`
+                      : assetPath(task.receipt!.target, task.receipt!.chapter) +
+                          (task.receipt!.target.kind !== "story"
+                            ? "/read"
+                            : ""),
                   );
                 }}
               >
                 打开正式内容
               </button>
               <p>真实收据 · 第 {task.receipt.revision} 版</p>
+              {task.receipt.kind === "story_materials_saved" &&
+                task.receipt.assets?.map((a) => (
+                  <button
+                    className="quiet"
+                    key={a.asset_id}
+                    onClick={() => {
+                      sessionStorage.setItem(
+                        "mochi-free:return",
+                        task.conversationId,
+                      );
+                      if (task.receipt!.target.kind === "story")
+                        navigate(
+                          `story/${task.receipt!.target.story_id}/${a.kind}/${a.asset_id}`,
+                        );
+                    }}
+                  >
+                    {a.mode === "create" ? "新增" : "更新"}{" "}
+                    {a.kind === "snapshot"
+                      ? "角色快照"
+                      : a.kind === "setting"
+                        ? "设定"
+                        : "大纲"}{" "}
+                    · v{a.revision}
+                  </button>
+                ))}
               <p className="free-identity">
                 {task.receipt.operation_id} · {task.receipt.draft_id}
               </p>

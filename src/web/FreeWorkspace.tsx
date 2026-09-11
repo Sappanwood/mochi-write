@@ -392,7 +392,7 @@ export function FreeWorkspace({
           />
         </details>
       </header>
-      {conversation && conversation.toolsetVersion !== "world-v1" && (
+      {conversation && !conversation.toolsetVersion && (
         <aside className="notice" aria-label="旧会话能力">
           <p>
             此会话保留原有角色与故事能力，世界观可讨论和阅读。生成或保存世界观请新建会话。
@@ -405,6 +405,19 @@ export function FreeWorkspace({
             onClick={() => navigate("free/new/world")}
           >
             新建支持世界观的会话
+          </button>
+        </aside>
+      )}
+      {conversation && conversation.toolsetVersion !== "materials-v1" && (
+        <aside className="notice" aria-label="故事资料能力">
+          <p>
+            此会话可继续使用原有能力。预览或保存已开篇故事的角色快照、设定和大纲，请新建会话。
+          </p>
+          <p>
+            原聊天、候选稿和保存授权保留在这里；新会话可重新引用已保存的资产。
+          </p>
+          <button className="secondary" onClick={() => navigate("free/new")}>
+            新建支持故事资料的会话
           </button>
         </aside>
       )}
