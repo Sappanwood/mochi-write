@@ -1,3 +1,5 @@
+import { appendMaterials } from "./free-material-operations.js";
+import type { MaterialPackage } from "../shared/story-materials.js";
 import { BulkOperationType, type OperationInput } from "@azure/cosmos";
 import { AppError, type Document, type Entity } from "../shared/model.js";
 import type {
@@ -9,6 +11,7 @@ import { appendInitializationBusiness } from "./initialization-operations.js";
 import { clean, hash } from "./entities.js";
 import { freeDigest } from "./free-references.js";
 export type StoryWrite =
+  | { materials: MaterialPackage }
   | { initialization: InitializationPackage }
   | { chapter: Entity; story: Document };
 export function appendStory(
@@ -41,6 +44,10 @@ export function appendStory(
     r.draft_hash !== op.draftRef.draft_hash
   )
     throw new AppError(400, "invalid_story_transaction");
+  if ("materials" in business) {
+    appendMaterials(ops, partition, business.materials, op);
+    return;
+  }
   if ("initialization" in business) {
     const pack = business.initialization;
     if (

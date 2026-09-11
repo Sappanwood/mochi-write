@@ -53,18 +53,23 @@ export class MemoryFreeStore implements FreeStore {
     if (story) {
       if (!this.content) throw Error("Missing content store");
       const business =
-        "initialization" in story
-          ? [
-              story.initialization.story,
-              ...story.initialization.assets,
-              ...(story.initialization.chapter
-                ? [story.initialization.chapter]
-                : []),
-            ]
-          : [{ entity: story.chapter, baseRevision: null }];
+        "materials" in story
+          ? story.materials.members
+          : "initialization" in story
+            ? [
+                story.initialization.story,
+                ...story.initialization.assets,
+                ...(story.initialization.chapter
+                  ? [story.initialization.chapter]
+                  : []),
+              ]
+            : [{ entity: story.chapter, baseRevision: null }];
       if (
-        "chapter" in story &&
-        this.content.heads.get(`${p}:${p}`)?.revision !== story.story.revision
+        ("chapter" in story || "materials" in story) &&
+        this.content.heads.get(`${p}:${p}`)?.revision !==
+          ("materials" in story
+            ? story.materials.story.revision
+            : story.story.revision)
       )
         throw new AppError(409, "revision_conflict");
       for (const a of business)
@@ -84,9 +89,11 @@ export class MemoryFreeStore implements FreeStore {
           structuredClone(a.entity),
         );
       }
-      if ("chapter" in story)
+      if ("chapter" in story || "materials" in story)
         this.content.heads.set(`${p}:${p}`, {
-          ...structuredClone(story.story),
+          ...structuredClone(
+            "materials" in story ? story.materials.story : story.story,
+          ),
           revision: randomUUID(),
         });
     }

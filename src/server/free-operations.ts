@@ -1,3 +1,4 @@
+import { materialReceiptValid } from "./free-material-operations.js";
 import type {
   Binding,
   Directory,
@@ -66,6 +67,7 @@ export class FreeOperations {
       action: b.action,
       target: b.target,
       baseRevision: b.baseRevision,
+      ...(b.materials ? { materials: b.materials } : {}),
       status,
     };
   }
@@ -169,6 +171,8 @@ export class FreeOperations {
         r.content_hash !== r.chapter.content_hash ||
         r.revision !== r.chapter.revision)
     )
+      throw new AppError(409, "invalid_operation_receipt");
+    if (op.action === "revise_story_materials" && !materialReceiptValid(op, r))
       throw new AppError(409, "invalid_operation_receipt");
     return r;
   }

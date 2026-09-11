@@ -222,6 +222,7 @@ export interface Directory extends FreeBase {
   payloadHash?: string;
 }
 export interface Ledger extends FreeBase {
+  materials?: import("./story-materials.js").MaterialSpec[];
   kind: "op";
   conversationId: string;
   bindingDigest: string;

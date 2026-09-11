@@ -11,3 +11,5 @@ await import("./creative-crash.mjs");
 await import("./free-session.mjs");
 await import("./free-session.mjs?kind=world");
 await import("./free-story-bridge.mjs");
+
+await import("./free-materials.mjs");

@@ -1,3 +1,4 @@
+import { saveMaterials } from "./free-material-save.js";
 import { z } from "zod";
 import type { FreeSession } from "./free-session.js";
 import type { FreeTask } from "../shared/free.js";
@@ -33,7 +34,7 @@ export async function materialTool(
   args: Record<string, unknown>,
   invocationId: string,
 ) {
-  if (args.mode === "commit") throw new AppError(400, "tool_not_available");
+  if (args.mode === "commit") return saveMaterials(free, task, args);
   const a = argsSchema.parse(args);
   if (Buffer.byteLength(JSON.stringify(a)) > 120 * 1024)
     throw new AppError(400, "result_too_large");

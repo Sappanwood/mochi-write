@@ -263,4 +263,4 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 
 ## 单故事资料候选
 
-FreeSession 新建持久 materials-v1；free-material-resolver 核验本轮成员意图并固定 story/成员身份与版本，free-material-tools 展开完整来源和候选。资料候选沿 library FreeCandidates 不可变组/稿，不写正式故事；新资料 commit 尚未接通。shared/story-materials 定义成员身份和目标包，来源候选 provenance 独立保存到实体 sourceCandidate，不污染 Content/hash。
+FreeSession 新建持久 materials-v1；free-material-resolver 核验本轮成员意图并固定 story/成员身份与版本，free-material-tools 展开完整来源和候选。资料候选沿 library FreeCandidates 不可变组/稿，候选不写正式故事；free-material-save 经独立 OP 固定精确包后以逐对象 CAS 正式提交。shared/story-materials 定义成员身份和目标包，来源候选 provenance 独立保存到实体 sourceCandidate，不污染 Content/hash。

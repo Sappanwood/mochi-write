@@ -228,14 +228,16 @@ export function registerFree(app: FastifyInstance, free: FreeSession) {
         claim.payloadHash !==
           freeDigest({
             draftRef: free.candidates.ref(draft),
-            ...(draft.artifactKind === "story_initialization"
-              ? { initialization: draft.payload.business?.initialization }
-              : {
-                  content: draft.payload.content,
-                  ...(draft.artifactKind === "chapter"
-                    ? { chapterId: draft.payload.business?.chapterId }
-                    : {}),
-                }),
+            ...(draft.artifactKind === "story_materials"
+              ? { materials: draft.payload.business?.materials }
+              : draft.artifactKind === "story_initialization"
+                ? { initialization: draft.payload.business?.initialization }
+                : {
+                    content: draft.payload.content,
+                    ...(draft.artifactKind === "chapter"
+                      ? { chapterId: draft.payload.business?.chapterId }
+                      : {}),
+                  }),
           }) ||
         (operation?.receipt &&
           (operation.receipt.draft_id !== draft.id ||

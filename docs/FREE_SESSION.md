@@ -231,6 +231,16 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 ## 单故事资料候选
 
 新建 conversation 现在使用 materials-v1 十二工具快照：world-v1 基础上 discover_artifacts/4、read_artifact/3，追加 revise_story_materials/2。旧 world-v1/十工具/v1 保留持久能力，不升级。
-资料候选已实现，正式 commit 尚待后续保存任务。目标限定 ready、非 pending、已有章节的单故事。独立解释 materials 请求并核验原文证据后固定 1–8 个成员；snapshot 可新建或更新，setting/outline 仅更新唯一既有对象。缺失/多匹配澄清，不能 upsert。包成员逐项固定后端 ID、模式、基础 revision/version 与来源，创作工具只按 key 提供完整 name/markdown 或 copy_source，不得漏项/增项。
+资料候选与正式 commit 已实现。目标限定 ready、非 pending、已有章节的单故事。独立解释 materials 请求并核验原文证据后固定 1–8 个成员；snapshot 可新建或更新，setting/outline 仅更新唯一既有对象。缺失/多匹配澄清，不能 upsert。包成员逐项固定后端 ID、模式、基础 revision/version 与来源，创作工具只按 key 提供完整 name/markdown 或 copy_source，不得漏项/增项。
 同组反馈保持原成员和基线，即使正式资料后来变化；改变成员范围需明确另建组。来源复制完整 Content 与合法 metadata，母版保留 sourceAssetId/sourceVersion；同会话未保存角色复制保留 sourceCandidate 的 conversationId/groupId/draftId/draftRevision/draftHash，不要求先存母版。候选 sourceRef 保持精确来源；内部展开不伪记 agent_read。跨会话候选、世界观候选入故事仍拒绝。
 单 Content 60 KiB、参数120 KiB、完整包256 KiB，每task八稿/1 MiB沿用原限制。候选成员目录不算全文读取，read_artifact/3 按 member_id 返回全文并记录来源。
+
+## 单故事资料正式保存
+
+revise_story_materials commit 仅接收 draft_id/revision/hash，绑定的 materials 与候选成员必须完全一致。
+library directory/claim 固定精确输入，stories ledger 再 CAS 固定，最后一个故事 batch 包含全部成员 version Create、
+head Create/IfMatch、未修改业务内容的 story head IfMatch guard 与 OP/receipt。最多 8 成员、18 操作，实际 batch JSON 最多1 MiB。
+任一成员冲突使整包业务不写；既有章节、未列成员、母版与其他故事不变。资料更新保留未知合法 Content metadata 及实体来源。
+取消与提交竞争同 ledger，同键同包返回原收据；响应或投影未知只核实原 OP，不重跑模型或另建快照。
+收据 assets 明确每成员 ID/kind/mode/逻辑版本/完整 Content hash，content_hash 为精确 draft_hash，无 chapter。
+资料保存后下一轮可读取新 head 用于续章，旧已记录引用仍读旧版；两个 OP 独立。
