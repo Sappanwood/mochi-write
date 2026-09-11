@@ -315,3 +315,12 @@ Actions 日志，Actions 外执行的验收引用已有任务或 execution 的�
 
 
 自由会话 v2 后端已增量接通，当前范围与接口见 [自由会话服务](docs/FREE_SESSION.md)。旧链接可继续访问；候选组、轻量发现、显式引用与角色 draft 已可通过新 API 使用；角色正式保存与同 session 故事初始化/首章/续章、反向独立母版已接通；`#free/new` 与 `#free/conversation/:id` 已提供双关注点界面、@ 精确引用与公开原任务核实；默认首页和主导航已切换到自由会话，v2 已通过 [Actions 发布](https://github.com/Sappanwood/mochi-write/actions/runs/34492485165) 上线。真实 HTTP/Pi 假 provider 集成与正式 UI 确定性测试覆盖无预选自然检索、精确旧稿和角色/故事双向衔接；本地 v2 已用现有 openai-codex 订阅的 gpt-5.6-luna 完成合成角色交错改稿、精确旧稿保存、同 session 故事双向衔接与原句自然检索更新验收；续章经过明确版本纠错后保存，不能视为无人介入首轮成功。线上已用现有订阅的 gpt-5.6-luna 验证同 session 角色→故事→独立母版、精确保存、原 OP 核实与刷新恢复；故事候选首次漏角色快照，经一次明确补全后保存，不能视为首轮完整成功。
+
+本地世界观增量已通过真实 `deepseek-v4-flash` API 的同 session 预览、反馈、精确旧稿保存、自然检索更新以及世界观→角色→故事首章流程。官方目前将该旧 ID 映射到 V4.1-Flash；先前失败与必要表述纠正保留在交付证据，不宣称始终首轮成功。新能力尚未部署。
+
+可选真实合成验收脚本为 `tests/integration/world-smoke.mjs`，不在默认集成门禁中自动调用。
+执行前明确账户和费用授权；设置 `MOCHI_REAL_SMOKE=deepseek-v4-flash`、绝对路径
+`MOCHI_REPO_ROOT`、`MOCHI_SMOKE_AUTH_FILE` 与新的 `MOCHI_SMOKE_REPORT`，然后运行
+`node --import tsx tests/integration/world-smoke.mjs`。脚本使用独立内存业务数据、临时 HTTP/Pi
+服务，记录所有任务、实际用量、候选和收据；每轮仍受应用执行预算限制。分类拒绝时最多两次
+显式重提会写入报告，不代表生产服务自动重试，也不会重放成功保存。报告不包含凭据。

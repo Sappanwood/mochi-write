@@ -177,3 +177,34 @@ for (const kind of ["intent", "creative"] as const) {
     expect((await free.cancel(task.id)).stopPending).toBe(false);
   });
 }
+
+it.each(["😀改写世界观", "文".repeat(300)])(
+  "intent prompts preserve UTF-16 positions and bound annotation size: %s",
+  async (message) => {
+    const { free } = fixture();
+    const t = (await free.start({ ...input(), message })).task;
+    await (free.workflow as unknown as Driver).run(
+      t,
+      "intentRun",
+      randomUUID(),
+      "intent",
+    );
+    const current = await free.task(t.id);
+    const payload = current.intentRun!.payload as { prompt: string };
+    const prompt = JSON.parse(payload.prompt) as {
+      user_message: string;
+      user_message_utf16_prefix: [number, number, string][];
+    };
+    expect(prompt.user_message).toBe(message);
+    expect(prompt.user_message_utf16_prefix).toBeDefined();
+    expect(prompt.user_message_utf16_prefix.length).toBeLessThanOrEqual(256);
+    for (const [start, end, text] of prompt.user_message_utf16_prefix)
+      expect(message.slice(start, end)).toBe(text);
+    expect(prompt.user_message_utf16_prefix[0]).toEqual(
+      message.startsWith("😀") ? [0, 2, "😀"] : [0, 1, "文"],
+    );
+    expect(
+      Buffer.byteLength(JSON.stringify(prompt.user_message_utf16_prefix)),
+    ).toBeLessThan(8192);
+  },
+);
