@@ -369,7 +369,7 @@ export function FreeWorkspace({
           <p className="eyebrow">自由创作会话</p>
           <h1>从一个想法继续</h1>
           <p className="muted">
-            讨论人物，也可以接着写故事。查看资料不会自动引用。
+            讨论人物、构思世界观，也可以接着写故事。查看资料不会自动引用。
           </p>
         </div>
         <details>
@@ -392,6 +392,22 @@ export function FreeWorkspace({
           />
         </details>
       </header>
+      {conversation && conversation.toolsetVersion !== "world-v1" && (
+        <aside className="notice" aria-label="旧会话能力">
+          <p>
+            此会话保留原有角色与故事能力，世界观可讨论和阅读。生成或保存世界观请新建会话。
+          </p>
+          <p>
+            聊天、候选稿和保存授权保留在这里；新会话可重新引用已保存的资产。
+          </p>
+          <button
+            className="secondary"
+            onClick={() => navigate("free/new/world")}
+          >
+            新建支持世界观的会话
+          </button>
+        </aside>
+      )}
       {(conversation?.initialRefs ?? initialRefs).length > 0 && (
         <div className="free-initial">
           <p>初始上下文 · 仅作为资料</p>

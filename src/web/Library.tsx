@@ -78,13 +78,7 @@ export function LibraryView({
           <h1>{kind === "character" ? "角色" : "世界观"}</h1>
           <p>保存可复用的设定，让每个故事拥有自己的起点。</p>
         </div>
-        <button
-          onClick={() =>
-            navigate(
-              kind === "character" ? "free/new/character" : `new/${kind}`,
-            )
-          }
-        >
+        <button onClick={() => navigate(`free/new/${kind}`)}>
           新建{kind === "character" ? "角色" : "世界观"}
         </button>
       </header>
@@ -145,7 +139,12 @@ export function LibraryView({
             </span>
             <h2>{d.content.name}</h2>
             <p>
-              {[d.content.sourceMetadata.occupation, d.content.ageBand]
+              {[
+                kind === "world"
+                  ? d.content.sourceMetadata.era
+                  : d.content.sourceMetadata.occupation,
+                d.content.ageBand,
+              ]
                 .filter(Boolean)
                 .join(" · ") || "世界与设定"}
             </p>

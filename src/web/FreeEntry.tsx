@@ -91,9 +91,11 @@ export function FreeNewEntry({
       initialMessage={
         !sourceId && source === "character"
           ? "我想构思一个角色："
-          : !sourceId && source === "story"
-            ? "我想构思一个故事："
-            : ""
+          : !sourceId && source === "world"
+            ? "我想构思一个世界观："
+            : !sourceId && source === "story"
+              ? "我想构思一个故事："
+              : ""
       }
     />
   );
@@ -176,7 +178,7 @@ export function FreeConversations({
           <div>
             <p className="eyebrow">创作模式</p>
             <h1>自由创作会话</h1>
-            <p>按会话继续讨论，成果可以关联多个角色或故事。</p>
+            <p>按会话继续讨论，成果可以关联多个角色、世界观或故事。</p>
           </div>
           <a href="#free/new">从空白开始</a>
         </header>

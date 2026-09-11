@@ -406,3 +406,133 @@ test("receipt reading bypasses unsaved manual edits while retaining their origin
     "Agent 保存的第二版正式正文",
   );
 });
+
+for (const width of [1280, 390]) {
+  test(`world feedback, old draft save and formal reading return at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const discussion = async () => {
+      if (width === 390)
+        await page.getByRole("tab", { name: "讨论", exact: true }).click();
+    };
+    await page.getByRole("link", { name: "世界观", exact: true }).click();
+    await page.getByRole("button", { name: "新建世界观", exact: true }).click();
+    await expect(page.getByLabel("下一条消息")).toHaveValue(
+      "我想构思一个世界观：",
+    );
+    expect((await f.records.list("conversation")).length).toBe(0);
+    f.mochi.targetKind = "world";
+    const first = await send(page, "构思雾海，只预览");
+    const a = await f.invoke(first, "save_world", {
+      mode: "draft",
+      name: "雾海初稿",
+      markdown: "雾海第一版\n三座灯塔。",
+      genres: ["奇幻"],
+      era: "古代",
+    });
+    const old = await f.free.candidates.get(
+      first.conversationId,
+      (a.data as { draft_id: string }).draft_id,
+    );
+    await finish(first);
+    const sessionId = (await f.free.conversation(first.conversationId))
+      .sessionId;
+    await page.getByRole("button", { name: /查看：雾海初稿/ }).click();
+    await expect(page.getByRole("region", { name: "信息正文" })).toContainText(
+      "三座灯塔",
+    );
+    await page.getByRole("button", { name: "引用到对话", exact: true }).click();
+    await discussion();
+    f.mochi.targetMode = "explicit";
+    const feedback = await send(page, "把这份候选改成四座灯塔，仅预览");
+    await f.invoke(feedback, "save_world", {
+      mode: "draft",
+      name: "雾海二稿",
+      markdown: "四座灯塔。",
+      genres: ["奇幻"],
+      group_id: old.groupId,
+      parent_ref: f.free.candidates.ref(old),
+    });
+    await finish(feedback);
+    expect(f.store.heads.size).toBe(0);
+    await page.getByRole("button", { name: /查看：雾海初稿/ }).click();
+    await expect(page.getByRole("region", { name: "信息正文" })).toContainText(
+      "三座灯塔",
+    );
+    await page.getByRole("button", { name: "引用到对话", exact: true }).click();
+    await discussion();
+    f.mochi.freeIntent = "save_current";
+    const saving = await send(page, "原样保存选定旧稿为世界观母版");
+    const saved = await f.invoke(saving, "save_world", {
+      mode: "commit",
+      draft_id: old.id,
+      draft_revision: "1",
+      draft_hash: old.draftHash,
+    });
+    await finish(saving);
+    const receipt =
+      saved.receipt as import("../../src/shared/free.js").ReceiptV2;
+    expect(receipt.kind).toBe("world_created");
+    const target = receipt.target;
+    if (target.kind !== "world") throw Error("world target required");
+    expect((await f.store.get(target.asset_id, null))?.content).toEqual(
+      old.payload.content,
+    );
+    await page.getByLabel("下一条消息").fill("回来继续世界观讨论");
+    await page
+      .getByRole("button", { name: "打开正式内容", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "雾海初稿", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("三座灯塔。", { exact: false })).toBeVisible();
+    await page.reload();
+    await page
+      .getByRole("link", { name: "返回原自由会话", exact: true })
+      .click();
+    await discussion();
+    await expect(page.getByLabel("下一条消息")).toHaveValue(
+      "回来继续世界观讨论",
+    );
+    expect((await f.free.conversation(first.conversationId)).sessionId).toBe(
+      sessionId,
+    );
+    await page.getByRole("link", { name: "创作会话", exact: true }).click();
+    await expect(page.locator("[data-session-id]")).toHaveCount(1);
+    await expect(page.locator(".free-associations")).toContainText("世界观");
+    await page.screenshot({
+      path: `/tmp/mwt022-world-${width}.png`,
+      fullPage: true,
+    });
+  });
+}
+
+test("legacy conversation explains world capability and opens an independent new entry", async ({
+  page,
+}) => {
+  const first = await send(page, "保留原会话");
+  await finish(first);
+  const current = await f.free.conversation(first.conversationId);
+  const old = { ...current };
+  delete old.toolsetVersion;
+  await f.records.transaction("library", [
+    { record: old, revision: current.revision },
+  ]);
+  const persistedOld = await f.free.conversation(first.conversationId);
+  await page.reload();
+  await expect(
+    page.getByRole("complementary", { name: "旧会话能力" }),
+  ).toContainText("世界观可讨论和阅读");
+  await page.getByLabel("下一条消息").fill("留在原会话的消息");
+  await page
+    .getByRole("button", { name: "新建支持世界观的会话", exact: true })
+    .click();
+  await expect(page.getByLabel("下一条消息")).toHaveValue(
+    "我想构思一个世界观：",
+  );
+  expect((await f.records.list("conversation")).length).toBe(1);
+  expect(await f.free.conversation(first.conversationId)).toEqual(persistedOld);
+  await page.goto(`${f.address}/#free/conversation/${first.conversationId}`);
+  await expect(page.getByLabel("下一条消息")).toHaveValue("留在原会话的消息");
+});

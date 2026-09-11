@@ -71,14 +71,17 @@ export function FreeTimeline({
           {task.output && <Markdown text={task.output} />}
           {task.error && (
             <p role="alert" className="error">
-              {task.error}
+              {task.error === "world_creation_unavailable"
+                ? "此会话尚不支持生成或保存世界观，请使用上方的新建会话入口。"
+                : task.error}
             </p>
           )}
-          {task.state === "clarifying" && (
-            <p>
-              请明确要讨论或保存的对象、范围和版本；当前阅读不会作为保存目标。
-            </p>
-          )}
+          {task.state === "clarifying" &&
+            task.error !== "world_creation_unavailable" && (
+              <p>
+                请明确要讨论或保存的对象、范围和版本；当前阅读不会作为保存目标。
+              </p>
+            )}
           {task.target && (
             <p className="notice free-identity">
               已绑定：{task.action && actionLabel[task.action]} ·{" "}
