@@ -541,7 +541,7 @@ it("a claimed candidate stays locked while unknown; only confirmed revoke allows
     d.id,
   );
   expect(claim?.operationId).toBe(save.operationId);
-  const { claimDraft } = await import("../src/server/free-character-save.js");
+  const { claimDraft } = await import("../src/server/free-library-save.js");
   await expect(
     claimDraft(
       free,

@@ -1,7 +1,7 @@
 import { FreeSession } from "../../src/server/free-session.ts";
 import { FreeCallback } from "../../src/server/free-callback.ts";
 import { registerFree } from "../../src/server/free-routes.ts";
-import { FREE_TOOLS } from "../../src/server/free-tools.ts";
+import { FREE_TOOLS, WORLD_TOOLS } from "../../src/server/free-tools.ts";
 import { MemoryFreeStore } from "../support/free-store.ts";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -203,7 +203,15 @@ export async function creativeHarness(options = {}) {
         tools: (free
           ? [
               ...LIFECYCLE_TOOLS,
-              ...FREE_TOOLS.filter(
+              ...[
+                ...FREE_TOOLS,
+                ...WORLD_TOOLS.filter(
+                  (t) =>
+                    !FREE_TOOLS.some(
+                      (o) => o.name === t.name && o.version === t.version,
+                    ),
+                ),
+              ].filter(
                 (tool) =>
                   !LIFECYCLE_TOOLS.some(
                     (old) =>

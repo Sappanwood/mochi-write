@@ -6,7 +6,7 @@ MWT-025–028 增量实现 `/api/creative/free` 本人 API、独立会话身份�
 浏览器 `#free/new` 与 `#free/conversation/:id` 已接入候选组、精确引用、资产发现、角色和故事成果阅读及原 OP 核实。默认首页与创作导航使用自由会话；资产模式保留独立阅览及轻量直接编辑，旧 v1 入口明确保留。角色正式保存、同一会话的故事初始化、首章、续章和反向独立母版已接通。
 `FreeCallback` 的 `FreeToolHandler` 与 `FreeReferences` 的 `CandidateAccess` 是后续业务接入点。
 默认 handler 支持 discover_artifacts/read_artifact，以及 save_character/initialize_story/create_chapter 的 draft/commit。角色正式写入只来自后端核验绑定和真实 OP 收据。
-新 conversation 由后端持久化 `toolsetVersion:"world-v1"`，固定十一工具快照；无该字段的旧 conversation 仍使用原十工具，HTTP 输入不能设置或升级能力。当前新增世界观 draft/发现/精确引用与目标绑定，world commit 尚未接通。
+新 conversation 由后端持久化 `toolsetVersion:"world-v1"`，固定十一工具快照；无该字段的旧 conversation 仍使用原十工具，HTTP 输入不能设置或升级能力。世界观 draft/commit、发现/精确引用与目标绑定已接通。
 
 ## 身份与引用
 
@@ -108,7 +108,7 @@ execute 同原 session、同 sourceMessageId，冻结 scope/refs/binding/draft_c
 所有 v2 过程记录使用 `recordType:"free"`、`schemaVersion:2`、`free:<type>:<UUID>`，位于 library/scopeId=library；不进入正式 head 列表或导出。
 OP directory 在 library 中与 task binding/conversation CAS 一起 create-only，固定 partition 与 binding digest，永不换目标。
 角色和世界观 ledger 位于 library，故事 ledger 位于 stories/projectId=storyId；只允许目标对应分区。
-`FreeOperations` 提供 active ledger 激活、撤回 tombstone、严格原 OP 查询与收据投影；角色与故事正式 batch 均已接通，过程与业务分区不混写。
+`FreeOperations` 提供 active ledger 激活、撤回 tombstone、严格原 OP 查询与收据投影；角色、世界观与故事正式 batch 均已接通，过程与业务分区不混写。
 
 取消先 CAS 会话 epoch 并标记 cancel_pending，再在目标分区创建 revoked tombstone 或 CAS active→revoked。
 激活与撤回遇到同一 create-only/CAS 冲突时以目标 ledger 为准。业务先 committed 则保留收据，取消不会回滚。
@@ -119,12 +119,12 @@ target ledger 是提交事实，library task/关联资产只是投影。投影�
 unknown/不存在不证明未提交；不新建 OP、不重跑模型或补业务对象。session 创建前持久 dispatch 标记，创建结果未知不重复创建；
 用户保留原记录，可另开新 conversation。run 已标 dispatch 后响应未知，核实只按持久 runId 或原 key GET。
 
-## 角色正式保存
+## 角色与世界观正式保存
 
-`save_character/2` commit 仅接受 `{mode:"commit",draft_id,draft_revision:"1",draft_hash}`。
+`save_character/2` 与 `save_world/2` commit 仅接受 `{mode:"commit",draft_id,draft_revision:"1",draft_hash}`。
 后端重读持久 task，核对 directory/binding digest、action、目标、baseRevision 和 active OP。
-`save_current` 只保存 binding.selectedDraft；直接创作保存只接受当前 task 生成的角色稿，不能由模型移用其他目标/轮次的候选。
-已绑定目标的旧稿必须匹配原目标和基础版本，无目标的新角色预览稿才可在后续保存轮分配新母版 ID。
+`save_current` 只保存 binding.selectedDraft；直接创作保存只接受当前 task 生成且 kind 与工具一致的母版稿，不能由模型移用其他目标/轮次的候选。
+已绑定目标的旧稿必须匹配原目标和基础版本，无目标的新母版预览稿才可在后续保存轮分配新母版 ID。
 规范化在 draft 冻结前完成；commit 复用 Library 的 Content/词表校验，完整冻结 Content 原样写入，不改换行、不重新生成或自动 rebase。
 更新只覆盖允许的 Content 字段，保留实体 source/path/raw/sourceAssetId/sourceVersion 和所有合法 legacy metadata；metadata 中的 name/id/revision 不参与覆盖后端目标证据。
 
@@ -134,10 +134,10 @@ unknown/不存在不证明未提交；不新建 OP、不重跑模型或补业务
 同 OP 可重入；其他 OP 仅在原 directory 指向的 ledger 明确 revoked/conflict 且没有收据时以原 claim revision 替换。
 unknown/缺失和 committed 都不释放候选，避免响应丢失后另建母版。draft API 的 claim 返回 operationId/status；receipt 点读原 OP，并核对 claim/稿 ID/revision/hash 一致，不依赖任务投影或显示其他稿的收据。
 
-角色提交为单个 library batch：OP Replace/IfMatch（消费授权并保存 receipt）、不可变 version Create、head Create 或 Replace/IfMatch。
-新建包括软删除 head 在内均 create-only 冲突；更新必须仍是同一未删角色和冻结 baseRevision。事务冲突关闭原 OP 为 conflict，保留输入和候选。
+母版提交为单个 library batch：OP Replace/IfMatch（消费授权并保存 receipt）、不可变 version Create、head Create 或 Replace/IfMatch。
+新建包括软删除 head 在内均 create-only 冲突；更新必须仍是同一未删母版、相同 kind 和冻结 baseRevision。事务冲突关闭原 OP 为 conflict，保留输入和候选。
 同 OP 同精确输入、包括并发提交，返回原收据；不同稿/hash 返回 operation_conflict。取消和 commit CAS 同一 OP，先成功者决定。
-收据 kind 为 character_created/character_updated，content_hash 为完整 Content hash，revision 为正式逻辑版本字符串；head revision 仍是不透明 CAS 标记。
+收据 kind 为 character_created/character_updated 或 world_created/world_updated，content_hash 为完整 Content hash，revision 为正式逻辑版本字符串；head revision 仍是不透明 CAS 标记。
 投影失败不改变保存成功；响应未知只读原 OP。下一轮可读取最新 head 继续修改，已固定参考仍读取原版本。母版保存不改故事独立快照或其他资产。
 
 ## 角色与故事衔接

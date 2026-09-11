@@ -1,7 +1,7 @@
 import { worldTool } from "./free-world-tool.js";
 import { storyTool } from "./free-story-tools.js";
 import { z } from "zod";
-import { saveCharacter } from "./free-character-save.js";
+import { saveLibraryAsset } from "./free-library-save.js";
 import { stableId } from "./entities.js";
 import type { Candidate } from "../shared/free-candidates.js";
 import type { FreeSession } from "./free-session.js";
@@ -76,7 +76,7 @@ export async function candidateTool(
     return { data: { ...ref, ...result } };
   }
   if (name === "save_character" && args.mode === "commit")
-    return saveCharacter(free, task, args);
+    return saveLibraryAsset(free, task, args, "character");
   if (name !== "save_character" || args.mode !== "draft")
     throw new AppError(400, "tool_not_available");
   const a = draftSchema.parse(args),

@@ -7,9 +7,9 @@ import {
 import type { FreeRecord } from "../shared/free.js";
 import { AppError } from "../shared/model.js";
 import {
-  appendCharacter,
-  type CharacterWrite,
-} from "./free-character-operations.js";
+  appendLibraryAsset,
+  type LibraryAssetWrite,
+} from "./free-library-operations.js";
 export interface FreeWrite {
   record: FreeRecord;
   revision: string | null;
@@ -27,7 +27,7 @@ export interface FreeStore {
   transaction(
     partition: string,
     writes: FreeWrite[],
-    character?: CharacterWrite,
+    asset?: LibraryAssetWrite,
     story?: StoryWrite,
   ): Promise<FreeRecord[]>;
 }
@@ -35,7 +35,7 @@ export const freeRecordId = (kind: string, id: string) => `free:${kind}:${id}`;
 export function freeOperations(
   partition: string,
   writes: FreeWrite[],
-  character?: CharacterWrite,
+  asset?: LibraryAssetWrite,
   story?: StoryWrite,
 ): OperationInput[] {
   if (
@@ -80,9 +80,9 @@ export function freeOperations(
           resourceBody,
         };
   });
-  if (character && story) throw new AppError(400, "invalid_free_transaction");
+  if (asset && story) throw new AppError(400, "invalid_free_transaction");
   if (story) appendStory(result, partition, writes, story);
-  if (character) appendCharacter(result, partition, writes, character);
+  if (asset) appendLibraryAsset(result, partition, writes, asset);
   if (Buffer.byteLength(JSON.stringify(result)) > 1024 * 1024)
     throw new AppError(400, "result_too_large");
   return result;
@@ -188,10 +188,10 @@ export class CosmosFreeStore implements FreeStore {
   async transaction(
     partition: string,
     writes: FreeWrite[],
-    character?: CharacterWrite,
+    asset?: LibraryAssetWrite,
     story?: StoryWrite,
   ) {
-    const ops = freeOperations(partition, writes, character, story);
+    const ops = freeOperations(partition, writes, asset, story);
     try {
       const response = await this.db
         .container(partition === "library" ? "library" : "stories")

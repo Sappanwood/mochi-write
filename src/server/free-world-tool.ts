@@ -1,3 +1,4 @@
+import { saveLibraryAsset } from "./free-library-save.js";
 import { z } from "zod";
 import type { FreeSession } from "./free-session.js";
 import type { FreeTask } from "../shared/free.js";
@@ -36,6 +37,8 @@ export async function worldTool(
   const c = await free.conversation(task.conversationId);
   if (c.toolsetVersion !== "world-v1")
     throw new AppError(403, "forbidden_scope");
+  if (args.mode === "commit")
+    return saveLibraryAsset(free, task, args, "world");
   const a = schema.parse(args),
     context = task.draftContext;
   const digest = freeDigest(args);

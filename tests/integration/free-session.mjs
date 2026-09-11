@@ -1,3 +1,4 @@
+import { URL } from "node:url";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import console from "node:console";
@@ -5,6 +6,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import { creativeHarness } from "./creative-harness.mjs";
 import { entity } from "../../src/server/entities.ts";
 import { libraryContentHash } from "../../src/server/library-tools.ts";
+const assetKind =
+  new URL(import.meta.url).searchParams.get("kind") ?? "character";
+const dimension = assetKind === "world" ? "era" : "occupation";
 const contexts = [];
 const textOf = (m) =>
   typeof m.content === "string"
@@ -42,17 +46,17 @@ const configureRuntime = (pi, streamFactory) => {
               : candidate
                 ? "draft"
                 : search
-                  ? "update_character"
+                  ? `update_${assetKind}`
                   : "discuss",
             evidence: { start: 0, end: message.length, text: message },
             target: {
-              kind: "character",
+              kind: assetKind,
               mode:
                 selected || candidate ? "new" : search ? "search" : "unclear",
               predicates: search
                 ? [
                     {
-                      field: "occupation",
+                      field: dimension,
                       operator: "contains",
                       value: word,
                       evidence: { start, end: start + word.length, text: word },
@@ -102,7 +106,7 @@ const configureRuntime = (pi, streamFactory) => {
           name: results.length === 1 ? "search_library" : "read_library",
           arguments:
             results.length === 1
-              ? { kind: "character", occupation: "侦探", limit: 5 }
+              ? { kind: assetKind, [dimension]: "侦探", limit: 5 }
               : { asset_id: hit.asset_id, revision: hit.revision },
         },
       ];
@@ -120,7 +124,7 @@ const configureRuntime = (pi, streamFactory) => {
         {
           type: "toolCall",
           id: randomUUID(),
-          name: "save_character",
+          name: `save_${assetKind}`,
           arguments:
             !selected && results.length === 1
               ? {
@@ -129,7 +133,7 @@ const configureRuntime = (pi, streamFactory) => {
                   markdown: "精确修改正文\r\n",
                   genres: [],
                   age_band: "",
-                  occupation: "记者",
+                  [dimension]: "记者",
                 }
               : {
                   mode: "commit",
@@ -147,7 +151,7 @@ const configureRuntime = (pi, streamFactory) => {
         {
           type: "toolCall",
           id: randomUUID(),
-          name: results.length === 1 ? "save_character" : "read_artifact",
+          name: results.length === 1 ? `save_${assetKind}` : "read_artifact",
           arguments:
             results.length === 1
               ? {
@@ -216,18 +220,18 @@ async function finish(id) {
 }
 try {
   const doc = await h.content.commit(
-    entity("character", {
+    entity(assetKind, {
       name: "合成侦探",
       markdown: "仅用于本地协议验证。",
       genres: [],
       ageBand: "",
-      sourceMetadata: { occupation: "侦探" },
+      sourceMetadata: { [dimension]: "侦探" },
     }),
     null,
   );
   const ref = {
     type: "asset",
-    kind: "character",
+    kind: assetKind,
     asset_id: doc.id,
     revision: doc.revision,
     version: 1,
@@ -306,8 +310,8 @@ try {
       [2, "resolve", "search_library"],
       [2, "resolve", "read_library"],
       [2, "execute", "library_vocabulary"],
-      [2, "execute", "save_character"],
-      [2, "execute", "save_character"],
+      [2, "execute", `save_${assetKind}`],
+      [2, "execute", `save_${assetKind}`],
     ],
   );
   const savedSession = (await h.free.conversation(first.conversation.id))
@@ -355,10 +359,10 @@ try {
   );
   assert.equal((await h.content.get(doc.id, null)).currentVersion, 2);
   assert.equal(
-    (await h.content.get(doc.id, null)).content.sourceMetadata.occupation,
+    (await h.content.get(doc.id, null)).content.sourceMetadata[dimension],
     "记者",
   );
-  assert.equal(task.receipt.kind, "character_updated");
+  assert.equal(task.receipt.kind, `${assetKind}_updated`);
   const draftTask = await h.request(
     `/api/creative/free/conversations/${first.conversation.id}/tasks`,
     {
@@ -413,7 +417,7 @@ try {
   h.loseNextCommitResponse();
   const committed = await finish(saved.task.id);
   assert.equal(committed.state, "committed", JSON.stringify(committed));
-  assert.equal(committed.receipt.kind, "character_created");
+  assert.equal(committed.receipt.kind, `${assetKind}_created`);
   assert.equal(committed.receipt.draft_id, exact.draft_id);
   const master = await h.content.get(committed.receipt.target.asset_id, null);
   const frozen = await h.free.candidates.get(
@@ -444,8 +448,7 @@ try {
       status: "passed",
       writeOrigin: h.origin,
       mochiOrigin: h.mochiOrigin,
-      scenario:
-        "free v2 real HTTP/Pi resolved update, exact selected character save, lost response receipt recovery and same session",
+      scenario: `free v2 real HTTP/Pi resolved update, exact selected ${assetKind} save, lost response receipt recovery and same session`,
       conversationId: first.conversation.id,
       sessionId: savedSession,
       naturalTarget: {

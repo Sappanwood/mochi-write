@@ -9,4 +9,5 @@ await import("./creative-acceptance.mjs");
 await import("./creative-crash.mjs");
 
 await import("./free-session.mjs");
+await import("./free-session.mjs?kind=world");
 await import("./free-story-bridge.mjs");

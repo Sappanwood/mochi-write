@@ -88,15 +88,21 @@ export async function claimDraft(
   }
   throw new AppError(409, "draft_conflict");
 }
-export async function saveCharacter(
+export async function saveLibraryAsset(
   free: FreeSession,
   inputTask: FreeTask,
   raw: unknown,
+  kind: "character" | "world",
 ) {
   const args = commitSchema.parse(raw),
     task = await free.task(inputTask.id),
     b = task.binding;
   if (!b) throw new AppError(403, "authorization_required");
+  if (
+    b.target.kind !== kind ||
+    ![`create_${kind}`, `update_${kind}`].includes(b.action)
+  )
+    throw new AppError(403, "forbidden_scope");
   const dir = await free.operations.directory(task.operationId);
   if (
     !dir ||
@@ -141,11 +147,6 @@ export async function saveCharacter(
   await free.guard(task);
   if (!["authorized", "running"].includes(task.state))
     throw new AppError(403, "authorization_required");
-  if (
-    b.target.kind !== "character" ||
-    !["create_character", "update_character"].includes(b.action)
-  )
-    throw new AppError(403, "forbidden_scope");
   const d = await free.candidates.get(task.conversationId, args.draft_id);
   if (
     d.draftRevision !== args.draft_revision ||
@@ -155,16 +156,16 @@ export async function saveCharacter(
   const draftRef = free.candidates.ref(d),
     context = d.payload.draftContext;
   if (
-    d.artifactKind !== "character" ||
+    d.artifactKind !== kind ||
     d.payload.action !== b.action ||
     (b.selectedDraft
       ? freeDigest(b.selectedDraft) !== freeDigest(draftRef)
       : d.createdByTaskId !== task.id) ||
     (context.target && freeDigest(context.target) !== freeDigest(b.target)) ||
     context.baseRevision !== b.baseRevision ||
-    (b.action === "create_character"
-      ? context.mode !== "new_character" || b.baseRevision !== null
-      : context.mode !== "existing_character" ||
+    (b.action === `create_${kind}`
+      ? context.mode !== `new_${kind}` || b.baseRevision !== null
+      : context.mode !== `existing_${kind}` ||
         !context.target ||
         !b.baseRevision)
   )
@@ -197,11 +198,11 @@ export async function saveCharacter(
   };
   const old = await free.content.get(b.target.asset_id, null);
   if (
-    b.action === "create_character"
+    b.action === `create_${kind}`
       ? !!old
       : !old ||
         old.deleted ||
-        old.kind !== "character" ||
+        old.kind !== kind ||
         old.revision !== b.baseRevision
   )
     return closeConflict();
@@ -212,17 +213,14 @@ export async function saveCharacter(
         updatedAt: new Date().toISOString(),
         currentVersion: old.currentVersion + 1,
       }
-    : entity("character", d.payload.content, null, b.target.asset_id);
+    : entity(kind, d.payload.content, null, b.target.asset_id);
   const receipt: ReceiptV2 = {
     protocol_version: 2,
     operation_id: task.operationId,
     status: "committed",
     conversation_id: task.conversationId,
     task_id: task.id,
-    kind:
-      b.action === "create_character"
-        ? "character_created"
-        : "character_updated",
+    kind: b.action === `create_${kind}` ? `${kind}_created` : `${kind}_updated`,
     target: b.target,
     draft_id: d.id,
     draft_revision: "1",
