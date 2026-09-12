@@ -3,12 +3,14 @@ import { Markdown } from "./Markdown.js";
 export function ContentReading({ content }: { content: Content }) {
   return (
     <>
-      <div className="tags">
-        {content.genres.map((t) => (
-          <span key={t}>{t}</span>
-        ))}
-        {content.ageBand && <span>{content.ageBand}</span>}
-      </div>
+      {(content.genres.length > 0 || content.ageBand) && (
+        <div className="tags">
+          {content.genres.map((t) => (
+            <span key={t}>{t}</span>
+          ))}
+          {content.ageBand && <span>{content.ageBand}</span>}
+        </div>
+      )}
       <dl className="metadata">
         {(
           [

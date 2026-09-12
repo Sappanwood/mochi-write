@@ -5,27 +5,14 @@ import {
   assetPath,
   blocksMessage,
   actionLabel,
+  receiptLabel,
+  targetLabel,
+  taskStatusLabel,
   refLabel,
   summaryRef,
   type Reference,
   type TaskDetail,
 } from "./free-client.js";
-const labels: Record<string, string> = {
-  unresolved: "待解析 · 尚未绑定保存目标",
-  resolving: "检索与核验目标 · 尚无正式写权限",
-  binding: "正在核验绑定",
-  authorized: "准备创作",
-  running: "正在创作",
-  succeeded: "讨论已完成",
-  failed: "本轮失败",
-  interrupted: "执行中断 · 待核实原任务",
-  cancel_pending: "取消待确认",
-  revoked: "已撤回",
-  conflict: "版本冲突 · 原稿保留",
-  committed: "保存已确认",
-  verifying: "保存结果待核实",
-  clarifying: "需要澄清目标",
-};
 export function FreeTimeline({
   details,
   navigate,
@@ -47,11 +34,14 @@ export function FreeTimeline({
           id={task.id}
           message={task.input.message}
           status={
-            <span role="status" className="creative-status">
+            <span
+              role="status"
+              className={`creative-status ${["failed", "interrupted", "cancel_pending", "conflict", "verifying", "clarifying"].includes(task.state) ? "free-status-attention" : ["succeeded", "revoked"].includes(task.state) ? "free-status-settled" : ""}`}
+            >
               {task.state === "revoked" &&
               task.executionRun?.status === "succeeded"
                 ? "本轮已完成 · 后续授权已撤回"
-                : (labels[task.state] ?? task.state)}
+                : taskStatusLabel(task)}
             </span>
           }
           references={
@@ -84,18 +74,24 @@ export function FreeTimeline({
             )}
           {task.target && (
             <p className="notice free-identity">
-              已绑定：{task.action && actionLabel[task.action]} ·{" "}
-              {task.target.kind !== "story"
-                ? `${task.target.kind === "world" ? "世界观" : "角色"} ${task.target.asset_id}`
-                : `故事 ${task.target.story_id}`}
+              保存目标：{task.action && actionLabel[task.action]} ·{" "}
+              {targetLabel(task.target)}
             </p>
+          )}
+          {task.target && (
+            <details className="free-details">
+              <summary>目标详情</summary>
+              <pre className="free-identity">
+                {JSON.stringify(task.target, null, 2)}
+              </pre>
+            </details>
           )}
           {candidates.map((d) => (
             <div key={d.draft_id} className="creative-draft-card">
               <strong>
                 {d.title} · 第 {d.ordinal} 稿
               </strong>
-              <p className="muted">候选 · 组 {d.group_id.slice(0, 8)}</p>
+              <p className="muted">草稿 · {d.group_id.slice(0, 8)}</p>
               <button
                 className="secondary"
                 onClick={() =>
@@ -139,20 +135,7 @@ export function FreeTimeline({
           </details>
           {task.receipt && (
             <div className="notice creative-receipt">
-              <strong>
-                {
-                  {
-                    world_created: "独立世界观母版已新建",
-                    world_updated: "世界观母版已更新",
-                    character_created: "独立角色母版已新建",
-                    character_updated: "角色母版已更新",
-                    story_initialized: "作品已建立",
-                    first_chapter_saved: "作品与首章已保存",
-                    story_materials_saved: "故事资料已保存",
-                    chapter_created: "章节已保存",
-                  }[task.receipt.kind]
-                }
-              </strong>
+              <strong>{receiptLabel[task.receipt.kind]}</strong>
               <button
                 className="secondary"
                 onClick={() => {
@@ -176,7 +159,7 @@ export function FreeTimeline({
               >
                 打开正式内容
               </button>
-              <p>真实收据 · 第 {task.receipt.revision} 版</p>
+              <p>第 {task.receipt.revision} 版</p>
               {task.receipt.kind === "story_materials_saved" &&
                 task.receipt.assets?.map((a) => (
                   <button
@@ -202,9 +185,15 @@ export function FreeTimeline({
                     · v{a.revision}
                   </button>
                 ))}
-              <p className="free-identity">
-                {task.receipt.operation_id} · {task.receipt.draft_id}
-              </p>
+              <details className="free-details">
+                <summary>保存详情</summary>
+                <p className="free-identity">
+                  {JSON.stringify(task.receipt.target)}
+                </p>
+                <p className="free-identity">
+                  {task.receipt.operation_id} · {task.receipt.draft_id}
+                </p>
+              </details>
               <button
                 className="quiet"
                 onClick={() => {

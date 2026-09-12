@@ -76,6 +76,83 @@ const body = Array.from(
   { length: 55 },
   (_, i) => `第 ${i + 1} 段，旧稿甲保留独立人物设定。`,
 ).join("\n\n");
+test("empty entry expands information on demand and focus mode retains composer and version scroll", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(
+    page.getByRole("region", { name: "当前信息", exact: true }),
+  ).not.toBeVisible();
+  await expect(
+    page.getByText("已引用到本消息", { exact: true }),
+  ).not.toBeVisible();
+  await page.getByRole("button", { name: "资料与草稿", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "查找资料与草稿" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "收起资料", exact: true }).click();
+  const t = await send(page, "构思长角色");
+  const a = await draft(t, "甲", body);
+  const b = await draft(t, "甲", body + "\n\n新版结尾", a);
+  await finish(t);
+  await show(page, a);
+  const reading = page.getByRole("region", { name: "信息正文", exact: true });
+  await reading.evaluate((el) => {
+    el.scrollTop = 260;
+  });
+  await page.getByLabel("下一条消息").fill("尚未发送的反馈");
+  await page.getByRole("button", { name: "专心阅读", exact: true }).click();
+  await expect(page.getByLabel("下一条消息")).not.toBeVisible();
+  await page.getByLabel("版本", { exact: true }).selectOption(b.id);
+  await expect(reading).toContainText("新版结尾");
+  await page.getByLabel("版本", { exact: true }).selectOption(a.id);
+  await expect.poll(() => reading.evaluate((el) => el.scrollTop)).toBe(260);
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "返回讨论", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "返回讨论", exact: true }).click();
+  await expect(page.getByLabel("下一条消息")).toHaveValue("尚未发送的反馈");
+  await expect.poll(() => reading.evaluate((el) => el.scrollTop)).toBe(260);
+  await page.screenshot({ path: "/tmp/mwt043-desktop.png" });
+});
+
+test("mobile information keeps a single composer and sends its exact references without replacing the reading", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const t = await send(page, "构思角色");
+  const a = await draft(t, "甲", body);
+  await finish(t);
+  await show(page, a);
+  const reading = page.getByRole("region", { name: "信息正文", exact: true });
+  await reading.evaluate((el) => {
+    el.scrollTop = 300;
+  });
+  await page.getByRole("button", { name: "引用到对话", exact: true }).click();
+  await expect(page.getByLabel("下一条消息")).toBeInViewport();
+  await page.getByLabel("下一条消息").fill("保留旧稿，调整节奏");
+  await page.setViewportSize({ width: 390, height: 560 });
+  await expect(page.getByLabel("下一条消息")).toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "发送", exact: true }),
+  ).toBeInViewport();
+  const next = await send(page, "保留旧稿，调整节奏");
+  expect(next.input.refs).toEqual([f.free.candidates.ref(a)]);
+  await draft(next, "甲", "新稿不抢旧稿", a);
+  await finish(next);
+  await expect(reading).toContainText("旧稿甲");
+  await expect(
+    page.getByRole("tab", { name: "信息", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByLabel("下一条消息").fill("继续保留的输入");
+  await page.reload();
+  await expect(page.getByLabel("下一条消息")).toHaveValue("继续保留的输入");
+  await expect.poll(() => reading.evaluate((el) => el.scrollTop)).toBe(300);
+  await page.screenshot({ path: "/tmp/mwt043-mobile.png" });
+});
+
 test("desktop groups, @ disambiguation, browsing and new drafts keep independent exact references", async ({
   page,
 }) => {
@@ -85,17 +162,22 @@ test("desktop groups, @ disambiguation, browsing and new drafts keep independent
     b = await draft(t, "林岚", "乙1记者正文");
   await finish(t);
   await show(page, a);
+  const identity = page
+    .locator(".free-information .free-details .free-identity")
+    .filter({ hasText: a.id });
+  await expect(identity).not.toBeVisible();
+  await page.getByText("版本与保存详情", { exact: true }).click();
+  await expect(identity).toBeVisible();
+  await page.getByText("版本与保存详情", { exact: true }).click();
   await page.getByRole("button", { name: "引用到对话", exact: true }).click();
   await page.getByLabel("下一条消息").fill("未发送反馈");
-  await page.getByLabel("成果组", { exact: true }).selectOption(b.groupId);
+  await page.getByLabel("草稿", { exact: true }).selectOption(b.groupId);
   await expect(page.getByRole("region", { name: "信息正文" })).toContainText(
     "乙1记者正文",
   );
-  await page
-    .getByRole("button", { name: "打开 explorer", exact: true })
-    .click();
+  await page.getByRole("button", { name: "查找资料", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "explorer · 资产与候选" }),
+    page.getByRole("heading", { name: "查找资料与草稿" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "返回详情", exact: true }).click();
   await expect(page.getByLabel("下一条消息")).toHaveValue("未发送反馈");
@@ -130,8 +212,8 @@ test("desktop groups, @ disambiguation, browsing and new drafts keep independent
   );
   await expect(page.getByLabel("下一条消息")).toHaveValue("下一轮保留");
   await expect(page.getByRole("button", { name: /删除引用/ })).toHaveCount(1);
-  await page.getByLabel("成果组").selectOption(a.groupId);
-  await page.getByLabel("组内版本").selectOption(a.id);
+  await page.getByLabel("草稿").selectOption(a.groupId);
+  await page.getByLabel("版本").selectOption(a.id);
   await expect(page.getByRole("region", { name: "信息正文" })).toContainText(
     "旧稿甲",
   );
@@ -156,7 +238,7 @@ test("desktop groups, @ disambiguation, browsing and new drafts keep independent
   const saving = await send(page, "保存甲的第一稿为独立母版");
   expect(saving.input.refs).toEqual([f.free.candidates.ref(a)]);
   const target = saving.binding!.target;
-  await page.getByLabel("成果组").selectOption(b.groupId);
+  await page.getByLabel("草稿").selectOption(b.groupId);
   await expect(page.getByRole("region", { name: "信息正文" })).toContainText(
     "乙1记者正文",
   );
@@ -504,7 +586,7 @@ test("unresolved and ambiguous targets never derive authority from the current p
   await page.getByRole("button", { name: "发送", exact: true }).click();
   const resolving = (await (await pending).json()).task;
   await expect(
-    page.getByText("检索与核验目标 · 尚无正式写权限", { exact: true }),
+    page.getByText("正在查找资料与确认目标", { exact: true }),
   ).toBeVisible();
   expect((await f.free.task(resolving.id)).binding).toBeUndefined();
   await page.getByLabel("下一条消息").fill("保留撤回后的输入");
@@ -540,9 +622,7 @@ test("assets complete before a session, explorer browsing stays passive and stal
     entity("world", { ...first.content, markdown: "同名世界观正文" }),
     null,
   );
-  await page
-    .getByRole("button", { name: "打开 explorer", exact: true })
-    .click();
+  await page.getByRole("button", { name: "资料与草稿", exact: true }).click();
   await page.getByLabel("按名称查找").fill("同名资产");
   const results = page.getByLabel("资产与候选结果");
   await expect(results.getByRole("button")).toHaveCount(2);

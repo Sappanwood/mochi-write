@@ -1,3 +1,4 @@
+import { UpdatedTime } from "./ContentSummary.js";
 import { useEffect, useState } from "react";
 import type { FreeConversation, AssetRef } from "../shared/free.js";
 import type { CandidateGroup } from "../shared/free-candidates.js";
@@ -10,6 +11,7 @@ import {
   root,
   resolveDiscovery,
   kindLabel,
+  taskStatusLabel,
   type TaskView,
   type Reference,
 } from "./free-client.js";
@@ -115,6 +117,7 @@ export function FreeConversations({
   compact?: boolean;
 }) {
   const [rows, setRows] = useState<SessionRow[]>([]),
+    [names, setNames] = useState<Record<string, string | null>>({}),
     [error, setError] = useState(""),
     [loaded, setLoaded] = useState(false);
   useEffect(() => {
@@ -161,6 +164,26 @@ export function FreeConversations({
         setRows(rows);
         setLoaded(true);
       }
+      const targets = new Map(
+        rows.flatMap(({ conversation }) =>
+          conversation.associatedAssets.map((t) => [assetPath(t), t] as const),
+        ),
+      );
+      const entries = await Promise.all(
+        [...targets].map(async ([path, target]) => {
+          try {
+            const doc = await api<Document>(
+              target.kind === "story"
+                ? `/stories/${target.story_id}`
+                : `/library/${target.asset_id}`,
+            );
+            return [path, doc.content.name] as const;
+          } catch {
+            return [path, null] as const;
+          }
+        }),
+      );
+      if (active) setNames(Object.fromEntries(entries));
     })().catch((e) => {
       if (active) setError(message(e));
     });
@@ -180,7 +203,9 @@ export function FreeConversations({
             <h1>自由创作会话</h1>
             <p>按会话继续讨论，成果可以关联多个角色、世界观或故事。</p>
           </div>
-          <a href="#free/new">从空白开始</a>
+          <a className="list-new" href="#free/new">
+            新建创作
+          </a>
         </header>
       )}
       {compact && <h2>关联自由会话</h2>}
@@ -197,29 +222,52 @@ export function FreeConversations({
       )}
       {rows.map(({ conversation: c, tasks, groups }) => (
         <article key={c.id} data-session-id={c.id}>
-          <a href={`#free/conversation/${c.id}`}>
-            继续会话：{tasks[0]?.input.message.slice(0, 80) ?? c.id}
-          </a>
+          <h2 className="session-title">
+            <a
+              href={`#free/conversation/${c.id}`}
+              aria-label={`继续会话：${tasks[0]?.input.message.slice(0, 80) ?? "未命名会话"}`}
+            >
+              {tasks[0]?.input.message.slice(0, 80) ?? "未命名会话"}
+            </a>
+          </h2>
+          <div className="session-meta">
+            <UpdatedTime value={tasks.at(-1)?.createdAt ?? c.createdAt} />
+            <span className="session-status">
+              {taskStatusLabel(tasks.at(-1))}
+            </span>
+          </div>
+          {tasks.at(-1) && (
+            <p className="content-summary">
+              最近消息：{tasks.at(-1)!.input.message}
+            </p>
+          )}
           <p>
-            最近活动：<time>{tasks.at(-1)?.createdAt ?? c.createdAt}</time> ·{" "}
-            {tasks.at(-1)?.state ?? "已建立"}
-          </p>
-          <p>
-            {groups.length} 个候选成果组 ·{" "}
-            {tasks.filter((t) => t.receipt).length} 次已确认保存
+            {groups.length} 组草稿 · {tasks.filter((t) => t.receipt).length}{" "}
+            次已确认保存
           </p>
           <div className="free-associations">
             {c.associatedAssets.map((t) => (
-              <a key={assetPath(t)} href={`#${assetPath(t)}`}>
+              <a
+                key={assetPath(t)}
+                href={`#${assetPath(t)}`}
+                title={t.kind !== "story" ? t.asset_id : t.story_id}
+              >
                 {kindLabel[t.kind]} ·{" "}
-                {t.kind !== "story" ? t.asset_id : t.story_id}
+                {names[assetPath(t)] === undefined
+                  ? "名称读取中"
+                  : (names[assetPath(t)] ?? "内容暂不可用")}
+                <small>
+                  {" "}
+                  · {(t.kind !== "story" ? t.asset_id : t.story_id).slice(0, 8)}
+                </small>
               </a>
             ))}
             {c.initialRefs
               .filter((r): r is AssetRef => r.type === "asset")
               .map((r) => (
                 <span key={r.asset_id}>
-                  初始资料：{kindLabel[r.kind]} · {r.asset_id}
+                  初始资料：{kindLabel[r.kind]} · {r.asset_id.slice(0, 8)} · v
+                  {r.version}
                 </span>
               ))}
           </div>
@@ -228,7 +276,6 @@ export function FreeConversations({
           )}
         </article>
       ))}
-      {!compact && <a href="#creative/conversations">旧创作会话与草稿</a>}
     </section>
   );
 }
@@ -244,16 +291,22 @@ export function AssetCreativeEntry({
   navigate: (path: string) => void;
 }) {
   return (
-    <details className="asset-creative-entry" open>
-      <summary>创作与关联会话</summary>
-      <p>仅以已保存版本作为初始资料；未保存的人工编辑不会发送给 Agent。</p>
-      <button
-        className="secondary"
-        onClick={() => navigate(`free/new/${kind}/${id}`)}
-      >
-        带此{kind === "asset" ? "资产" : "故事"}开始创作
-      </button>
-      <FreeConversations api={api} assetId={id} compact />
-    </details>
+    <div className="asset-creative-entry">
+      {kind === "asset" && (
+        <button
+          className="secondary"
+          onClick={() => navigate(`free/new/${kind}/${id}`)}
+        >
+          带此{kind === "asset" ? "资产" : "故事"}开始创作
+        </button>
+      )}
+      <details>
+        <summary>创作与关联会话</summary>
+        <p className="muted">
+          以已保存内容开始讨论，未保存的编辑留在当前页面。
+        </p>
+        <FreeConversations api={api} assetId={id} compact />
+      </details>
+    </div>
   );
 }

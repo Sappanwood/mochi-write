@@ -248,17 +248,17 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 
 `FreeWorkspace` 通过现有本人 `Api` 客户端消费 `/creative/free`；路由为 `#free/new`、`#free/conversation/:id`，不挂载旧 WritingHost。
 `FreeTimeline` 与 v1 `CreativeResults` 共用 `CreativeTurn` 消息结构；模型选择、Markdown 与初始化包全文继续复用既有组件。
-`FreeInformation` 在同一主区切换资产、候选和 explorer；`FreeReferences` 统一补全与可删除精确标记，`free-client` 负责分页、
+`FreeInformation` 在同一主区切换资产、候选和资料查找；`FreeReferences` 统一补全与可删除精确标记，`free-client` 负责分页、
 发现摘要到精确 ref 的解析和版本核对。候选 discover 返回无 type 的既有摘要，客户端在该接口边界明确归一化。
 
 当前阅读、composer refs 和后端 task target 三者分离。sessionStorage 仅保存每会话 UI 与未确认请求，消息、来源、候选与收据由后端持有。
-移动视图使用 CSS 切换而不卸载，阅读滚动与输入可刷新恢复；新候选不改变当前阅读。task/group/source 页面按 cursor 读取，
+讨论、信息与唯一 composer 由同一 grid 布局；未打开资料时单栏，桌面可切换双栏/专心阅读，移动端仅切换上部视图并共用底部输入。面板使用 CSS 切换而不卸载，讨论及按精确引用保存的阅读滚动与输入可刷新恢复；新候选不改变当前阅读。visualViewport 只影响移动布局尺寸。task/group/source 页面按 cursor 读取，
 常规轮询仅 GET 投影，用户核实通过 POST verify 读原 run/OP；committed 不自动意味着远端 run 已终止。
 已记录来源只经 scoped exact API 打开，当前 head 的版本与软删除状态仅作为提示；未记录资产核对 resolve 时 revision/version，
 不会用新版替代旧引用。对应确定性浏览器与恢复测试见 [自由会话服务](FREE_SESSION.md#浏览器双关注点mwt-029)。
 
 
-`App` 提供资产阅览／创作互动导航，默认打开自由会话，书架打开正式章节。`FreeNewEntry` 为不同未发送入口分开缓存 UI，正式资产经点读与 resolve 得到可见 initialRefs；不读取人工编辑草稿。`FreeConversations` 基于既有 conversations/tasks/groups 分页构造按 session 唯一的最近任务与成果关联列表，也供正式资产页恢复关联会话。未新增服务端路由、存储 schema 或身份类别。
+`App` 统一提供新建创作、最近会话及故事/角色/世界观导航，默认打开自由会话，书架打开正式章节；相同导航按断点呈现为侧栏或横向栏，旧入口集中在更多菜单。`FreeNewEntry` 为不同未发送入口分开缓存 UI，正式资产经点读与 resolve 得到可见 initialRefs；不读取人工编辑草稿。`FreeConversations` 基于既有 conversations/tasks/groups 分页构造按 session 唯一的最近任务与成果关联列表，也供正式资产页恢复关联会话；正式关联名称通过按目标去重的既有点读补齐，失败不阻塞列表。`ContentSummary` 在浏览器从现有 Markdown 提取有界纯文本摘要，`UpdatedTime` 格式化已有时间；不生成或持久化新摘要。列表与时间线共用中文任务状态映射，保存计数与确认仍依赖真实 receipt。未新增服务端路由、存储 schema 或身份类别。
 `ContentReading` 复用资产编辑器阅读态、故事正文和自由信息区的基础内容呈现；`FreeTimeline` 从真实 receipt 目标生成正式内容路径，以 sessionStorage 保存返回会话 ID。旧 v1 组件与路由独立保留，不升级历史 session 快照。
 
 ## 单故事资料候选

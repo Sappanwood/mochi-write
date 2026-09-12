@@ -1,4 +1,5 @@
 import { ContentReading } from "./ContentReading.js";
+import { ContentSummary, UpdatedTime } from "./ContentSummary.js";
 import { AssetCreativeEntry } from "./FreeEntry.js";
 import { useEffect, useState } from "react";
 import type { Content, Document, Page } from "../shared/model.js";
@@ -134,10 +135,7 @@ export function LibraryView({
             key={d.id}
             onClick={() => navigate(`asset/${d.id}`)}
           >
-            <span className="card-icon">
-              {kind === "character" ? "人" : "境"}
-            </span>
-            <h2>{d.content.name}</h2>
+            <h2 title={d.content.name}>{d.content.name}</h2>
             <p>
               {[
                 kind === "world"
@@ -146,13 +144,17 @@ export function LibraryView({
                 d.content.ageBand,
               ]
                 .filter(Boolean)
-                .join(" · ") || "世界与设定"}
+                .join(" · ")}
             </p>
+            <ContentSummary markdown={d.content.markdown} />
             <div className="tags">
               {d.content.genres.map((t) => (
                 <span key={t}>{t}</span>
               ))}
             </div>
+            <p className="content-updated">
+              更新于 <UpdatedTime value={d.updatedAt} />
+            </p>
             <span className="card-link">阅读与编辑 →</span>
           </button>
         ))}

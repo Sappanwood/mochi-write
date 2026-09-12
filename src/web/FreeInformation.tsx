@@ -1,5 +1,5 @@
 import { ContentReading } from "./ContentReading.js";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Api } from "./api.js";
 import { message } from "./api.js";
 import type { CandidateGroup } from "../shared/free-candidates.js";
@@ -17,6 +17,8 @@ import {
   refLabel,
   summaryRef,
   actionLabel,
+  receiptLabel,
+  targetLabel,
   kindLabel,
   type Reference,
   type Information,
@@ -30,6 +32,7 @@ export interface ReadingState {
   kind: string;
   storyId: string;
   scroll: number;
+  scrollByRef?: Record<string, number>;
   loadId?: number;
 }
 export function FreeInformation({
@@ -58,17 +61,22 @@ export function FreeInformation({
   onError: (error: string) => void;
 }) {
   const [info, setInfo] = useState<Information>(),
+    [loadedKey, setLoadedKey] = useState<string>(),
     [error, setError] = useState("");
   const pane = useRef<HTMLDivElement>(null);
   const value = reading.current;
   useEffect(() => {
     setInfo(undefined);
+    setLoadedKey(undefined);
     setError("");
     if (!value) return;
     let active = true;
     void readInformation(api, base, value)
       .then((v) => {
-        if (active) setInfo(v);
+        if (active) {
+          setInfo(v);
+          setLoadedKey(refKey(value.ref));
+        }
       })
       .catch((e) => {
         if (active) setError(message(e));
@@ -77,7 +85,7 @@ export function FreeInformation({
       active = false;
     };
   }, [api, base, value && refKey(value.ref), reading.loadId, receiptsVersion]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (info && pane.current) pane.current.scrollTop = reading.scroll;
   }, [info, reading.explorer]);
   const currentDraft = info?.draft;
@@ -105,7 +113,7 @@ export function FreeInformation({
           className="quiet"
           onClick={() => setReading((r) => ({ ...r, explorer: !r.explorer }))}
         >
-          {reading.explorer ? "返回详情" : "打开 explorer"}
+          {reading.explorer ? "返回详情" : "查找资料"}
         </button>
         <details className="free-recent">
           <summary>最近内容</summary>
@@ -122,7 +130,7 @@ export function FreeInformation({
       </header>
       {reading.explorer ? (
         <div className="free-explorer">
-          <h3>explorer · 资产与候选</h3>
+          <h3>查找资料与草稿</h3>
           <label>
             按名称查找
             <input
@@ -185,11 +193,10 @@ export function FreeInformation({
               <div className="free-info-heading">
                 <p className="eyebrow">
                   {value.ref.type === "candidate"
-                    ? "候选 · 尚非正式资产"
+                    ? "创作草稿"
                     : "正式资产 · 精确版本"}
                 </p>
                 <h3>{info?.content?.name ?? value.title}</h3>
-                <p className="muted free-identity">{refLabel(value.ref)}</p>
                 {info?.currentVersion !== undefined &&
                   value.ref.type === "asset" && (
                     <p>
@@ -205,9 +212,9 @@ export function FreeInformation({
                   <>
                     <div className="free-version-controls">
                       <label>
-                        成果组
+                        草稿
                         <select
-                          aria-label="成果组"
+                          aria-label="草稿"
                           value={currentDraft.groupId}
                           onChange={(e) =>
                             choose(
@@ -221,15 +228,15 @@ export function FreeInformation({
                             <option key={g.id} value={g.id}>
                               {drafts.find((d) => d.group_id === g.id)?.title ??
                                 kindLabel[g.artifactKind]}{" "}
-                              · 组 {g.id.slice(0, 8)}
+                              · {kindLabel[g.artifactKind]} · {g.id.slice(0, 8)}
                             </option>
                           ))}
                         </select>
                       </label>
                       <label>
-                        组内版本
+                        版本
                         <select
-                          aria-label="组内版本"
+                          aria-label="版本"
                           value={currentDraft.id}
                           onChange={(e) =>
                             choose(
@@ -250,31 +257,67 @@ export function FreeInformation({
                       {materials
                         ? `${materials.story.content.name} · ${materials.members.length} 项资料`
                         : currentDraft.payload.draftContext.target
-                          ? JSON.stringify(
+                          ? targetLabel(
                               currentDraft.payload.draftContext.target,
                             )
                           : "新建独立母版，发送保存请求后核验目标"}
                     </p>
-                    <p className="muted">
-                      基础版本：
-                      {currentDraft.payload.draftContext.baseRevision ?? "新建"}
-                      。浏览此稿不代表保存授权。
-                      {materials && "仅列明的成员会写入；对话引用仅作参考。"}
-                    </p>
+                    {materials && (
+                      <p className="muted">
+                        仅保存列明的成员，引用资料仅供参考。
+                      </p>
+                    )}
                   </>
                 )}
                 {info?.receipt ? (
                   <p className="notice">
-                    已由真实收据确认 · {info.receipt.kind} · v
-                    {info.receipt.revision} · {info.receipt.operation_id}
+                    {receiptLabel[info.receipt.kind]} · 第{" "}
+                    {info.receipt.revision} 版
                   </p>
                 ) : (
                   info?.claim && (
                     <p className="notice">
-                      原保存操作：{info.claim.status} · {info.claim.operationId}
+                      {info.claim.status === "conflict"
+                        ? "版本冲突 · 草稿已保留"
+                        : info.claim.status === "revoked"
+                          ? "保存授权已撤回"
+                          : "保存结果待核实"}
                     </p>
                   )
                 )}
+                <details className="free-details">
+                  <summary>版本与保存详情</summary>
+                  <p className="free-identity">{refLabel(value.ref)}</p>
+                  {currentDraft && (
+                    <>
+                      <p className="free-identity">
+                        基础版本：
+                        {currentDraft.payload.draftContext.baseRevision ??
+                          "新建"}
+                      </p>
+                      {currentDraft.payload.draftContext.target && (
+                        <pre className="free-identity">
+                          {JSON.stringify(
+                            currentDraft.payload.draftContext.target,
+                            null,
+                            2,
+                          )}
+                        </pre>
+                      )}
+                      <p>浏览此稿不代表保存授权。</p>
+                    </>
+                  )}
+                  {info?.receipt && (
+                    <p className="free-identity">
+                      保存记录：{info.receipt.operation_id}
+                    </p>
+                  )}
+                  {info?.claim && (
+                    <p className="free-identity">
+                      原保存操作：{info.claim.status} · {info.claim.operationId}
+                    </p>
+                  )}
+                </details>
               </div>
               <div
                 ref={pane}
@@ -282,8 +325,21 @@ export function FreeInformation({
                 role="region"
                 aria-label="信息正文"
                 onScroll={(e) => {
+                  if (
+                    !e.currentTarget.clientHeight ||
+                    !info ||
+                    loadedKey !== refKey(value.ref)
+                  )
+                    return;
                   const scroll = e.currentTarget.scrollTop;
-                  setReading((r) => ({ ...r, scroll }));
+                  setReading((r) => ({
+                    ...r,
+                    scroll,
+                    scrollByRef: {
+                      ...r.scrollByRef,
+                      [refKey(value.ref)]: scroll,
+                    },
+                  }));
                 }}
               >
                 {error && (

@@ -172,6 +172,7 @@ test("reads ordered chapters, settings and independent snapshots with safe Markd
   await expect(page.getByText("林舟与渡船船长是朋友。")).toBeVisible();
   await new Library(store).remove(asset.id, asset.revision);
   await page.getByRole("button", { name: "故事资产", exact: true }).click();
+  await page.getByText("故事资产目录", { exact: true }).click();
   await page.getByRole("button", { name: "林舟", exact: true }).click();
   await expect(page.getByText("守护灯塔，收集远方的来信。")).toBeVisible();
   await expect(page.getByText("随身带着一张褪色的海图。")).toBeVisible();
@@ -187,6 +188,7 @@ test("previews and repeats folder import, then downloads Markdown ZIP", async ({
   mochi.status = "succeeded";
   store.heads.clear();
   store.history.clear();
+  await page.locator(".sidebar-more > summary").click();
   await page.getByRole("link", { name: "导入与导出" }).click();
   await page
     .locator("input[type=file]")

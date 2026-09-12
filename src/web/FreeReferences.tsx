@@ -29,7 +29,11 @@ export function ReferenceChips({
               title={refLabel(r.ref)}
               onClick={() => open(r)}
             >
-              {r.title}
+              {r.title === refLabel(r.ref)
+                ? r.ref.type === "candidate"
+                  ? `草稿 ${r.ref.draft_id.slice(0, 8)}${r.ref.member_id ? ` · 成员 ${r.ref.member_id.slice(0, 8)}` : ""}`
+                  : kindLabel[r.ref.kind]
+                : r.title}
               <small>
                 {" "}
                 ·{" "}

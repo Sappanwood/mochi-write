@@ -34,6 +34,9 @@ interface Local {
   reading: ReadingState;
   view: "discussion" | "information";
   pending?: Pending;
+  layout?: "discussion" | "split" | "reading";
+  discussionScroll?: number;
+  following?: boolean;
 }
 const empty = (): Local => ({
   composer: { message: "", refs: [] },
@@ -102,7 +105,11 @@ export function FreeWorkspace({
     input = useRef<HTMLTextAreaElement>(null),
     completion = useRef<HTMLDivElement>(null),
     timeline = useRef<HTMLDivElement>(null),
-    follow = useRef(true);
+    session = useRef<HTMLElement>(null),
+    follow = useRef(local.following ?? true);
+  const layout =
+    local.layout ??
+    (local.reading.current || local.reading.explorer ? "split" : "discussion");
   const base = conversationId
     ? `${root}/conversations/${conversationId}`
     : root;
@@ -115,9 +122,38 @@ export function FreeWorkspace({
     .join("|");
   useLayoutEffect(() => {
     const element = timeline.current;
-    if (element && element.clientHeight && follow.current)
-      element.scrollTop = element.scrollHeight;
-  }, [timelineVersion]);
+    if (element?.clientHeight)
+      element.scrollTop = follow.current
+        ? element.scrollHeight
+        : (latestLocal.current.discussionScroll ?? 0);
+  }, [timelineVersion, local.view, layout]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const workspace = session.current?.closest<HTMLElement>(
+      ".workspace-creative",
+    );
+    if (!viewport || !workspace) return;
+    const resize = () => {
+      if (viewport.scale !== 1) return;
+      workspace.style.setProperty(
+        "--free-viewport-height",
+        `${viewport.height}px`,
+      );
+      workspace.style.setProperty(
+        "--free-viewport-top",
+        `${viewport.offsetTop}px`,
+      );
+    };
+    resize();
+    viewport.addEventListener("resize", resize);
+    viewport.addEventListener("scroll", resize);
+    return () => {
+      viewport.removeEventListener("resize", resize);
+      viewport.removeEventListener("scroll", resize);
+      workspace.style.removeProperty("--free-viewport-height");
+      workspace.style.removeProperty("--free-viewport-top");
+    };
+  }, []);
   useEffect(() => {
     sessionStorage.setItem(key, JSON.stringify(local));
   }, [key, local]);
@@ -218,6 +254,7 @@ export function FreeWorkspace({
     setLocal((old) => ({
       ...old,
       view: "information",
+      layout: old.layout === "reading" ? "reading" : "split",
       reading: {
         ...old.reading,
         current: ref,
@@ -227,7 +264,7 @@ export function FreeWorkspace({
           old.reading.current &&
           refKey(old.reading.current.ref) === refKey(ref.ref)
             ? old.reading.scroll
-            : 0,
+            : (old.reading.scrollByRef?.[refKey(ref.ref)] ?? 0),
         recent: [
           ref,
           ...old.reading.recent.filter(
@@ -362,7 +399,8 @@ export function FreeWorkspace({
     }));
   return (
     <section
-      className={`creative-session free-session free-view-${local.view}`}
+      ref={session}
+      className={`creative-session free-session free-view-${local.view} free-layout-${layout}${!details.length ? " free-empty" : ""}`}
     >
       <header className="free-session-heading">
         <div>
@@ -443,6 +481,37 @@ export function FreeWorkspace({
           />
         </div>
       )}
+      <div className="free-layout-actions">
+        <button
+          className="quiet"
+          onClick={() =>
+            setLocal((old) => ({
+              ...old,
+              layout: layout === "discussion" ? "split" : "discussion",
+              view: "information",
+              reading: {
+                ...old.reading,
+                explorer: old.reading.current ? old.reading.explorer : true,
+              },
+            }))
+          }
+        >
+          {layout === "discussion" ? "资料与草稿" : "收起资料"}
+        </button>
+        {layout !== "discussion" && (
+          <button
+            className="quiet"
+            onClick={() =>
+              setLocal((old) => ({
+                ...old,
+                layout: layout === "reading" ? "split" : "reading",
+              }))
+            }
+          >
+            {layout === "reading" ? "返回讨论" : "专心阅读"}
+          </button>
+        )}
+      </div>
       <div
         className="free-mobile-tabs"
         role="tablist"
@@ -465,11 +534,17 @@ export function FreeWorkspace({
             ref={timeline}
             onScroll={(e) => {
               const element = e.currentTarget;
+              if (!element.clientHeight) return;
               follow.current =
                 element.scrollHeight -
                   element.scrollTop -
                   element.clientHeight <
                 80;
+              setLocal((old) => ({
+                ...old,
+                discussionScroll: element.scrollTop,
+                following: follow.current,
+              }));
             }}
             className="free-timeline"
             role="region"
@@ -488,178 +563,203 @@ export function FreeWorkspace({
               }
             />
             {!details.length && (
-              <p className="empty">
-                直接描述想法，或输入 @ 引用资料和本会话候选。
-              </p>
-            )}
-          </div>
-          <div className="free-composer">
-            <div className="free-update" role="status">
-              {unseen.length > 0 && (
-                <button
-                  className="quiet"
-                  onClick={() => {
-                    const d = unseen.at(-1)!;
-                    open({
-                      ref: summaryRef(d),
-                      title: `${d.title} · 第 ${d.ordinal} 稿`,
-                      recorded: true,
-                    });
-                  }}
-                >
-                  新候选已到 · {unseen.length} 份，点击查看
-                </button>
-              )}
-            </div>
-            {error && (
-              <p role="alert" className="error">
-                {error}
-              </p>
-            )}
-            {local.pending && (
-              <div className="notice">
-                <p>发送结果待核实，保留原请求、输入和引用。</p>
-                <button
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() => void action(queryPending)}
-                >
-                  查询原请求
-                </button>
-                <button
-                  className="quiet"
-                  disabled={busy}
-                  onClick={() => void action(() => send(local.pending))}
-                >
-                  按原请求重试
-                </button>
+              <div className="free-start">
+                <h2>今天想写点什么？</h2>
+                <p>从一个想法开始，也可以输入 @ 参考已有资料。</p>
+                <div className="free-start-actions">
+                  {["构思角色", "构思世界观", "写一个故事"].map((label) => (
+                    <button
+                      key={label}
+                      className="secondary"
+                      onClick={() => {
+                        setLocal((old) => ({
+                          ...old,
+                          composer: {
+                            ...old.composer,
+                            message: old.composer.message || `我想${label}：`,
+                          },
+                        }));
+                        input.current?.focus();
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
-            <label htmlFor="free-message">下一条消息</label>
-            <textarea
-              ref={input}
-              id="free-message"
-              value={local.composer.message}
-              placeholder="自由讨论，或输入 @ 查找精确引用"
-              onChange={(e) => {
-                const message = e.target.value;
-                setDismissed(null);
-                setLocal((old) => ({
-                  ...old,
-                  composer: { ...old.composer, message },
-                }));
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowDown" && selectedQuery !== undefined) {
-                  e.preventDefault();
-                  completion.current
-                    ?.querySelector<HTMLButtonElement>("button")
-                    ?.focus();
-                }
-                if (e.key === "Escape" && query !== undefined)
-                  setDismissed(query);
-              }}
-            />
-            {(selectedQuery !== undefined || selectingReference) && (
-              <div
-                ref={completion}
-                className="free-completion"
-                onKeyDown={(e) => {
-                  const buttons = [
-                    ...completion.current!.querySelectorAll("button"),
-                  ];
-                  const index = buttons.indexOf(
-                    document.activeElement as HTMLButtonElement,
-                  );
-                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                    e.preventDefault();
-                    buttons[
-                      (index +
-                        (e.key === "ArrowDown" ? 1 : -1) +
-                        buttons.length) %
-                        buttons.length
-                    ]?.focus();
-                  }
-                  if (e.key === "Escape") {
-                    setDismissed(query!);
-                    input.current?.focus();
-                  }
-                }}
-              >
-                <ReferenceSearch
-                  api={api}
-                  base={base}
-                  query={selectedQuery ?? ""}
-                  completion
-                  onResolving={setSelectingReference}
-                  storyId={local.reading.storyId || undefined}
-                  onError={setError}
-                  select={(r) => {
-                    attach(r);
-                    setLocal((old) => ({
-                      ...old,
-                      composer: {
-                        ...old.composer,
-                        message:
-                          old.composer.message === local.composer.message
-                            ? old.composer.message.replace(/@[^@\n]*$/, "")
-                            : old.composer.message,
-                      },
-                    }));
-                    input.current?.focus();
-                  }}
-                />
-              </div>
-            )}
-            <small>已引用到本消息</small>
-            <ReferenceChips
-              values={local.composer.refs}
-              open={open}
-              remove={(r) =>
-                setLocal((old) => ({
-                  ...old,
-                  composer: {
-                    ...old.composer,
-                    refs: old.composer.refs.filter(
-                      (item) => refKey(item.ref) !== refKey(r.ref),
-                    ),
-                  },
-                }))
-              }
-            />
-            <div className="free-send">
-              <CreativeModelPicker
-                models={models}
-                model={model}
-                thinking={thinking}
-                onModel={setModel}
-                onThinking={setThinking}
-                locked={conversation?.configuration}
-                disabled={busy || !!local.pending}
-              />
-              <button
-                disabled={
-                  blocked ||
-                  !local.composer.message.trim() ||
-                  (!conversation && !model)
-                }
-                onClick={() => void action(() => send())}
-              >
-                发送
-              </button>
-            </div>
-            {selectingReference && (
-              <p role="status" className="muted">
-                正在固定所选引用…
-              </p>
-            )}
-            {blocked && !busy && !selectingReference && !local.pending && (
-              <p className="muted">
-                等待本轮结束；中断或结果未知时请核实原任务。输入和引用保持。
-              </p>
             )}
           </div>
         </section>
+        <div className="free-composer" aria-label="消息输入">
+          <div className="free-update" role="status">
+            {unseen.length > 0 && (
+              <button
+                className="quiet"
+                onClick={() => {
+                  const d = unseen.at(-1)!;
+                  open({
+                    ref: summaryRef(d),
+                    title: `${d.title} · 第 ${d.ordinal} 稿`,
+                    recorded: true,
+                  });
+                }}
+              >
+                新候选已到 · {unseen.length} 份，点击查看
+              </button>
+            )}
+          </div>
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          {local.pending && (
+            <div className="notice">
+              <p>发送结果待核实，保留原请求、输入和引用。</p>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => void action(queryPending)}
+              >
+                查询原请求
+              </button>
+              <button
+                className="quiet"
+                disabled={busy}
+                onClick={() => void action(() => send(local.pending))}
+              >
+                按原请求重试
+              </button>
+            </div>
+          )}
+          <label htmlFor="free-message">下一条消息</label>
+          <textarea
+            ref={input}
+            id="free-message"
+            value={local.composer.message}
+            placeholder="自由讨论，或输入 @ 查找精确引用"
+            onChange={(e) => {
+              const message = e.target.value;
+              setDismissed(null);
+              setLocal((old) => ({
+                ...old,
+                composer: { ...old.composer, message },
+              }));
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown" && selectedQuery !== undefined) {
+                e.preventDefault();
+                completion.current
+                  ?.querySelector<HTMLButtonElement>("button")
+                  ?.focus();
+              }
+              if (e.key === "Escape" && query !== undefined)
+                setDismissed(query);
+            }}
+          />
+          {(selectedQuery !== undefined || selectingReference) && (
+            <div
+              ref={completion}
+              className="free-completion"
+              onKeyDown={(e) => {
+                const buttons = [
+                  ...completion.current!.querySelectorAll("button"),
+                ];
+                const index = buttons.indexOf(
+                  document.activeElement as HTMLButtonElement,
+                );
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                  e.preventDefault();
+                  buttons[
+                    (index +
+                      (e.key === "ArrowDown" ? 1 : -1) +
+                      buttons.length) %
+                      buttons.length
+                  ]?.focus();
+                }
+                if (e.key === "Escape") {
+                  setDismissed(query!);
+                  input.current?.focus();
+                }
+              }}
+            >
+              <ReferenceSearch
+                api={api}
+                base={base}
+                query={selectedQuery ?? ""}
+                completion
+                onResolving={setSelectingReference}
+                storyId={local.reading.storyId || undefined}
+                onError={setError}
+                select={(r) => {
+                  attach(r);
+                  setLocal((old) => ({
+                    ...old,
+                    composer: {
+                      ...old.composer,
+                      message:
+                        old.composer.message === local.composer.message
+                          ? old.composer.message.replace(/@[^@\n]*$/, "")
+                          : old.composer.message,
+                    },
+                  }));
+                  input.current?.focus();
+                }}
+              />
+            </div>
+          )}
+          {local.composer.refs.length > 0 && (
+            <div className="free-composer-references">
+              <small>已引用到本消息</small>
+              <ReferenceChips
+                values={local.composer.refs}
+                open={open}
+                remove={(r) =>
+                  setLocal((old) => ({
+                    ...old,
+                    composer: {
+                      ...old.composer,
+                      refs: old.composer.refs.filter(
+                        (item) => refKey(item.ref) !== refKey(r.ref),
+                      ),
+                    },
+                  }))
+                }
+              />
+            </div>
+          )}
+          <div className="free-send">
+            <CreativeModelPicker
+              models={models}
+              model={model}
+              thinking={thinking}
+              onModel={setModel}
+              onThinking={setThinking}
+              locked={conversation?.configuration}
+              disabled={busy || !!local.pending}
+            />
+            <button
+              disabled={
+                blocked ||
+                !local.composer.message.trim() ||
+                (!conversation && !model)
+              }
+              onClick={() => void action(() => send())}
+            >
+              发送
+            </button>
+          </div>
+          {selectingReference && (
+            <p role="status" className="muted">
+              正在固定所选引用…
+            </p>
+          )}
+          {blocked && !busy && !selectingReference && !local.pending && (
+            <p className="muted">
+              等待本轮结束；中断或结果未知时请核实原任务。输入和引用保持。
+            </p>
+          )}
+        </div>
         <FreeInformation
           api={api}
           base={base}

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { Document, Page } from "../shared/model.js";
 import { type Api, message } from "./api.js";
 import { ContentReading } from "./ContentReading.js";
+import { ContentSummary, UpdatedTime } from "./ContentSummary.js";
 export function StoriesView({
   api,
   navigate,
@@ -49,15 +50,6 @@ export function StoriesView({
         </div>
         <div className="creative-navigation">
           <button onClick={() => navigate("free/new/story")}>新建故事</button>
-          <button className="quiet" onClick={() => navigate("creative/new")}>
-            旧版新建故事
-          </button>
-          <button
-            className="secondary"
-            onClick={() => navigate("free/conversations")}
-          >
-            创作会话
-          </button>
         </div>
       </header>
       {error && (
@@ -77,15 +69,17 @@ export function StoriesView({
             onClick={() => navigate(`story/${s.id}/chapter`)}
           >
             <div className={`book-cover cover-${i % 3}`}>
-              <span>MOCHI WRITE</span>
-              <h2>{s.content.name}</h2>
+              <h2 title={s.content.name}>{s.content.name}</h2>
               <span>
                 {s.initializationPending
                   ? "作品已建立 · 尚无章节"
                   : "故事 · 正式内容"}
               </span>
             </div>
-            <h3>{s.content.name}</h3>
+            <ContentSummary markdown={s.content.markdown} />
+            <p className="content-updated">
+              资料更新于 <UpdatedTime value={s.updatedAt} />
+            </p>
             <p>阅读故事 →</p>
           </button>
         ))}
@@ -161,8 +155,11 @@ export function StoryReader({
   }, [api, id, section, generation]);
   const current = documentId ? docs.find((d) => d.id === documentId) : docs[0];
   const index = docs.findIndex((d) => d.id === current?.id);
+  const hasOpeningHeading = /^ {0,3}#{1,6}[\t ]+\S/.test(
+    current?.content.markdown.replace(/^(?:[\t ]*\r?\n)+/, "") ?? "",
+  );
   return (
-    <>
+    <section className="story-reader">
       <button className="back-link" onClick={() => navigate("stories")}>
         ← 返回书架
       </button>
@@ -173,9 +170,9 @@ export function StoryReader({
         </div>
         <button
           className="secondary"
-          onClick={() => navigate(`story/${id}/creative`)}
+          onClick={() => navigate(`free/new/story/${id}`)}
         >
-          旧故事创作会话
+          继续创作
         </button>
       </header>
       <AssetCreativeEntry api={api} id={id} kind="story" navigate={navigate} />
@@ -219,26 +216,35 @@ export function StoryReader({
       )}
       {!loading && !error && (
         <div className="reader-layout">
-          <aside className="chapter-list" aria-label={labels[section] + "目录"}>
-            {docs.map((d) => (
-              <button
-                key={d.id}
-                aria-current={current?.id === d.id ? "page" : undefined}
-                onClick={() => navigate(`story/${id}/${section}/${d.id}`)}
-              >
-                {d.order && <span>{String(d.order).padStart(2, "0")}</span>}
-                {d.content.name}
-              </button>
-            ))}
-          </aside>
+          <details className="reader-directory" key={`${id}:${section}`}>
+            <summary>{labels[section]}目录</summary>
+            <aside
+              className="chapter-list"
+              aria-label={labels[section] + "目录"}
+            >
+              {docs.map((d) => (
+                <button
+                  key={d.id}
+                  aria-current={current?.id === d.id ? "page" : undefined}
+                  onClick={() => navigate(`story/${id}/${section}/${d.id}`)}
+                >
+                  {d.order && <span>{String(d.order).padStart(2, "0")}</span>}
+                  {d.content.name}
+                </button>
+              ))}
+            </aside>
+          </details>
           <div className="reading-pane">
             {current ? (
               <>
                 <p className="eyebrow">
                   {labels[section]}
                   {current.order ? " · " + current.order : ""}
+                  {section === "chapter" && ` · ${current.content.name}`}
                 </p>
-                <h2>{current.content.name}</h2>
+                {(section !== "chapter" || !hasOpeningHeading) && (
+                  <h2>{current.content.name}</h2>
+                )}
                 {section === "snapshot" && (
                   <p className="muted">
                     {current.sourceAssetId
@@ -288,7 +294,7 @@ export function StoryReader({
           </div>
         </div>
       )}
-    </>
+    </section>
   );
 }
 function SnapshotPicker({

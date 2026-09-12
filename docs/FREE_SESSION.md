@@ -214,17 +214,21 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 它验证正式 UI，不代替 [MWT-024 原型历史走查](prototypes/free-session/README.md)、真实 Pi 集成或付费模型验收。
 
 
+自由会话用一个持久挂载的 composer 支持桌面双栏和手机讨论/信息视图，不复制 textarea 或消息提交路径。未打开信息时默认单栏；显式打开资料/草稿展开双栏，桌面支持专心阅读与返回。Local 的可选 layout、discussionScroll、following 及 ReadingState.scrollByRef 存储于原 sessionStorage，缺省字段兼容旧缓存；CSS 隐藏的面板不写入零滚动位置。新候选到达不修改布局或当前版本。visualViewport resize/scroll 仅调整手机工作区高度与位置，卸载时清理监听，不触发模型请求。
+
+界面中的「草稿／版本」选择仍绑定 group_id 与 draft_id，不改变后端候选身份。信息区以中文保存状态和版本呈现结果，完整引用、原始目标和操作 ID 收在可展开详情；短标识保留消歧用途。没有 receipt 时不能从模型文字、claim 或折叠状态推导保存成功。
+
 ## 模式导航与资产往返（MWT-030）
 
-默认无 hash 和 `#free/new` 打开自由创作。`#free/conversations` 按 conversation 展示最近任务时间、候选成果组、已确认保存数和关联资产；无正式成果的会话同样可恢复，多资产关联不重复会话行。列表读取现有 conversations/tasks/groups 分页，不新增创意对象或业务保存目标。
+默认无 hash 和 `#free/new` 打开自由创作。主导航为「新建创作、最近会话、故事书架、角色库、世界观」，桌面和手机使用同一导航内容。`#free/conversations` 按 conversation 展示可读的最近任务时间、最近消息摘要、中文状态、草稿组数、已确认保存数和正式关联名称；无正式成果的会话同样可恢复，多资产关联不重复会话行。列表读取现有 conversations/tasks/groups 分页；正式关联名称按目标去重后经既有 library/stories 点读补充，读取失败只降级该名称，保留链接和短 ID。初始精确资料仍保留原版本身份，不以当前名称替换历史内容。committed 缺少收据时显示保存结果待核实，模型输出不作为保存证据。不新增创意对象或业务保存目标。
 
-资产模式的 `#library/character`、`#library/world` 和 `#stories` 展示正式内容，故事书架默认进入 `#story/:id/chapter` 阅读。角色详情默认阅读，保留编辑和 CAS 冲突后的草稿对照。`ContentReading` 复用资产与自由信息区的标签、基础属性和 Markdown 正文；explorer 仅是自由信息区的查找状态。
+资产模式的 `#library/character`、`#library/world` 和 `#stories` 展示正式内容，故事书架默认进入 `#story/:id/chapter` 阅读。角色详情默认阅读，保留编辑和 CAS 冲突后的草稿对照。`ContentReading` 复用资产与自由信息区的标签、基础属性和 Markdown 正文；「查找资料」仅是自由信息区的查找状态。
 
 `#free/new/character`、`#free/new/world` 与 `#free/new/story` 预填可编辑创作意图；发送前不建立会话或资产。`#free/new/asset/:id`、`#free/new/story/:id` 点读正式 head 并 resolve 精确 initialRefs，在输入上方明确展示。仅初始资料进入 initialRefs，进入后浏览不会附加引用或切换目标；世界观可讨论、预览、精确保存及更新，正式内容通过相同资产入口往返。
 
 每个未发起入口分别保留输入；精确初始资料缓存于 sessionStorage，刷新不替换已展示版本；版本冲突保留输入，可显式“重新读取初始资料”后继续。每个已建会话保留自己的输入、引用、阅读对象和阅读位置。真实收据的“打开正式内容”进入资产／故事阅读页（角色和世界观使用 `#asset/:id/read` 读取正式 head，绕开已有人工草稿；章节收据打开实际保存的章），“返回原自由会话”恢复原会话；正式资产页同时提供关联会话及带当前已保存资料另开会话入口。正式角色阅读提供“继续未保存编辑”，恢复原人工正文及原 CAS 基线，不因阅读新 head 自动 rebase。人工编辑沿用页面内草稿与版本检查，明确标为临时人工编辑，不混同持久候选，也不自动发送正文给 Agent。
 
-`#creative/new`、`#creative/conversations`、`#creative/conversation/:id`、`#creative/draft/:storyId/:draftId`、`#story/:id/creative` 与 `#story/:id/draft/:draftId` 继续使用原协议；导航保留“旧创作会话与草稿”，书架保留“旧版新建故事”，故事阅读保留“旧故事创作会话”。历史不迁移、不删除，旧侧栏仍限原资产／阅读页面，自由会话不挂载 WritingHost。移动端自由会话提供独立模式与内容导航。
+`#creative/new`、`#creative/conversations`、`#creative/conversation/:id`、`#creative/draft/:storyId/:draftId`、`#story/:id/creative` 与 `#story/:id/draft/:draftId` 继续使用原协议；“更多”集中提供“旧创作会话与草稿”和“旧版新建故事”，故事页面的“更多”另提供“旧故事创作会话”。历史不迁移、不删除，旧侧栏仍限原资产／阅读页面，自由会话不挂载 WritingHost。关联会话默认折叠，故事阅读页的“继续创作”进入 `#free/new/story/:id`，原关联会话从折叠区恢复。
 
 新建世界观默认进入自由会话，原 `#new/world` 直接编辑链接仍可用。旧 conversation 顶部明确列出世界观仅可讨论/阅读，并提供主动新建入口；新入口只预填意图，未发送前不建记录，不转移旧聊天、候选或授权。原侧栏及章节新版本功能保留。
 

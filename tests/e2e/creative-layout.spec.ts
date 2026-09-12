@@ -9,6 +9,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto(f.address + "/#stories");
   await page.getByRole("button", { name: "使用 Microsoft 账号登录" }).click();
   await page.getByRole("button", { name: /灯塔.*故事/ }).click();
+  await page.locator(".sidebar-more > summary").click();
   await page
     .getByRole("button", { name: "旧故事创作会话", exact: true })
     .click();

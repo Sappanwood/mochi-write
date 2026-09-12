@@ -87,6 +87,40 @@ export const actionLabel: Record<Action, string> = {
   create_chapter: "新建章节",
   revise_story_materials: "修订故事资料",
 };
+export const receiptLabel: Record<ReceiptV2["kind"], string> = {
+  world_created: "独立世界观母版已新建",
+  world_updated: "世界观母版已更新",
+  character_created: "独立角色母版已新建",
+  character_updated: "角色母版已更新",
+  story_initialized: "作品已建立",
+  first_chapter_saved: "作品与首章已保存",
+  story_materials_saved: "故事资料已保存",
+  chapter_created: "章节已保存",
+};
+export function targetLabel(target: Target) {
+  return `${kindLabel[target.kind]} · ${(target.kind === "story" ? target.story_id : target.asset_id).slice(0, 8)}`;
+}
+const taskLabels: Record<string, string> = {
+  unresolved: "正在理解请求",
+  resolving: "正在查找资料与确认目标",
+  binding: "正在确认保存目标",
+  authorized: "准备创作",
+  running: "正在创作",
+  succeeded: "讨论已完成",
+  failed: "本轮失败",
+  interrupted: "执行中断 · 待核实原任务",
+  cancel_pending: "取消待确认",
+  revoked: "已撤回",
+  conflict: "版本冲突 · 原稿保留",
+  committed: "保存已确认",
+  verifying: "保存结果待核实",
+  clarifying: "需要澄清目标",
+};
+export function taskStatusLabel(task?: Pick<TaskView, "state" | "receipt">) {
+  if (!task) return "尚未开始";
+  if (task.state === "committed" && !task.receipt) return "保存结果待核实";
+  return taskLabels[task.state] ?? "状态待核实";
+}
 export function refKey(ref: ExactRef) {
   return ref.type === "asset"
     ? `${ref.asset_id}:${ref.revision}:${ref.content_hash}`

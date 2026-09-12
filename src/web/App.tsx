@@ -253,72 +253,54 @@ export function App({
           <span className="seal">文</span>
           <span>Mochi Write</span>
         </a>
-        <p className="sidebar-label">工作模式</p>
-        <nav aria-label="工作模式">
-          <a
-            href="#free/new"
-            aria-current={area === "free" ? "page" : undefined}
-          >
-            创作互动
-          </a>
-          <a
-            href="#library/character"
-            aria-current={
-              ["library", "asset", "stories", "story", "new"].includes(
-                area ?? "",
-              )
-                ? "page"
-                : undefined
-            }
-          >
-            资产阅览
-          </a>
-        </nav>
-        <p className="sidebar-label">内容与会话</p>
         <nav aria-label="主导航">
-          <a
-            href="#stories"
-            aria-current={
-              area === "stories" || area === "story" ? "page" : undefined
-            }
-          >
-            <span aria-hidden="true">▤</span>故事书架
-          </a>
-          <a
-            href="#free/conversations"
-            aria-current={
-              area === "free" && id === "conversations" ? "page" : undefined
-            }
-          >
-            <span aria-hidden="true">◌</span>创作会话
-          </a>
-          <a
-            href="#library/character"
-            aria-current={
-              area === "library" && id === "character" ? "page" : undefined
-            }
-          >
-            <span aria-hidden="true">♙</span>角色库
-          </a>
-          <a
-            href="#library/world"
-            aria-current={
-              area === "library" && id === "world" ? "page" : undefined
-            }
-          >
-            <span aria-hidden="true">◎</span>世界观
-          </a>
+          {[
+            ["free/new", "新建创作", area === "free" && id === "new"],
+            ["free/conversations", "最近会话", area === "free" && id !== "new"],
+            ["stories", "故事书架", area === "stories" || area === "story"],
+            [
+              "library/character",
+              "角色库",
+              area === "library" && id === "character",
+            ],
+            ["library/world", "世界观", area === "library" && id === "world"],
+          ].map(([path, label, current]) => (
+            <a
+              key={String(path)}
+              href={`#${path}`}
+              className={path === "free/new" ? "new-creation" : undefined}
+              aria-current={current ? "page" : undefined}
+            >
+              {label}
+            </a>
+          ))}
         </nav>
-        <a href="#creative/conversations">旧创作会话与草稿</a>
-        <p className="sidebar-label">资料管理</p>
-        <nav>
-          <a
-            href="#transfer"
-            aria-current={area === "transfer" ? "page" : undefined}
-          >
-            <span aria-hidden="true">⇄</span>导入与导出
-          </a>
-        </nav>
+        <details className="sidebar-more" key={route}>
+          <summary>更多</summary>
+          <div className="sidebar-more-content">
+            <a
+              href="#transfer"
+              aria-current={area === "transfer" ? "page" : undefined}
+            >
+              导入与导出
+            </a>
+            <a href="#creative/conversations">旧创作会话与草稿</a>
+            <button className="quiet" onClick={() => navigate("creative/new")}>
+              旧版新建故事
+            </button>
+            {area === "story" && id && (
+              <button
+                className="quiet"
+                onClick={() => navigate(`story/${id}/creative`)}
+              >
+                旧故事创作会话
+              </button>
+            )}
+            <button className="quiet" onClick={() => void logout()}>
+              退出登录
+            </button>
+          </div>
+        </details>
         {Object.keys(drafts).length > 0 && (
           <div className="drafts">
             <p>未保存草稿</p>
@@ -331,22 +313,9 @@ export function App({
         )}
         <div className="sidebar-bottom">
           <p>个人创作空间</p>
-          <button className="quiet" onClick={() => void logout()}>
-            退出登录
-          </button>
         </div>
       </aside>
       <main className={`main-content${area === "free" ? " free-main" : ""}`}>
-        {area === "free" && id !== "conversations" && (
-          <nav className="mobile-mode-nav" aria-label="移动导航">
-            <a href="#free/new">创作互动</a>
-            <a href="#library/character">资产阅览</a>
-            <a href="#free/conversations">创作会话</a>
-            <a href="#library/character">角色库</a>
-            <a href="#stories">故事书架</a>
-            <a href="#library/world">世界观</a>
-          </nav>
-        )}
         {area !== "free" && sessionStorage.getItem("mochi-free:return") && (
           <a
             className="back-link"

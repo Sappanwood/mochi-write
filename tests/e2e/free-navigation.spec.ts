@@ -28,7 +28,7 @@ test("default modes and asset entry preserve explicit initial context and local 
     sourceMetadata: {},
   });
   await f.store.commit(doc, null);
-  await page.getByRole("link", { name: "资产阅览", exact: true }).click();
+  await page.getByRole("link", { name: "角色库", exact: true }).click();
   await page.getByRole("button", { name: /导航角色/ }).click();
   await expect(page.getByText("正式正文", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "编辑资产", exact: true }).click();
@@ -46,9 +46,10 @@ test("default modes and asset entry preserve explicit initial context and local 
   expect(result.conversation.initialRefs[0].asset_id).toBe(doc.id);
   expect(result.task.input.message).toBe("讨论角色");
   await page.getByLabel("下一条消息").fill("下一轮未发送内容");
-  await page.getByRole("link", { name: "资产阅览", exact: true }).click();
+  await page.getByRole("link", { name: "角色库", exact: true }).click();
   await page.getByRole("button", { name: /导航角色/ }).click();
   await expect(page.getByLabel("资料正文")).toHaveValue("人工未保存正文");
+  await page.getByText("创作与关联会话", { exact: true }).click();
   await page.getByRole("link", { name: /继续会话：讨论角色/ }).click();
   await expect(page.getByLabel("下一条消息")).toHaveValue("下一轮未发送内容");
   await page.reload();
@@ -70,6 +71,37 @@ async function send(page: import("@playwright/test").Page, text: string) {
     .toBeTruthy();
   return f.free.task(task.id);
 }
+test("session summaries show the latest request and never infer a save without a receipt", async ({
+  page,
+}) => {
+  const task = await send(page, "讨论海雾与灯塔，不保存");
+  await finish(task);
+  await page.route(
+    "**/api/creative/free/conversations/*/tasks",
+    async (route) => {
+      const response = await route.fetch();
+      const result = await response.json();
+      await route.fulfill({
+        response,
+        json: {
+          ...result,
+          items: result.items.map((t: object) => ({
+            ...t,
+            state: "committed",
+            receipt: undefined,
+            output: "我已经保存了",
+          })),
+        },
+      });
+    },
+  );
+  await page.getByRole("link", { name: "最近会话", exact: true }).click();
+  const row = page.locator("[data-session-id]");
+  await expect(row).toContainText("最近消息：讨论海雾与灯塔，不保存");
+  await expect(row).toContainText("保存结果待核实");
+  await expect(row).toContainText("0 次已确认保存");
+  await expect(row.locator("time")).toHaveAttribute("datetime", /T/);
+});
 async function finish(task: import("../../src/shared/free.js").FreeTask) {
   f.mochi.finish(task.executionRun!.runId!);
   const response = await fetch(
@@ -107,9 +139,9 @@ test("session rows recover unsaved ideas and saved multi-asset sessions only onc
   await finish(first);
   await page.getByRole("button", { name: /查看：往返角色/ }).click();
   await page.getByLabel("下一条消息").fill("未发送的阅读反馈");
-  await page.getByRole("link", { name: "创作会话", exact: true }).click();
+  await page.getByRole("link", { name: "最近会话", exact: true }).click();
   await expect(page.locator("[data-session-id]")).toHaveCount(1);
-  await expect(page.getByText("1 个候选成果组 · 0 次已确认保存")).toBeVisible();
+  await expect(page.getByText("1 组草稿 · 0 次已确认保存")).toBeVisible();
   await expect(
     page.getByText("尚无正式成果，也可以继续此会话。"),
   ).toBeVisible();
@@ -169,14 +201,32 @@ test("session rows recover unsaved ideas and saved multi-asset sessions only onc
     draft_hash: d2.draftHash,
   });
   await finish(save2);
-  await page.getByRole("link", { name: "创作会话", exact: true }).click();
+  await page.getByRole("link", { name: "最近会话", exact: true }).click();
   await expect(page.locator("[data-session-id]")).toHaveCount(1);
   await expect(page.locator(".free-associations a")).toHaveCount(2);
-  await expect(page.getByText("2 个候选成果组 · 2 次已确认保存")).toBeVisible();
+  await expect(page.locator(".free-associations")).toContainText("往返角色");
+  await expect(page.locator(".free-associations")).toContainText("另一角色");
+  await expect(page.getByText("2 组草稿 · 2 次已确认保存")).toBeVisible();
   await page.screenshot({
-    path: "/tmp/mwt030-session-list.png",
+    path: "/tmp/mwt044-session-list.png",
     fullPage: true,
   });
+  const assetLink = page.locator(".free-associations a").first();
+  const unavailableId = (await assetLink.getAttribute("href"))!
+    .split("/")
+    .at(-1)!;
+  await page.route(`**/api/library/${unavailableId}`, (route) =>
+    route.fulfill({ status: 503, json: { error: "temporarily unavailable" } }),
+  );
+  await page.reload();
+  await expect(page.locator("[data-session-id]")).toHaveCount(1);
+  await expect(page.locator(".free-associations a")).toHaveCount(2);
+  await expect(page.locator(".free-associations")).toContainText(
+    "内容暂不可用",
+  );
+  await expect(
+    page.getByRole("link", { name: /继续会话：发展一个新人物/ }),
+  ).toBeVisible();
 });
 
 test("new character and story intents are editable; story and world entries stay read-only initial references at 390px", async ({
@@ -216,7 +266,7 @@ test("new character and story intents are editable; story and world entries stay
   await expect(
     page.getByRole("heading", { name: "入口故事", exact: true, level: 1 }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "带此故事开始创作" }).click();
+  await page.getByRole("button", { name: "继续创作", exact: true }).click();
   await page.reload();
   await expect(page.getByText("初始上下文 · 仅作为资料")).toBeVisible();
   await page.locator(".free-initial .free-references button").click();
@@ -498,7 +548,7 @@ for (const width of [1280, 390]) {
     expect((await f.free.conversation(first.conversationId)).sessionId).toBe(
       sessionId,
     );
-    await page.getByRole("link", { name: "创作会话", exact: true }).click();
+    await page.getByRole("link", { name: "最近会话", exact: true }).click();
     await expect(page.locator("[data-session-id]")).toHaveCount(1);
     await expect(page.locator(".free-associations")).toContainText("世界观");
     await page.screenshot({
