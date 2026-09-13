@@ -632,7 +632,9 @@ export function FreeWorkspace({
               </button>
             </div>
           )}
-          <label htmlFor="free-message">下一条消息</label>
+          <label className="sr-only" htmlFor="free-message">
+            下一条消息
+          </label>
           <textarea
             ref={input}
             id="free-message"

@@ -1,13 +1,15 @@
 :root {
   --paper: #f5f3ec;
   --surface: #fffefa;
-  --line: #dce0d5;
+  --line: #dfddd4;
   --accent: #344e42;
-  --muted: #657163;
-  --panel: #edf0e3;
+  --ink: #303630;
+  --muted: #706f66;
+  --panel: #eeeee6;
+  --serif: "Noto Serif CJK SC", "Songti SC", "Source Han Serif SC", serif;
   font-family: system-ui, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-  color: #273d35;
-  background: #f5f3ec;
+  color: var(--ink);
+  background: var(--paper);
   font-synthesis: none;
 }
 * {
@@ -19,10 +21,10 @@ body {
 button {
   font: inherit;
   padding: 10px 16px;
-  border: 1px solid #344e42;
+  border: 1px solid var(--accent);
   border-radius: 8px;
   color: #fff;
-  background: #344e42;
+  background: var(--accent);
   cursor: pointer;
 }
 button:hover {
@@ -74,7 +76,7 @@ summary:focus-visible {
   font-size: 13px;
 }
 h1 {
-  font-family: "Noto Serif CJK SC", "Songti SC", serif;
+  font-family: var(--serif);
   font-weight: 500;
   font-size: clamp(32px, 5vw, 60px);
   line-height: 1.5;
@@ -82,13 +84,13 @@ h1 {
   letter-spacing: 0.03em;
 }
 .description {
-  color: #62716a;
+  color: var(--muted);
   line-height: 1.8;
   margin-bottom: 36px;
 }
 .privacy,
 footer {
-  color: #747c71;
+  color: var(--muted);
   font-size: 12px;
 }
 .privacy {
@@ -119,8 +121,8 @@ select,
 textarea {
   font: inherit;
   color: inherit;
-  background: #fffefa;
-  border: 1px solid #d3d7cc;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 5px;
   padding: 10px 12px;
   width: 100%;
@@ -148,8 +150,8 @@ a {
   grid-template-columns: 208px minmax(0, 1fr);
 }
 .sidebar {
-  background: #eeeee5;
-  border-right: 1px solid #dce0d5;
+  background: #efeee7;
+  border-right: 1px solid var(--line);
   padding: 30px 20px;
   display: flex;
   flex-direction: column;
@@ -175,7 +177,7 @@ a {
   display: flex;
   gap: 14px;
   font-size: 14px;
-  color: #58655a;
+  color: var(--muted);
 }
 .sidebar nav a:hover {
   background: #e2e5d8;
@@ -227,7 +229,7 @@ summary {
   margin-top: auto;
   padding: 20px 12px 0;
   font-size: 12px;
-  color: #727b6b;
+  color: var(--muted);
 }
 .sidebar-bottom .quiet {
   padding-left: 0;
@@ -250,7 +252,7 @@ summary {
   margin: 8px 0 14px;
 }
 .page-heading p:not(.eyebrow) {
-  color: #7b8378;
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.8;
 }
@@ -282,7 +284,7 @@ summary {
 .asset-card {
   display: block;
   background: #fffefa;
-  color: #344638;
+  color: var(--ink);
   border: 1px solid #dfe0d5;
   padding: 24px;
   text-align: left;
@@ -306,7 +308,7 @@ summary {
 }
 .asset-card p {
   font-size: 13px;
-  color: #7f8376;
+  color: var(--muted);
 }
 .card-link {
   display: block;
@@ -348,7 +350,7 @@ summary {
 }
 .quiet,
 .back-link {
-  color: #66755a;
+  color: var(--muted);
   background: transparent;
   border: none;
   padding: 8px 10px;
@@ -435,13 +437,13 @@ legend {
   gap: 12px;
 }
 .muted {
-  color: #7b8474;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.8;
 }
 .markdown {
-  color: #3e493e;
-  font-family: "Noto Serif CJK SC", "Songti SC", serif;
+  color: var(--ink);
+  font-family: var(--serif);
   font-size: 17px;
   line-height: 2;
   overflow-wrap: anywhere;
@@ -500,7 +502,7 @@ legend {
   border: 1px solid var(--line);
   padding: 14px;
   min-width: 0;
-  color: #41533b;
+  color: var(--ink);
   text-align: left;
 }
 .story-card:hover {
@@ -509,7 +511,7 @@ legend {
 }
 .story-card p {
   font-size: 12px;
-  color: #859078;
+  color: var(--muted);
 }
 .book-cover {
   min-height: 170px;
