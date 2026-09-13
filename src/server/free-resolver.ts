@@ -17,6 +17,7 @@ import type { Document, LibraryEntry } from "../shared/model.js";
 import type { Store } from "./store.js";
 import { LibraryTools } from "./library-tools.js";
 import { freeDigest, type FreeReferences } from "./free-references.js";
+import { isSaveIntent } from "./free-conversation.js";
 const evidence = z
   .object({
     start: z.number().int().nonnegative(),
@@ -70,7 +71,26 @@ export const classifierSchema = z
     materials: z.array(materialRequestSchema).min(1).max(8).optional(),
   })
   .strict();
-type Classification = z.infer<typeof classifierSchema>;
+const draftClassifierSchema = classifierSchema.extend({
+  intent: z.literal("draft"),
+  evidence: evidence.optional(),
+  target: classifierSchema.shape.target.extend({
+    predicates: z
+      .array(predicate.extend({ evidence: evidence.optional() }))
+      .max(8),
+  }),
+  materials: z
+    .array(
+      materialRequestSchema.extend({
+        evidence: materialRequestSchema.shape.evidence.optional(),
+      }),
+    )
+    .min(1)
+    .max(8)
+    .optional(),
+});
+type Classification =
+  z.infer<typeof classifierSchema> | z.infer<typeof draftClassifierSchema>;
 function matches(
   row: LibraryEntry,
   predicates: Classification["target"]["predicates"],
@@ -120,7 +140,10 @@ export async function resolveTarget(
   raw: unknown,
   classifierRunId: string,
 ): Promise<TargetResolution> {
-  const parsed = classifierSchema.safeParse(raw);
+  const saving = isSaveIntent(raw);
+  const parsed = (saving ? classifierSchema : draftClassifierSchema).safeParse(
+    raw,
+  );
   const empty: ResolutionEvidence = {
     originalMessageHash: freeDigest(task.input.message),
     classifierResult: raw,
@@ -137,18 +160,27 @@ export async function resolveTarget(
     evidence: empty,
     clarify: reason,
   });
+  if (
+    raw &&
+    typeof raw === "object" &&
+    "intent" in raw &&
+    raw.intent === "discuss"
+  )
+    return { evidence: { ...empty, complete: true } };
   if (!parsed.success) return reject("intent_unavailable");
   const c = parsed.data;
   empty.predicates = c.target.predicates;
   const evs = [
-    c.evidence,
+    ...(c.evidence ? [c.evidence] : []),
     ...c.target.predicates.map((p) => p.evidence),
     ...(c.changeEvidence ? [c.changeEvidence] : []),
     ...(c.chapterEvidence ? [c.chapterEvidence] : []),
   ];
   if (
+    saving &&
     evs.some(
       (e) =>
+        !e ||
         task.input.message.slice(e.start, e.end) !== e.text ||
         e.end > task.input.message.length,
     )
@@ -160,16 +192,6 @@ export async function resolveTarget(
       !/(?:首章|第一章)/u.test(c.chapterEvidence.text))
   )
     return reject("invalid_chapter_intent");
-  const saving = [
-    "save_current",
-    "create_world",
-    "update_world",
-    "create_character",
-    "update_character",
-    "initialize_story",
-    "create_chapter",
-    "revise_story_materials",
-  ].includes(c.intent);
   if (
     saving &&
     /(?:不要|不许|别|不想|无需|不必).{0,12}(?:保存|更新|建立)|[“「『"].*(?:保存|更新).*[”」』"]|(?:分别|各自|两个|两份|多章|批量).*(?:保存|更新)/u.test(
@@ -282,7 +304,7 @@ export async function resolveTarget(
     if (
       c.target.predicates.some(
         (p) =>
-          !p.evidence.text.includes(p.value) ||
+          (saving && !p.evidence?.text.includes(p.value)) ||
           (p.field === "genre" && !terms.genres.includes(p.value)) ||
           (p.field === "age_band" && !terms.ageBands.includes(p.value)) ||
           (["gender", "age_band", "genre", "tag"].includes(p.field) &&
@@ -363,7 +385,7 @@ export async function resolveTarget(
   if (
     c.target.predicates.some(
       (p) =>
-        !p.evidence.text.includes(p.value) ||
+        (saving && !p.evidence?.text.includes(p.value)) ||
         (p.field === "genre" && !vocabulary.genres.includes(p.value)) ||
         (p.field === "age_band" && !vocabulary.ageBands.includes(p.value)) ||
         (["gender", "age_band", "genre", "tag"].includes(p.field) &&
@@ -521,6 +543,7 @@ export async function resolveTarget(
         task,
         head.id,
         c.materials,
+        saving,
       );
     } catch (error) {
       if (error instanceof AppError && error.statusCode < 500)

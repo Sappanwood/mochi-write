@@ -81,21 +81,23 @@ setting/outline/snapshot/chapter 必须指定可读 story_id；候选仅当前 c
 
 `save_world/2` draft 接受完整 name、markdown、genres；age_band、era、tags 可省略，更新时保留原值。角色专属写字段被拒绝；未知合法 metadata 保留，完整 Content 冻结前规范化，正文不改换行。新世界观预览不创建正式身份，既有世界观预览固定目标及 baseRevision；同组反馈沿用 parent，另建只作取材。derived_from 只接受世界观母版或本会话完整世界观候选，不支持故事资料提升或世界观候选导入故事。
 
-自然目标条件仅 name、genre、age_band、era、tag，复用完整查询、唯一性与当前 head 核验。旧 conversation 的世界观讨论/阅读照常，draft/save 在派发创作前进入 `world_creation_unavailable` 澄清。
+自然目标条件仅 name、genre、age_band、era、tag，复用完整查询、唯一性与当前 head 核验。旧 conversation 的世界观讨论/阅读照常，draft 不授予候选权限并由对话解释能力限制；save 在派发创作前进入 `world_creation_unavailable` 澄清。
 
 ## 独立核验与运行
 
-Write 先持久原消息、refs、epoch、sourceMessageId、taskId、operationId，再以独立无工具 session 解释原消息与可信引用摘要。
-解释器 thinking=off、最多 2048 输出 tokens、失败不自动重试；费用/用量与创作运行分开。自然语义由此隔离解释器判断，仍存在分类误判风险。
-解释器输入附原文前 256 个 Unicode 字符的有界 UTF-16 起止位置表，辅助生成证据索引；原消息不改写，后端不自动修补错误索引。
-输出严格验证 intent、目标 mode/kind、最多 8 个字段条件、原 UTF-16 证据区间和修改证据；否定、转述、多操作或不支持条件进入澄清。
+Write 先持久原消息、refs、epoch、sourceMessageId、taskId、operationId，再以无工具 session 辅助理解本轮对话和解释正式保存请求。
+解释输入包含当前原消息、可信引用及本 conversation 最近已输出的最多 6 轮 user/assistant 摘录；按 epoch 排序，每条文本最多 2000 UTF-16 code units，摘录 JSON 不超过 24 KiB，截断有标记。历史只辅助理解选项、代词和反馈，不授予本轮保存权限。摘录随 intentRun.payload 冻结，恢复使用原输入。
+解释器 thinking=off、最多 2048 输出 tokens；仍每轮调用一次，费用/用量与创作运行分开。已确认终止的分类失败、非法 JSON、unclear 或普通讨论无需 target/evidence，均继续原创作 session，不因内部分类格式让用户重述。提交或运行结果未知仍查询原 run，不借此绕过恢复纪律。
+讨论和草稿反馈不要求逐字意图证据。draft 只需合法的目标/成员描述，后端仍核验真实引用、目标唯一性、版本、能力及候选结构；无法准备候选时不建立 draftContext，以 conversationNote 告知创作阶段继续讨论或提出具体问题，不进入任务级澄清，也不以文本冒充工具候选。
+正式保存仍严格验证 intent、目标 mode/kind、最多 8 个字段条件、原 UTF-16 证据区间和修改证据；否定、转述、多操作或不支持条件不能授权。位置表保留原文前 256 个 Unicode 字符的 UTF-16 起止位置；只接受当前原消息证据，不修补错误索引，不以历史保存要求或 AI 建议代替授权。明确分类为保存但校验失败仍进入澄清。
+每轮 execute 都携带自然对话规则，包括已有 session：合理承接用户选项和省略，只在影响创作方向时追问；没有本轮 binding 不能 commit，保存完成只依据真实收据。
 目标 mode 描述产出或保存对象，引用素材不会把全新角色或故事变成已有目标。明确 draft + mode=new 时，同类型候选也只作素材，不继承其目标、baseRevision 或改写 reference；新故事分配新的预留 ID。explicit 同组反馈与 save_current 仍核验并沿用所选候选的冻结上下文；检索 story 仅支持 name，同字段条件不重复，gender/age_band/genre/tag 仅支持 eq。
-目标条件只描述要选择的原有对象；期望的新性格、职业或正文改写要求不是旧目标筛选条件。明确引用候选的改写及新建属性由创作阶段处理，解释器不把新值拿来匹配旧稿；后端仍逐项校验解释结果，错误分类进入澄清。
+目标条件只描述要选择的原有对象；期望的新性格、职业或正文改写要求不是旧目标筛选条件。明确引用候选的改写及新建属性由创作阶段处理，解释器不把新值拿来匹配旧稿；后端仍逐项核对目标；保存校验失败进入澄清，草稿准备失败返回无写权限的对话。
 
 需要检索时，原 Mochi session 的 `<taskId>:resolve:1` 只有读权限，连 draft 都拒绝。
 其结果不作为授权：Write 另行按冻结条件完整查询最多 20 个摘要/5 页/60 KiB，重新 AND 匹配、核对唯一性并重读当前 head。
 “之前/那个/先前/上次”还要求对象出现在本会话初始/显式/实际已读来源或成功关联历史；全库单条但无此关联不授予权限。
-查询分页未完成、无匹配、多匹配、条件不符或版本变化都澄清。核验记录保存原消息 hash、分类 run/result、条件、实际候选 IDs/revisions、完整性与最终 head。
+查询分页未完成、无匹配、多匹配、条件不符或版本变化时不固定目标；保存进入澄清，草稿继续对话。核验记录保存原消息 hash、分类 run/result、条件、实际候选 IDs/revisions、完整性与最终 head。
 已明确目标或新建意图可直接 execute，不能从上轮 binding 推导本轮授权。明确引用仍须核验全部冻结条件的合法性及当前 head 的 AND 匹配；只有一条引用不免除该检查。
 
 绑定只生成一次 `{operationId,authorizationId,target,action,baseRevision,selectedDraft?,evidenceDigest}`。
@@ -163,7 +165,7 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 角色候选先读取受控词表；非法题材或年龄层返回协议 invalid_arguments，不把 Library 的界面错误文案当作工具错误码。
 新工具快照的来源引用用嵌套 type 判别联合区分 asset/candidate，禁止混入另一类字段；parent_ref 与初始化 candidate_ref 只接受完整候选，derived_from/source_ref 保留合法 member 引用。改写必须同时提供 group_id 和精确 parent_ref。初始化复制候选角色使用完整 `{kind: "snapshot", candidate_ref}`，不混入 title/body 或母版复制字段；顶层 derived_from 只记录来源，不创建角色快照。身份关系、hash、范围和版本仍由 Write 校验；旧持久工具快照不原地修改。
 
-`npm run check` 覆盖新身份、目标证据、跨分区恢复、取消、API 与存储行为及既有 v1 测试。
+`npm run check` 覆盖新身份、目标证据、跨分区恢复、取消、API 与存储行为及既有 v1 测试。`tests/free-conversation.test.ts` 覆盖选项反馈、分类异常不中断对话、有界历史与冻结恢复、无证据草稿和正式保存拒绝边界；跨 Repo 集成验证真实 HTTP/Pi 同 session 承接上一轮选项。
 `MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration` 增加真实 HTTP、签名身份、Pi AgentSession 和假 provider 的 v2 两阶段/同 session 续聊、预算与事件验证。
 `free-session.mjs` 从没有 initialRefs 的会话自主 search/read 建立实际来源历史，随后原样发送
 “找到之前那个侦探角色，把职业改成记者并保存”，本轮不带 refs；断言独立完整查询、目标身份/基础版本、
@@ -235,7 +237,7 @@ v2 回调继承专用 app-only 身份，逐项校验 app/session/task/run/phase/
 ## 单故事资料候选
 
 新建 conversation 现在使用 materials-v1 十二工具快照：world-v1 基础上 discover_artifacts/4、read_artifact/3，追加 revise_story_materials/2。旧 world-v1/十工具/v1 保留持久能力，不升级。
-资料候选与正式 commit 已实现。目标限定 ready、非 pending、已有章节的单故事。独立解释 materials 请求并核验原文证据后固定 1–8 个成员；snapshot 可新建或更新，setting/outline 仅更新唯一既有对象。缺失/多匹配澄清，不能 upsert。包成员逐项固定后端 ID、模式、基础 revision/version 与来源，创作工具只按 key 提供完整 name/markdown 或 copy_source，不得漏项/增项。
+资料候选与正式 commit 已实现。目标限定 ready、非 pending、已有章节的单故事。解释 materials 请求并核验真实目标后固定 1–8 个成员，只有直接正式保存才要求逐字原文证据；snapshot 可新建或更新，setting/outline 仅更新唯一既有对象。缺失/多匹配不能固定成员或 upsert；保存进入澄清，预览返回对话。包成员逐项固定后端 ID、模式、基础 revision/version 与来源，创作工具只按 key 提供完整 name/markdown 或 copy_source，不得漏项/增项。
 同组反馈保持原成员和基线，即使正式资料后来变化；改变成员范围需明确另建组。首次来源复制只传 key/copy_source=true，不同时传 name/markdown；同组反馈每项都传完整 name/markdown（包括既有来源成员），不再使用 copy_source。来源复制完整 Content 与合法 metadata，母版保留 sourceAssetId/sourceVersion；同会话未保存角色复制保留 sourceCandidate 的 conversationId/groupId/draftId/draftRevision/draftHash，不要求先存母版。候选 sourceRef 保持精确来源；内部展开不伪记 agent_read。跨会话候选、世界观候选入故事仍拒绝。
 单 Content 60 KiB、参数120 KiB、完整包256 KiB，每task八稿/1 MiB沿用原限制。候选成员目录不算全文读取，read_artifact/3 按 member_id 返回全文并记录来源。
 
@@ -253,6 +255,6 @@ head Create/IfMatch、未修改业务内容的 story head IfMatch guard 与 OP/r
 
 信息区逐项显示新增/更新、冻结的基础业务版本、完整正文与属性、母版或本会话候选的精确入包来源。参考来源独立列示，引用不自动增加成员。浏览、切换旧稿和新稿提醒不授权保存。资料真实收据列出各成员模式与结果版本，可进入对应资料阅读页并返回原会话。旧十工具/world-v1 会话提示资料能力限制并提供主动新建入口，原聊天、候选和授权不转移。
 
-资料分类器提示短消息（最多 256 个 UTF-16 code units）使用完整原文证据，长消息按位置表选择精确片段；这不改变后端的逐字核验和意图授权。模型仍可能产生非法结构、位置或目标，拒绝后由用户澄清；产品不自动修正授权或重试。
+资料正式保存分类提示短消息（最多 256 个 UTF-16 code units）使用完整原文证据，长消息按位置表选择精确片段；后端仍逐字核验保存授权。预览不要求证据位置，非法结构或无法定位的成员由创作对话处理。保存校验失败仍需澄清，不自动修正授权或重试。
 
 世界观及资料能力已发布到云端。真实合成验收确认同 session 的五成员资料候选、同组反馈、精确旧稿整包保存、当前设定/大纲/角色快照 v2 的 agent_read 与续章，旧章节和原引用内容保持。原 OP 查询、真实收据导航及刷新恢复通过。模型意图仍可能被逐字证据校验拒绝，需明确重述；一次原运行状态未知已通过原 run 核实恢复，未重建会话或重放成功保存。

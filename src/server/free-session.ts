@@ -20,6 +20,7 @@ import { resolveTarget } from "./free-resolver.js";
 import { freeEvents } from "./free-events.js";
 import { FreeWorkflow } from "./free-workflow.js";
 import { FreeCandidates } from "./free-candidates.js";
+import { isSaveIntent } from "./free-conversation.js";
 export class FreeSession {
   readonly candidates: FreeCandidates;
   readonly references: FreeReferences;
@@ -295,10 +296,11 @@ export class FreeSession {
     current.classifier = raw;
     current.classifierRunId = classifierRunId;
     current.resolutionEvidence = result.evidence;
-    if (result.clarify) {
+    if (result.clarify && isSaveIntent(raw)) {
       current.state = "clarifying";
       current.error = result.clarify;
     } else {
+      current.conversationNote = result.clarify;
       current.draftContext = result.draftContext
         ? {
             ...result.draftContext,

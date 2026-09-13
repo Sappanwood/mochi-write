@@ -241,7 +241,7 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 
 ## 自由会话过程存储
 
-`FreeSession` 与旧 `Creative` 并存。v2 过程记录在 library；新 conversation 固定 materials-v1 能力，旧 conversation 保持十工具或 world-v1；世界观候选与目标解析复用 v2 身份和不可变候选，正式角色/世界观保存共用 `saveLibraryAsset` 的 library 事务校验，工具与候选 kind、目标、动作必须一致。不可变 OP directory 将任务绑定到角色/世界观 library 或故事 stories 分区的权威 ledger。母版正式事务包含 OP CAS、version Create 与 head Create/IfMatch，独立 draft claim 阻止跨 OP 重复保存同稿。故事保存先在 library 同 batch 固定 directory 精确输入与 claim，再由 stories 目标分区 OP CAS、业务 version/head 同 batch 提交；共享 initialization-builder 与初始化业务校验复用 v1 限制。续章事务包含 story head CAS guard。目标事务与会话投影分开恢复，取消以目标 ledger CAS 确认为准。候选组 CAS 和 create-only 候选与会话同分区，FreeCandidates 提供精确冻结/读取；资产发现采用元数据投影，来源兼容资产及候选不可变身份。独立解释与同 session 两阶段 run、只读 allowlist 及业务扩展点见 [自由会话服务](FREE_SESSION.md)。
+`FreeSession` 与旧 `Creative` 并存。v2 过程记录在 library；新 conversation 固定 materials-v1 能力，旧 conversation 保持十工具或 world-v1；世界观候选与目标解析复用 v2 身份和不可变候选，正式角色/世界观保存共用 `saveLibraryAsset` 的 library 事务校验，工具与候选 kind、目标、动作必须一致。不可变 OP directory 将任务绑定到角色/世界观 library 或故事 stories 分区的权威 ledger。母版正式事务包含 OP CAS、version Create 与 head Create/IfMatch，独立 draft claim 阻止跨 OP 重复保存同稿。故事保存先在 library 同 batch 固定 directory 精确输入与 claim，再由 stories 目标分区 OP CAS、业务 version/head 同 batch 提交；共享 initialization-builder 与初始化业务校验复用 v1 限制。续章事务包含 story head CAS guard。目标事务与会话投影分开恢复，取消以目标 ledger CAS 确认为准。候选组 CAS 和 create-only 候选与会话同分区，FreeCandidates 提供精确冻结/读取；资产发现采用元数据投影，来源兼容资产及候选不可变身份。无工具解释器接收冻结的有界近期对话，为草稿准备上下文，只有正式保存要求完整原文授权证据。分类失败或草稿目标不可用时，FreeSession 以无 binding 的 execute 继续对话，内部 conversationNote 不作为用户错误；正式保存仍由后端独立核验和 OP 授权。自然互动规则逐轮注入既有创作 session。同 session 两阶段 run、只读 allowlist 及业务扩展点见 [自由会话服务](FREE_SESSION.md)。
 
 
 ## 自由会话浏览器工作区
@@ -263,4 +263,4 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 
 ## 单故事资料候选
 
-FreeSession 新建持久 materials-v1；free-material-resolver 核验本轮成员意图并固定 story/成员身份与版本，free-material-tools 展开完整来源和候选。资料候选沿 library FreeCandidates 不可变组/稿，候选不写正式故事；free-material-save 经独立 OP 固定精确包后以逐对象 CAS 正式提交。shared/story-materials 定义成员身份和目标包，来源候选 provenance 独立保存到实体 sourceCandidate，不污染 Content/hash。
+FreeSession 新建持久 materials-v1；free-material-resolver 固定 story/成员身份与版本，正式保存另核验本轮成员原文意图，预览不要求逐字证据，free-material-tools 展开完整来源和候选。资料候选沿 library FreeCandidates 不可变组/稿，候选不写正式故事；free-material-save 经独立 OP 固定精确包后以逐对象 CAS 正式提交。shared/story-materials 定义成员身份和目标包，来源候选 provenance 独立保存到实体 sourceCandidate，不污染 Content/hash。

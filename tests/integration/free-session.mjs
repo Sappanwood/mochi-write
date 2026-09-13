@@ -10,6 +10,9 @@ const assetKind =
   new URL(import.meta.url).searchParams.get("kind") ?? "character";
 const dimension = assetKind === "world" ? "era" : "occupation";
 const contexts = [];
+const choices = "给我两个故事走向";
+const answer = "第二个，但让冲突更激烈一点";
+const options = "1. 调查灯塔；2. 潜入港口。你倾向哪个方向？";
 const textOf = (m) =>
   typeof m.content === "string"
     ? m.content
@@ -28,7 +31,40 @@ const configureRuntime = (pi, streamFactory) => {
       .filter((m) => m.role === "toolResult");
     let content,
       reason = "stop";
-    if (!context.tools?.length) {
+    if ([choices, answer].includes(input.user_message)) {
+      if (!context.tools?.length) {
+        if (input.user_message === answer)
+          assert.ok(
+            input.recent_turns.some((t) => t.assistant_message === options),
+          );
+        content = [
+          {
+            type: "text",
+            text: JSON.stringify({
+              intent: input.user_message === answer ? "unclear" : "discuss",
+            }),
+          },
+        ];
+      } else {
+        assert.equal(input.binding, null);
+        assert.ok(input.conversation_policy);
+        if (input.user_message === answer)
+          assert.ok(
+            context.messages.some(
+              (m) => m.role === "assistant" && textOf(m) === options,
+            ),
+          );
+        content = [
+          {
+            type: "text",
+            text:
+              input.user_message === choices
+                ? options
+                : "按潜入港口的方向展开，让守卫提前察觉，升级冲突。",
+          },
+        ];
+      }
+    } else if (!context.tools?.length) {
       const message = input.user_message;
       const search = message.includes("职业改成记者");
       const selected = message.includes("选定");
@@ -219,6 +255,32 @@ async function finish(id) {
   throw Error("free task timeout");
 }
 try {
+  const chat = await h.request("/api/creative/free/conversations", {
+    clientRequestId: randomUUID(),
+    message: choices,
+    provider: "deepseek",
+    model: "deepseek-v4-flash",
+  });
+  const offered = await finish(chat.task.id);
+  assert.equal(offered.state, "succeeded");
+  const reply = await h.request(
+    `/api/creative/free/conversations/${chat.conversation.id}/tasks`,
+    {
+      clientRequestId: randomUUID(),
+      message: answer,
+      provider: "deepseek",
+      model: "deepseek-v4-flash",
+    },
+  );
+  const continued = await finish(reply.task.id);
+  assert.equal(continued.state, "succeeded");
+  assert.match(continued.output, /潜入港口/);
+  assert.equal(continued.binding, undefined);
+  assert.equal(
+    continued.executionRun.sessionId,
+    offered.executionRun.sessionId,
+  );
+  assert.equal(h.content.heads.size, 0);
   const doc = await h.content.commit(
     entity(assetKind, {
       name: "合成侦探",

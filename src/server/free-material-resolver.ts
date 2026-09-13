@@ -28,8 +28,19 @@ export async function resolveMaterials(
   task: FreeTask,
   storyId: string,
   raw: unknown,
+  verifyIntent = true,
 ): Promise<MaterialSpec[]> {
-  const requests = z.array(materialRequestSchema).min(1).max(8).parse(raw);
+  const requests = z
+    .array(
+      verifyIntent
+        ? materialRequestSchema
+        : materialRequestSchema.extend({
+            evidence: materialRequestSchema.shape.evidence.optional(),
+          }),
+    )
+    .min(1)
+    .max(8)
+    .parse(raw);
   const keys = new Set<string>(),
     ids = new Set<string>(),
     singletons = new Set<string>();
@@ -38,13 +49,15 @@ export async function resolveMaterials(
     if (
       keys.has(r.key) ||
       (r.kind !== "snapshot" && singletons.has(r.kind)) ||
-      task.input.message.slice(r.evidence.start, r.evidence.end) !==
-        r.evidence.text ||
-      r.evidence.end > task.input.message.length ||
-      (r.name && !r.evidence.text.includes(r.name)) ||
-      !/(?:快照|角色|人物|设定|大纲|snapshot|setting|outline)/iu.test(
-        r.evidence.text,
-      )
+      (verifyIntent &&
+        (!r.evidence ||
+          task.input.message.slice(r.evidence.start, r.evidence.end) !==
+            r.evidence.text ||
+          r.evidence.end > task.input.message.length ||
+          (r.name && !r.evidence.text.includes(r.name)) ||
+          !/(?:快照|角色|人物|设定|大纲|snapshot|setting|outline)/iu.test(
+            r.evidence.text,
+          )))
     )
       throw new AppError(400, "invalid_material_evidence");
     keys.add(r.key);
@@ -105,8 +118,10 @@ export async function resolveMaterials(
       )
         throw new AppError(403, "forbidden_scope");
       if (
-        !r.evidence.text.includes(source.content.name) &&
-        !/(?:引用|这个|该|候选)/u.test(r.evidence.text)
+        verifyIntent &&
+        (!r.evidence ||
+          (!r.evidence.text.includes(source.content.name) &&
+            !/(?:引用|这个|该|候选)/u.test(r.evidence.text)))
       )
         throw new AppError(400, "invalid_material_evidence");
       spec.source_ref = ref;

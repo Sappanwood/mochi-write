@@ -183,6 +183,7 @@ export interface FreeTask extends FreeBase {
   eventCursor?: number;
   receipt?: ReceiptV2;
   output?: string;
+  conversationNote?: string;
   error?: string;
 }
 export interface ResolutionEvidence {

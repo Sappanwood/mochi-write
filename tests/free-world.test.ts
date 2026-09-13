@@ -41,8 +41,9 @@ it("new world-capable conversations retain exact eleven-tool snapshots while old
     ).tools,
   ).toHaveLength(10);
   const blocked = await worldResolve(old.free, old.task);
-  expect(blocked.state).toBe("clarifying");
-  expect(blocked.error).toBe("world_creation_unavailable");
+  expect(blocked.state).toBe("authorized");
+  expect(blocked.conversationNote).toBe("world_creation_unavailable");
+  expect(blocked.draftContext).toBeUndefined();
   expect(blocked.binding).toBeUndefined();
 });
 it("world preview and interleaved groups preserve old exact content without formal writes", async () => {

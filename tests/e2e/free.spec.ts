@@ -556,7 +556,7 @@ test("lost first POST is recovered through original GET and retains newer edits 
   expect((await f.records.list("task", conversationId)).length).toBe(1);
   await finish(await f.free.task(taskId));
 });
-test("unresolved and ambiguous targets never derive authority from the current panel; cancellation remains distinct", async ({
+test("unclear feedback continues, ambiguous saves cannot use the current panel, and cancellation stays distinct", async ({
   page,
 }) => {
   const t = await send(page, "构思两个对象");
@@ -566,7 +566,19 @@ test("unresolved and ambiguous targets never derive authority from the current p
   await show(page, a);
   f.mochi.freeIntent = "unclear";
   f.mochi.targetMode = "unclear";
-  await page.getByLabel("下一条消息").fill("修改这个");
+  const feedback = await send(page, "第二个，更果断一点");
+  expect(feedback.binding).toBeUndefined();
+  expect(feedback.draftContext).toBeUndefined();
+  await expect(
+    page.getByText("需要澄清目标", { exact: true }),
+  ).not.toBeVisible();
+  await finish(feedback);
+  f.mochi.freeIntent = "save_current";
+  f.mochi.targetMode = "explicit";
+  await page.getByLabel("下一条消息").fill("保存这个");
+  await expect(
+    page.getByRole("button", { name: "发送", exact: true }),
+  ).toBeEnabled();
   const response = page.waitForResponse(
     (r) => r.request().method() === "POST" && /\/tasks$/.test(r.url()),
   );

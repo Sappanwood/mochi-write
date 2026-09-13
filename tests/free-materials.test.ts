@@ -61,23 +61,25 @@ it("feedback preserves member baselines after human editing and old exact conten
     a.draftHash,
   );
 });
-it("old world session cannot gain material capability and invalid lifecycle or ambiguous members clarify", async () => {
+it("unavailable capability and ambiguous draft members return to conversation without granting candidate scope", async () => {
   const f = await materialFixture();
   const c = await f.free.conversation(f.conversation.id);
   await f.records.transaction("library", [
     { record: { ...c, toolsetVersion: "world-v1" }, revision: c.revision },
   ]);
   const t = await materialResolve(f.free, await materialTask(f));
-  expect(t.error).toBe("story_materials_unavailable");
+  expect(t.conversationNote).toBe("story_materials_unavailable");
+  expect(t.draftContext).toBeUndefined();
   expect(t.binding).toBeUndefined();
   const g = await materialFixture();
   await g.content.commit(
     entity("snapshot", worldContent("林舟"), g.story.id),
     null,
   );
-  expect((await materialResolve(g.free, await materialTask(g))).state).toBe(
-    "clarifying",
-  );
+  const ambiguous = await materialResolve(g.free, await materialTask(g));
+  expect(ambiguous.state).toBe("authorized");
+  expect(ambiguous.draftContext).toBeUndefined();
+  expect(ambiguous.conversationNote).toBe("ambiguous_or_missing_material");
 });
 it("master sources expand full independent Content and preserve source version", async () => {
   const f = await materialFixture();
@@ -107,7 +109,7 @@ it("master sources expand full independent Content and preserve source version",
     }),
   ).rejects.toThrow();
 });
-it("natural story lookup still works without @ and rejects forged material evidence", async () => {
+it("natural story lookup works without @ and draft evidence is advisory while saving stays strict", async () => {
   const f = await materialFixture();
   const task = await materialTask(f, "为灯塔更新林舟快照，只预览", []);
   const t = await materialResolve(
@@ -121,21 +123,36 @@ it("natural story lookup still works without @ and rejects forged material evide
     kind: "story",
     story_id: f.story.id,
   });
-  const bad = await materialTask(f);
-  expect(
-    (
-      await f.free.resolve(
-        bad.id,
-        {
-          intent: "draft",
-          evidence: { start: 0, end: 1, text: "假" },
-          target: { mode: "explicit", kind: "story", predicates: [] },
-          materials: materialRequests(),
+  for (const intent of ["draft", "revise_story_materials"]) {
+    const next = await materialTask(f, "继续按这个方向改");
+    const result = await f.free.resolve(
+      next.id,
+      {
+        intent,
+        evidence: {
+          start: 0,
+          end: next.input.message.length,
+          text: next.input.message,
         },
-        randomUUID(),
-      )
-    ).state,
-  ).toBe("clarifying");
+        changeEvidence: {
+          start: 0,
+          end: next.input.message.length,
+          text: next.input.message,
+        },
+        target: { mode: "explicit", kind: "story", predicates: [] },
+        materials: materialRequests().map((r) => ({
+          ...r,
+          evidence: { start: 0, end: 1, text: "假" },
+        })),
+      },
+      randomUUID(),
+    );
+    expect(result.state).toBe(intent === "draft" ? "authorized" : "clarifying");
+    expect(result.binding).toBeUndefined();
+    if (intent === "draft")
+      expect(result.draftContext?.materials).toHaveLength(4);
+    else expect(result.error).toBe("invalid_material_evidence");
+  }
 });
 it("unsaved same-conversation character expands without a master and keeps durable candidate provenance", async () => {
   const f = await materialFixture();
