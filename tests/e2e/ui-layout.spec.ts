@@ -79,3 +79,43 @@ for (const width of [1440, 390]) {
     await page.screenshot({ path: `/tmp/mwt042-reader-${width}.png` });
   });
 }
+
+for (const width of [390, 768]) {
+  test(`chapter changes return focus to the reading pane and close the directory at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const story = (await f.store.list({ kind: "story" })).items[0]!;
+    const chapter = (
+      await f.store.list({ projectId: story.id, kind: "chapter" })
+    ).items.find((d) => d.order === 1)!;
+    await f.store.commit(
+      {
+        ...chapter,
+        currentVersion: chapter.currentVersion + 1,
+        content: {
+          ...chapter.content,
+          markdown:
+            "# 第一章 来信\n\n" + "林舟沿着海岸寻找来信的主人。\n\n".repeat(50),
+        },
+      },
+      chapter.revision,
+    );
+    await page.goto(`${f.address}/#story/${story.id}/chapter/${chapter.id}`);
+    await page.getByRole("button", { name: "下一章", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "第二章 远航", exact: true }),
+    ).toBeInViewport();
+    await expect(page.locator(".reading-pane")).toBeFocused();
+    await page.getByText("章节目录", { exact: true }).click();
+    await page.getByRole("button", { name: "01ch01", exact: true }).click();
+    await expect(page.locator(".reader-directory")).not.toHaveAttribute(
+      "open",
+      "",
+    );
+    await expect(
+      page.getByRole("heading", { name: "第一章 来信", exact: true }),
+    ).toBeInViewport();
+    await expect(page.locator(".reading-pane")).toBeFocused();
+  });
+}

@@ -1,11 +1,12 @@
 import { AssetCreativeEntry } from "./FreeEntry.js";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Document, Page } from "../shared/model.js";
 import { type Api, message } from "./api.js";
 import { ContentReading } from "./ContentReading.js";
 import { PortraitImage } from "./PortraitImage.js";
 import { ContentSummary, UpdatedTime } from "./ContentSummary.js";
 import { StoryGuidance } from "./StoryGuidance.js";
+import "./stories.css";
 export function StoriesView({
   api,
   navigate,
@@ -43,16 +44,14 @@ export function StoriesView({
     };
   }, [api]);
   return (
-    <>
+    <section className="story-shelf">
       <header className="page-heading">
         <div>
           <p className="eyebrow">故事书架</p>
           <h1>你的故事</h1>
           <p>阅读已保存的故事，也可以继续创作。</p>
         </div>
-        <div className="creative-navigation">
-          <button onClick={() => navigate("free/new/story")}>新建故事</button>
-        </div>
+        <button onClick={() => navigate("free/new/story")}>新建故事</button>
       </header>
       {error && (
         <p role="alert" className="error">
@@ -64,25 +63,35 @@ export function StoriesView({
         <div className="empty">书架上还没有故事。先聊聊你的想法。</div>
       )}
       <div className="story-grid">
-        {page.items.map((s, i) => (
+        {page.items.map((s) => (
           <button
             className="story-card"
             key={s.id}
             onClick={() => navigate(`story/${s.id}/chapter`)}
           >
-            <div className={`book-cover cover-${i % 3}`}>
+            <div
+              className={`book-cover cover-${parseInt(s.id.slice(-2), 16) % 3}`}
+            >
+              <span className="book-cover-label" aria-hidden="true">
+                MOCHI WRITE
+              </span>
               <h2 title={s.content.name}>{s.content.name}</h2>
-              <span>
+              <span className="book-cover-rule" aria-hidden="true" />
+            </div>
+            <div className="story-card-body">
+              <p className="story-card-status">
                 {s.initializationPending
                   ? "作品已建立 · 尚无章节"
                   : "故事 · 正式内容"}
+              </p>
+              <ContentSummary markdown={s.content.markdown} />
+              <p className="content-updated">
+                资料更新于 <UpdatedTime value={s.updatedAt} />
+              </p>
+              <span className="story-card-link">
+                阅读故事 <span aria-hidden="true">→</span>
               </span>
             </div>
-            <ContentSummary markdown={s.content.markdown} />
-            <p className="content-updated">
-              资料更新于 <UpdatedTime value={s.updatedAt} />
-            </p>
-            <p>阅读故事 →</p>
           </button>
         ))}
       </div>
@@ -91,7 +100,7 @@ export function StoriesView({
           加载更多
         </button>
       )}
-    </>
+    </section>
   );
 }
 const labels = {
@@ -155,6 +164,14 @@ export function StoryReader({
       active = false;
     };
   }, [api, id, section, generation]);
+  const readingPane = useRef<HTMLDivElement>(null);
+  const directory = useRef<HTMLDetailsElement>(null);
+  function readDocument(doc: Document) {
+    if (directory.current) directory.current.open = false;
+    navigate(`story/${id}/${section}/${doc.id}`);
+    readingPane.current?.focus({ preventScroll: true });
+    readingPane.current?.scrollIntoView({ block: "start" });
+  }
   const current = documentId ? docs.find((d) => d.id === documentId) : docs[0];
   const index = docs.findIndex((d) => d.id === current?.id);
   const hasOpeningHeading = /^ {0,3}#{1,6}[\t ]+\S/.test(
@@ -177,10 +194,17 @@ export function StoryReader({
           带此故事新建会话
         </button>
       </header>
-      <AssetCreativeEntry api={api} id={id} kind="story" navigate={navigate} />
-      {story?.id === id && (
-        <StoryGuidance key={id} api={api} story={story} onSaved={setStory} />
-      )}
+      <div className="reader-tools">
+        <AssetCreativeEntry
+          api={api}
+          id={id}
+          kind="story"
+          navigate={navigate}
+        />
+        {story?.id === id && (
+          <StoryGuidance key={id} api={api} story={story} onSaved={setStory} />
+        )}
+      </div>
       <nav className="tabs" aria-label="故事内容">
         {Object.entries(labels).map(([key, label]) => (
           <button
@@ -221,8 +245,18 @@ export function StoryReader({
       )}
       {!loading && !error && (
         <div className="reader-layout">
-          <details className="reader-directory" key={`${id}:${section}`}>
-            <summary>{labels[section]}目录</summary>
+          <details
+            ref={directory}
+            className="reader-directory"
+            key={`${id}:${section}`}
+          >
+            <summary>
+              <span>{labels[section]}目录</span>
+              <span className="directory-count">
+                {docs.length} {section === "chapter" ? "章" : "份"}
+                {index >= 0 ? ` · 当前 ${index + 1}` : ""}
+              </span>
+            </summary>
             <aside
               className="chapter-list"
               aria-label={labels[section] + "目录"}
@@ -231,7 +265,7 @@ export function StoryReader({
                 <button
                   key={d.id}
                   aria-current={current?.id === d.id ? "page" : undefined}
-                  onClick={() => navigate(`story/${id}/${section}/${d.id}`)}
+                  onClick={() => readDocument(d)}
                 >
                   {d.order && <span>{String(d.order).padStart(2, "0")}</span>}
                   {d.content.name}
@@ -239,13 +273,18 @@ export function StoryReader({
               ))}
             </aside>
           </details>
-          <div className="reading-pane">
+          <div
+            className="reading-pane"
+            ref={readingPane}
+            tabIndex={-1}
+            role="region"
+            aria-label="阅读正文"
+          >
             {current ? (
               <>
                 <p className="eyebrow">
                   {labels[section]}
                   {current.order ? " · " + current.order : ""}
-                  {section === "chapter" && ` · ${current.content.name}`}
                 </p>
                 {(section !== "chapter" || !hasOpeningHeading) && (
                   <h2>{current.content.name}</h2>
@@ -274,9 +313,7 @@ export function StoryReader({
                     <button
                       className="secondary"
                       disabled={index <= 0}
-                      onClick={() =>
-                        navigate(`story/${id}/chapter/${docs[index - 1]!.id}`)
-                      }
+                      onClick={() => readDocument(docs[index - 1]!)}
                     >
                       上一章
                     </button>
@@ -286,9 +323,7 @@ export function StoryReader({
                     <button
                       className="secondary"
                       disabled={index >= docs.length - 1}
-                      onClick={() =>
-                        navigate(`story/${id}/chapter/${docs[index + 1]!.id}`)
-                      }
+                      onClick={() => readDocument(docs[index + 1]!)}
                     >
                       下一章
                     </button>

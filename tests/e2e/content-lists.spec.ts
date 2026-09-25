@@ -98,3 +98,50 @@ test("story summaries survive pagination without duplicate titles or changed des
     page.getByRole("heading", { name: title, exact: true }),
   ).toBeVisible();
 });
+
+test("shelf keeps long titles, summaries and pending stories readable on narrow screens", async ({
+  page,
+}) => {
+  for (const [name, markdown, pending] of [
+    ["雾海来信", "在灯塔熄灭的那一夜，一封没有署名的信漂到了岸边。", false],
+    [
+      "穿越漫长冬夜后仍然守候在群星尽头的旅人",
+      "一段有关远行、记忆与归途的故事。",
+      false,
+    ],
+    ["尚未启程", "", true],
+  ] as const) {
+    const id = randomUUID();
+    await f.store.commit(
+      {
+        ...entity(
+          "story",
+          { name, markdown, genres: [], ageBand: "", sourceMetadata: {} },
+          id,
+          id,
+        ),
+        status: "ready",
+        ...(pending ? { initializationPending: true as const } : {}),
+      },
+      null,
+    );
+  }
+  await page.getByRole("link", { name: "故事书架", exact: true }).click();
+  await expect(page.locator(".story-card")).toHaveCount(3);
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const pending = page.locator(".story-card").filter({ hasText: "尚未启程" });
+    await expect(pending).toContainText("作品已建立 · 尚无章节");
+    await expect(pending).toContainText("暂无内容摘要");
+    await expect(pending.locator("h2")).toHaveCount(1);
+    await page.screenshot({
+      path: `/tmp/mochi-shelf-${width}.png`,
+      fullPage: true,
+    });
+  }
+});
