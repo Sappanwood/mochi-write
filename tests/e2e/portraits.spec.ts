@@ -36,7 +36,15 @@ test("uploads and crops a portrait, preserves prompt drafts, resolves conflicts 
   await page
     .getByLabel("采用的生图提示词")
     .fill("2.5D，银色短发，绿眼睛，柔和体积光影。");
+  const manager = page.getByRole("button", {
+    name: "头像与提示词",
+    exact: true,
+  });
+  await manager.click();
+  await expect(page.getByLabel("采用的生图提示词")).not.toBeVisible();
+  await expect(page.getByText("尚未保存", { exact: true })).toBeVisible();
   await page.reload();
+  await expect(manager).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByLabel("采用的生图提示词")).toHaveValue(/银色短发/);
   await page.getByLabel("上传头像").setInputFiles({
     name: "portrait.png",

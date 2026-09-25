@@ -6,6 +6,10 @@
   --ink: #303630;
   --muted: #706f66;
   --panel: #eeeee6;
+  --text-small: 13px;
+  --text-ui: 14px;
+  --control-radius: 8px;
+  --focus: #94632f;
   --sans: system-ui, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
   --serif: "Noto Serif CJK SC", "Songti SC", "Source Han Serif SC", serif;
   font-family: var(--sans);
@@ -21,9 +25,12 @@ body {
 }
 button {
   font: inherit;
+  font-size: var(--text-ui);
+  line-height: 1.5;
+  min-height: 40px;
   padding: 10px 16px;
   border: 1px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   color: #fff;
   background: var(--accent);
   cursor: pointer;
@@ -33,13 +40,13 @@ button:hover {
 }
 button:disabled {
   opacity: 0.55;
-  cursor: wait;
+  cursor: not-allowed;
 }
 button:focus-visible,
 a:focus-visible,
 summary:focus-visible {
-  outline: 3px solid #b38346;
-  outline-offset: 4px;
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
 }
 .entry {
   min-height: 100dvh;
@@ -124,15 +131,15 @@ textarea {
   color: inherit;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: var(--control-radius);
   padding: 10px 12px;
   width: 100%;
 }
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 2px solid #799981;
-  outline-offset: 1px;
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
 }
 label {
   display: flex;
@@ -207,7 +214,9 @@ a {
 .sidebar nav a {
   text-decoration: none;
   padding: 12px;
-  border-radius: 5px;
+  border-radius: var(--control-radius);
+  min-height: 40px;
+  align-items: center;
   display: flex;
   gap: 14px;
   font-size: 14px;
@@ -222,16 +231,17 @@ a {
   font-weight: 600;
 }
 .sidebar nav .new-creation {
-  background: var(--accent);
-  color: var(--surface);
+  border: 1px solid #c7cfbc;
+  color: var(--accent);
+  font-weight: 600;
   margin-bottom: 16px;
 }
 .sidebar nav .new-creation:hover {
-  background: #243b31;
+  background: #e2e5d8;
 }
 summary {
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: var(--control-radius);
 }
 .sidebar-more {
   position: relative;
@@ -262,7 +272,7 @@ summary {
 .sidebar-bottom {
   margin-top: auto;
   padding: 20px 12px 0;
-  font-size: 12px;
+  font-size: var(--text-small);
   color: var(--muted);
 }
 .sidebar-bottom .quiet {
@@ -346,8 +356,8 @@ summary {
 }
 .card-link {
   display: block;
-  font-size: 12px;
-  color: #6c7c5c;
+  font-size: var(--text-small);
+  color: var(--accent);
   margin-top: 16px;
 }
 .content-summary {
@@ -359,7 +369,7 @@ summary {
   line-height: 1.6;
 }
 .content-updated {
-  font-size: 12px;
+  font-size: var(--text-small);
   color: var(--muted);
 }
 .tags {
@@ -368,8 +378,8 @@ summary {
   flex-wrap: wrap;
 }
 .tags span {
-  font-size: 11px;
-  color: #6a745d;
+  font-size: var(--text-small);
+  color: #526047;
   background: #edf0e3;
   border-radius: 3px;
   padding: 4px 8px;
@@ -472,7 +482,7 @@ legend {
 }
 .muted {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
   line-height: 1.8;
 }
 .markdown {
@@ -516,8 +526,8 @@ legend {
   margin-top: 0;
 }
 .metadata dt {
-  font-size: 12px;
-  color: #838b79;
+  font-size: var(--text-small);
+  color: var(--muted);
 }
 .metadata dd {
   margin: 7px 0 0;
@@ -544,7 +554,7 @@ legend {
   transform: translateY(-3px);
 }
 .story-card p {
-  font-size: 12px;
+  font-size: var(--text-small);
   color: var(--muted);
 }
 .book-cover {
@@ -1714,4 +1724,17 @@ summary {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+@media (max-width: 700px), (pointer: coarse) {
+  button,
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  summary,
+  .sidebar nav a,
+  .sidebar-more-content a {
+    min-height: 44px;
+  }
+  summary {
+    align-content: center;
+  }
 }

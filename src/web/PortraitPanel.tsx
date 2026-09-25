@@ -116,18 +116,16 @@ export function PortraitPanel({
           aria-controls="portrait-manager"
           onClick={() => setExpanded(!expanded)}
         >
-          {value.imageId ? "更换头像" : "添加头像"}
+          头像与提示词
         </button>
         {draft && <span className="portrait-unsaved">尚未保存</span>}
       </div>
       {children}
-      <div className="portrait-controls">
-        <details
-          id="portrait-manager"
-          open={expanded}
-          onToggle={(e) => setExpanded(e.currentTarget.open)}
-        >
-          <summary>头像与提示词{draft ? " · 尚未保存" : ""}</summary>
+      <div
+        className="portrait-controls"
+        hidden={!expanded && !conflict && !remote && !error && !notice}
+      >
+        <div id="portrait-manager" hidden={!expanded}>
           <div className="portrait-manager-body">
             <button
               className="secondary"
@@ -201,7 +199,7 @@ export function PortraitPanel({
               </div>
             </fieldset>
           </div>
-        </details>
+        </div>
         {conflict && (
           <button
             disabled={busy}

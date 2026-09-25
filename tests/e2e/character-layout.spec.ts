@@ -31,18 +31,31 @@ test("character profile keeps identity, reading and management usable on desktop
   await expect(profile.getByText("灯塔守望者", { exact: true })).toBeVisible();
   await expect(profile.getByText("性别", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("采用的生图提示词")).not.toBeVisible();
+  const portraitManager = profile.getByRole("button", {
+    name: "头像与提示词",
+    exact: true,
+  });
+  await expect(portraitManager).toHaveCount(1);
+  await expect(profile.getByText(/^(添加头像|更换头像)$/)).toHaveCount(0);
+  await portraitManager.focus();
+  await page.keyboard.press("Enter");
+  await expect(portraitManager).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByLabel("采用的生图提示词")).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(portraitManager).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByLabel("采用的生图提示词")).not.toBeVisible();
   await page.screenshot({
     path: "/tmp/mochi-character-desktop.png",
     fullPage: true,
   });
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
-    await expect(
-      page.getByRole("button", { name: "添加头像", exact: true }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "添加头像", exact: true }).click();
+    await expect(portraitManager).toBeVisible();
+    const managerBounds = await portraitManager.boundingBox();
+    expect(managerBounds!.height).toBeGreaterThanOrEqual(44);
+    await portraitManager.click();
     await expect(page.getByLabel("采用的生图提示词")).toBeVisible();
-    await page.getByRole("button", { name: "添加头像", exact: true }).click();
+    await portraitManager.click();
     await profile.getByText("更多", { exact: true }).click();
     await expect(
       page.getByRole("button", { name: "删除角色", exact: true }),
@@ -55,6 +68,9 @@ test("character profile keeps identity, reading and management usable on desktop
     await profile.getByText("更多", { exact: true }).click();
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    (await page.getByRole("heading", { name: "人物小传" }).boundingBox())!.y,
+  ).toBeLessThan(500);
   await page.screenshot({
     path: "/tmp/mochi-character-mobile.png",
     fullPage: true,
