@@ -25,7 +25,7 @@ MWT-004 已发布到 Azure Container Apps，本人 Entra 登录与故事列表 H
 先执行 `pops project list --json` 和 `pops project doctor --json`，读取 workspace 安装的
 `projectops-workflow` skill，使用 manifest 解析出的 typed roots。
 Backlog、Plan、execution、Report、ADR、Research 均由 ProjectOps 管理，不创建 Workspace Control 副本。
-项目回顾使用 ProjectOps retrospective 路由；共享 tooling 回顾遵循 Workspace 路由。
+项目和共享回顾统一使用 ProjectOps retrospective；共享规则、skill 与 tooling 的后续事项归 `workspace-meta`。
 
 ## 开发边界
 
