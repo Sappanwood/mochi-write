@@ -6,7 +6,7 @@ Agent 执行由 Mochi 提供，云基础设施与部署由 CCP 管理。
 ## 当前状态
 
 已实现个人登录接入、角色/世界观编辑、故事阅读、Markdown 导入导出及 Mochi 单 Agent 写作侧栏。
-角色头像与默认 2.5D 生图提示词入口已在本地实现，应用镜像尚未发布；CCP 已部署私有 Blob、容器级身份权限和 ACA 环境变量，见下文配置。
+角色头像与默认 2.5D 生图提示词入口已通过 [Actions 发布](https://github.com/Sappanwood/mochi-write/actions/runs/36115082586)上线。质量门禁、部署健康检查及新增头像 API 的匿名读写拒绝检查通过；发布后 [CCP 审计](https://github.com/Sappanwood/ccp/actions/runs/36115711671)无漂移。线上上传、保存、刷新读取和提示词入口的页面验收待完成。CCP 已部署私有 Blob、容器级身份权限和 ACA 环境变量，见下文配置。
 侧栏支持上下文预览、持续会话、生成/反馈重写、取消/恢复与原子章节采纳。
 故事级写作指引已发布：故事页维护、跨会话注入、执行快照查看及导入导出保留。线上已验证保存／清空、版本冲突、刷新恢复，以及现有订阅模型读取指引生成独立草稿；指引为创作提示，不保证逐条格式约束，验收中每段句数未严格遵循。
 已发布至 [Mochi Write](https://mochi-write.whitemeadow-6e32159b.eastus.azurecontainerapps.io)，
@@ -102,7 +102,7 @@ CCP 已在既有 `mochidataa4c005ba3f` Storage Account 配置私有 `mochi-write
 并为 Write Managed Identity 在该 container 授予 `Storage Blob Data Contributor`；ACA 已注入对应
 `PORTRAIT_BLOB_ENDPOINT` 与 `PORTRAIT_BLOB_CONTAINER`。部署参数见 [CCP 输出](https://github.com/Sappanwood/ccp/blob/main/docs/WRITE_DEPLOYMENT_OUTPUTS.json)。
 浏览器通过本人 API 读写图片，不使用公共链接或 SAS；后端不自动创建资源。此容器不受现有 Files/Cosmos 备份覆盖，
-完整头像备份需使用包含附件的导出包；配置就绪不代表新应用头像链路已上线或完成云端业务验收。
+完整头像备份需使用包含附件的导出包；资源身份读写和清理已验收，应用页面的主要头像路径仍待云端验收。
 未配置 Blob 时仍可阅读文字、整理和保存提示词；图片读写以及含头像附件的导入导出会明确报错，不产生缺图的成功备份。
 头像、提示词与角色版本一起保存；上传后须点击「保存头像与提示词」才关联角色，冲突可保留草稿后对照最新版本。
 「整理 2.5D 提示词」只准备已有文字会话的输入，用户发送后调用现有模型；输出由用户复制回提示词栏并保存，不直接调用生图模型。
