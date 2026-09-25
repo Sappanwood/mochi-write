@@ -51,9 +51,11 @@ export function InitializationScope({
 export function InitializationReading({
   draft,
   showScope = true,
+  expandAssets = false,
 }: {
   draft: CreativeDraft;
   showScope?: boolean;
+  expandAssets?: boolean;
 }) {
   const value = draft.initialization!;
   return (
@@ -75,7 +77,11 @@ export function InitializationReading({
         <h2>关联资料</h2>
         {!value.assets.length && <p className="muted">本版本没有附带资料。</p>}
         {value.assets.map((a) => (
-          <details className="initialization-asset" key={a.entity.id}>
+          <details
+            className="initialization-asset"
+            key={a.entity.id}
+            open={expandAssets || undefined}
+          >
             <summary>
               {a.baseRevision ? "更新" : "新增"} · {a.entity.content.name} ·{" "}
               {labels[a.entity.kind as keyof typeof labels]}

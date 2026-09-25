@@ -51,7 +51,7 @@ for (const width of [1440, 390]) {
       page.getByRole("heading", { name: "关联自由会话" }),
     ).not.toBeVisible();
     await expect(
-      page.getByRole("button", { name: "继续创作", exact: true }),
+      page.getByRole("button", { name: "带此故事新建会话", exact: true }),
     ).toBeVisible();
     await page.getByText("章节目录", { exact: true }).click();
     await expect(page.getByRole("button", { name: "02ch02" })).toBeVisible();
@@ -65,7 +65,7 @@ for (const width of [1440, 390]) {
     ).toBeDisabled();
     await page.getByRole("button", { name: "上一章", exact: true }).click();
     await expect(prose).toBeVisible();
-    await page.getByText("创作与关联会话", { exact: true }).click();
+    await page.getByText("返回已有会话", { exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "关联自由会话" }),
     ).toBeVisible();
@@ -74,7 +74,7 @@ for (const width of [1440, 390]) {
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    await page.getByText("创作与关联会话", { exact: true }).click();
+    await page.getByText("返回已有会话", { exact: true }).click();
     await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: `/tmp/mwt042-reader-${width}.png` });
   });

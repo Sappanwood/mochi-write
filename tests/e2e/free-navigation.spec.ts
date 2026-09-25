@@ -18,7 +18,7 @@ test("default modes and asset entry preserve explicit initial context and local 
   page,
 }) => {
   await expect(
-    page.getByRole("heading", { name: "从一个想法继续" }),
+    page.getByRole("heading", { name: "今天想写点什么？" }),
   ).toBeVisible();
   const doc = entity("character", {
     name: "导航角色",
@@ -33,7 +33,7 @@ test("default modes and asset entry preserve explicit initial context and local 
   await expect(page.getByText("正式正文", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "编辑资产", exact: true }).click();
   await page.getByLabel("资料正文").fill("人工未保存正文");
-  await page.getByRole("button", { name: "带此资产开始创作" }).click();
+  await page.getByRole("button", { name: "带此资产新建会话" }).click();
   await expect(page.getByText("初始上下文 · 仅作为资料")).toBeVisible();
   const response = page.waitForResponse(
     (r) =>
@@ -49,7 +49,7 @@ test("default modes and asset entry preserve explicit initial context and local 
   await page.getByRole("link", { name: "角色库", exact: true }).click();
   await page.getByRole("button", { name: /导航角色/ }).click();
   await expect(page.getByLabel("资料正文")).toHaveValue("人工未保存正文");
-  await page.getByText("创作与关联会话", { exact: true }).click();
+  await page.getByText("返回已有会话", { exact: true }).click();
   await page.getByRole("link", { name: /继续会话：讨论角色/ }).click();
   await expect(page.getByLabel("下一条消息")).toHaveValue("下一轮未发送内容");
   await page.reload();
@@ -272,7 +272,9 @@ test("new character and story intents are editable; story and world entries stay
   await expect(
     page.getByRole("heading", { name: "入口故事", exact: true, level: 1 }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "继续创作", exact: true }).click();
+  await page
+    .getByRole("button", { name: "带此故事新建会话", exact: true })
+    .click();
   await page.reload();
   await expect(page.getByText("初始上下文 · 仅作为资料")).toBeVisible();
   await page.locator(".free-initial .free-references button").click();
@@ -305,7 +307,7 @@ test("new character and story intents are editable; story and world entries stay
   );
   await page.getByRole("link", { name: "世界观", exact: true }).click();
   await page.getByRole("button", { name: /星海世界/ }).click();
-  await page.getByRole("button", { name: "带此资产开始创作" }).click();
+  await page.getByRole("button", { name: "带此资产新建会话" }).click();
   await page.locator(".free-initial .free-references button").click();
   await expect(page.getByRole("region", { name: "信息正文" })).toContainText(
     "仅供参考的世界观",
@@ -336,7 +338,7 @@ test("stale initial context rejects submission and explicit refresh keeps the ty
   );
   await page.getByRole("link", { name: "角色库", exact: true }).click();
   await page.getByRole("button", { name: /版本角色/ }).click();
-  await page.getByRole("button", { name: "带此资产开始创作" }).click();
+  await page.getByRole("button", { name: "带此资产新建会话" }).click();
   await page.getByLabel("下一条消息").fill("保留我的讨论意图");
   const { Library } = await import("../../src/server/library.js");
   const changed = await new Library(f.store).save(doc.id, doc.revision, {
@@ -385,7 +387,7 @@ test("receipt reading bypasses unsaved manual edits while retaining their origin
   await page.getByRole("button", { name: /并行编辑角色/ }).click();
   await page.getByRole("button", { name: "编辑资产", exact: true }).click();
   await page.getByLabel("资料正文").fill("保留这份未保存的人工正文");
-  await page.getByRole("button", { name: "带此资产开始创作" }).click();
+  await page.getByRole("button", { name: "带此资产新建会话" }).click();
   await page.locator(".free-initial .free-references button").click();
   await page.getByRole("button", { name: "引用到对话", exact: true }).click();
   f.mochi.targetMode = "explicit";

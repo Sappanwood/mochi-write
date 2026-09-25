@@ -326,6 +326,44 @@ export function FreeWorkspace({
       element.scrollTop = element.scrollHeight;
     });
   }
+  function prepareSave(ref: Reference, request: string) {
+    const composer = latestLocal.current.composer;
+    if (
+      composer.refs.some(
+        (item) =>
+          item.ref.type === "candidate" && refKey(item.ref) !== refKey(ref.ref),
+      )
+    ) {
+      setError("原样保存需只保留这一稿，请先移除其他草稿引用");
+      return;
+    }
+    const attached = composer.refs.some(
+      (item) => refKey(item.ref) === refKey(ref.ref),
+    );
+    if (!attached && composer.refs.length >= 8) {
+      setError("每条消息最多引用 8 项，请先移除一项资料引用");
+      return;
+    }
+    setError("");
+    setLocal((old) => ({
+      ...old,
+      view: "discussion",
+      layout: "split",
+      composer: {
+        message: old.composer.message.includes(request)
+          ? old.composer.message
+          : [old.composer.message, request].filter(Boolean).join("\n\n"),
+        refs: attached ? old.composer.refs : [...old.composer.refs, ref],
+      },
+    }));
+    requestAnimationFrame(() => {
+      const element = input.current;
+      if (!element) return;
+      element.focus();
+      element.setSelectionRange(element.value.length, element.value.length);
+      element.scrollTop = element.scrollHeight;
+    });
+  }
   function acknowledge(
     pending: Pending,
     result: { conversation?: FreeConversation; task: TaskView },
@@ -439,13 +477,14 @@ export function FreeWorkspace({
       className={`creative-session free-session free-view-${local.view} free-layout-${layout}${!details.length ? " free-empty" : ""}`}
     >
       <header className="free-session-heading">
-        <div>
-          <p className="eyebrow">自由创作会话</p>
-          <h1>从一个想法继续</h1>
-          <p className="muted">
-            讨论人物、构思世界观，也可以接着写故事。查看资料不会自动引用。
-          </p>
-        </div>
+        {details.length > 0 && (
+          <div>
+            <p className="eyebrow">创作会话</p>
+            <h1 title={details[0]!.task.input.message}>
+              {details[0]!.task.input.message.slice(0, 60)}
+            </h1>
+          </div>
+        )}
         <details>
           <summary>会话信息</summary>
           <p className="free-identity">
@@ -601,7 +640,7 @@ export function FreeWorkspace({
             />
             {!details.length && (
               <div className="free-start">
-                <h2>今天想写点什么？</h2>
+                <h1>今天想写点什么？</h1>
                 <p>从一个想法开始，也可以输入 @ 参考已有资料。</p>
                 <div className="free-start-actions">
                   {["构思角色", "构思世界观", "写一个故事"].map((label) => (
@@ -641,7 +680,10 @@ export function FreeWorkspace({
                   });
                 }}
               >
-                新候选已到 · {unseen.length} 份，点击查看
+                {unseen.length === 1
+                  ? `第 ${unseen[0]!.ordinal} 稿已就绪`
+                  : `${unseen.length} 份新稿已就绪`}{" "}
+                · 打开
               </button>
             )}
           </div>
@@ -811,6 +853,7 @@ export function FreeWorkspace({
           drafts={drafts}
           attach={attach}
           feedback={feedback}
+          prepareSave={prepareSave}
           open={open}
           onError={setError}
         />

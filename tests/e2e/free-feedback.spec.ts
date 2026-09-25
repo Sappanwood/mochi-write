@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto(`${f.address}/#free/new`);
   await page.getByRole("button", { name: "使用 Microsoft 账号登录" }).click();
   await expect(
-    page.getByRole("heading", { name: "从一个想法继续" }),
+    page.getByRole("heading", { name: "今天想写点什么？" }),
   ).toBeVisible();
 });
 test.afterEach(async () => {
@@ -73,17 +73,16 @@ async function show(page: Page, d: Candidate) {
   ).toContainText(d.payload.content.markdown);
 }
 async function selectParagraph(page: Page) {
-  await page
-    .locator(".free-reading .markdown p")
-    .first()
-    .evaluate((element) => {
-      const range = document.createRange();
-      range.selectNodeContents(element);
-      const selection = window.getSelection()!;
-      selection.removeAllRanges();
-      selection.addRange(range);
-      document.dispatchEvent(new Event("selectionchange"));
-    });
+  const paragraph = page.locator(".free-reading .markdown p").first();
+  await paragraph.click();
+  await paragraph.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
+  });
 }
 
 test("explicit whole-draft feedback preserves input, pins old version and focuses composer", async ({
@@ -244,6 +243,7 @@ test("reference limit rejects an entire feedback action and accepts an already a
   await page
     .getByRole("button", { name: "针对这一稿提意见", exact: true })
     .click();
+  await expect(page.getByLabel("下一条消息")).toBeFocused();
   await expect(page.getByRole("button", { name: /删除引用/ })).toHaveCount(8);
   await selectParagraph(page);
   await page

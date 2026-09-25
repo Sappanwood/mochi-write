@@ -256,6 +256,8 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 发现摘要到精确 ref 的解析和版本核对。候选 discover 返回无 type 的既有摘要，客户端在该接口边界明确归一化。
 整稿和选区反馈由 `FreeInformation` 校验当前加载版本与正文选区，再交给 `FreeWorkspace` 原 composer 固定引用并准备可编辑消息。
 `FreeSplit` 只管理双栏比例与键盘／拖动交互；导航折叠和比例偏好属于标签页 UI 状态，不进入创作 API。
+`FreeComparison` 在独立对话框内读取同组精确版本，共享候选正文呈现；关闭后不改变工作区状态。
+保存准备复用原 composer 和请求结构，完整候选引用仍由后端唯一核验，不新增保存接口或客户端写入权限。
 
 当前阅读、composer refs 和后端 task target 三者分离。sessionStorage 仅保存每会话 UI 与未确认请求，消息、来源、候选与收据由后端持有。
 讨论、信息与唯一 composer 由同一 grid 布局；未打开资料时单栏，桌面可切换双栏/专心阅读，移动端仅切换上部视图并共用底部输入。面板使用 CSS 切换而不卸载，讨论及按精确引用保存的阅读滚动与输入可刷新恢复；新候选不改变当前阅读。visualViewport 只影响移动布局尺寸。task/group/source 页面按 cursor 读取，

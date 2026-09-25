@@ -326,14 +326,12 @@ export function AssetCreativeEntry({
           className="secondary"
           onClick={() => navigate(`free/new/${kind}/${id}`)}
         >
-          带此{kind === "asset" ? "资产" : "故事"}开始创作
+          带此{kind === "asset" ? "资产" : "故事"}新建会话
         </button>
       )}
       <details>
-        <summary>创作与关联会话</summary>
-        <p className="muted">
-          以已保存内容开始讨论，未保存的编辑留在当前页面。
-        </p>
+        <summary>返回已有会话</summary>
+        <p className="muted">回到原来的讨论，继续查看草稿与反馈。</p>
         <FreeConversations api={api} assetId={id} compact />
       </details>
     </div>

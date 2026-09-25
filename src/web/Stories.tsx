@@ -173,7 +173,7 @@ export function StoryReader({
           className="secondary"
           onClick={() => navigate(`free/new/story/${id}`)}
         >
-          继续创作
+          带此故事新建会话
         </button>
       </header>
       <AssetCreativeEntry api={api} id={id} kind="story" navigate={navigate} />

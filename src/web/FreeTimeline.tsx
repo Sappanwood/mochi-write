@@ -143,32 +143,38 @@ export function FreeTimeline({
               </button>
             </div>
           ))}
-          <details className="creative-sources">
-            <summary>本轮参考资料 · {sources.length}</summary>
-            <p className="muted">
-              用户显式引用与 Agent
-              实际全文读取分别记录。仅搜索命中不代表已读取。参考资料不会自动成为资料包成员。
-            </p>
-            {sources.map((s) => (
-              <div key={s.id}>
-                <p>
-                  {s.origin === "agent_read"
-                    ? "Agent 自主实际读取"
-                    : s.origin === "initial"
-                      ? "初始上下文"
-                      : "用户显式引用"}
-                </p>
-                <button
-                  className="quiet free-identity"
-                  onClick={() =>
-                    open({ ref: s.ref, title: refLabel(s.ref), recorded: true })
-                  }
-                >
-                  {refLabel(s.ref)}
-                </button>
-              </div>
-            ))}
-          </details>
+          {sources.length > 0 && (
+            <details className="creative-sources">
+              <summary>本轮参考资料 · {sources.length}</summary>
+              <p className="muted">
+                用户显式引用与 Agent
+                实际全文读取分别记录。仅搜索命中不代表已读取。参考资料不会自动成为资料包成员。
+              </p>
+              {sources.map((s) => (
+                <div key={s.id}>
+                  <p>
+                    {s.origin === "agent_read"
+                      ? "Agent 自主实际读取"
+                      : s.origin === "initial"
+                        ? "初始上下文"
+                        : "用户显式引用"}
+                  </p>
+                  <button
+                    className="quiet free-identity"
+                    onClick={() =>
+                      open({
+                        ref: s.ref,
+                        title: refLabel(s.ref),
+                        recorded: true,
+                      })
+                    }
+                  >
+                    {refLabel(s.ref)}
+                  </button>
+                </div>
+              ))}
+            </details>
+          )}
           {task.receipt && (
             <div className="notice creative-receipt">
               <strong>{receiptLabel[task.receipt.kind]}</strong>

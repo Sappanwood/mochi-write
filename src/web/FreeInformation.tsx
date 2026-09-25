@@ -1,14 +1,11 @@
-import { ContentReading } from "./ContentReading.js";
+import { FreeCandidateReading } from "./FreeCandidateReading.js";
+import { FreeComparison } from "./FreeComparison.js";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Api } from "./api.js";
 import { message } from "./api.js";
 import type { CandidateGroup } from "../shared/free-candidates.js";
-import type {
-  CreativeDraft,
-  InitializationPackage,
-} from "../shared/creative.js";
+import type { InitializationPackage } from "../shared/creative.js";
 import type { MaterialPackage } from "../shared/story-materials.js";
-import { InitializationReading } from "./InitializationReading.js";
 import { ReferenceSearch } from "./FreeReferences.js";
 import {
   readInformation,
@@ -45,6 +42,7 @@ export function FreeInformation({
   drafts,
   attach,
   feedback,
+  prepareSave,
   open,
   onError,
 }: {
@@ -59,13 +57,18 @@ export function FreeInformation({
   drafts: Summary[];
   attach: (ref: Reference) => void;
   feedback: (ref: Reference, quote?: string) => void;
+  prepareSave: (ref: Reference, request: string) => void;
   open: (ref: Reference) => void;
   onError: (error: string) => void;
 }) {
   const [loadedInfo, setInfo] = useState<Information>(),
     [loadedKey, setLoadedKey] = useState<string>(),
     [error, setError] = useState(""),
-    [selection, setSelection] = useState<{ key: string; text: string }>();
+    [selection, setSelection] = useState<{ key: string; text: string }>(),
+    [comparison, setComparison] = useState<{
+      versions: Summary[];
+      currentId: string;
+    }>();
   const pane = useRef<HTMLDivElement>(null);
   const value = reading.current;
   const loadKey = `${value ? refKey(value.ref) : ""}:${reading.loadId ?? 0}:${receiptsVersion}`;
@@ -167,7 +170,6 @@ export function FreeInformation({
       </header>
       {reading.explorer ? (
         <div className="free-explorer">
-          <h3>查找资料与草稿</h3>
           <label>
             按名称查找
             <input
@@ -277,7 +279,17 @@ export function FreeInformation({
                             <option key={g.id} value={g.id}>
                               {drafts.find((d) => d.group_id === g.id)?.title ??
                                 kindLabel[g.artifactKind]}{" "}
-                              · {kindLabel[g.artifactKind]} · {g.id.slice(0, 8)}
+                              · {kindLabel[g.artifactKind]}
+                              {groups.filter(
+                                (other) =>
+                                  (drafts.find((d) => d.group_id === other.id)
+                                    ?.title ??
+                                    kindLabel[other.artifactKind]) ===
+                                  (drafts.find((d) => d.group_id === g.id)
+                                    ?.title ?? kindLabel[g.artifactKind]),
+                              ).length > 1
+                                ? ` · ${g.id.slice(0, 8)}`
+                                : ""}
                             </option>
                           ))}
                         </select>
@@ -304,20 +316,43 @@ export function FreeInformation({
                         </select>
                       </label>
                     </div>
-                    <p>
-                      {actionLabel[currentDraft.payload.action]} ·{" "}
-                      {materials
-                        ? `${materials.story.content.name} · ${materials.members.length} 项资料`
-                        : currentDraft.payload.draftContext.target
-                          ? targetLabel(
-                              currentDraft.payload.draftContext.target,
-                            )
-                          : "新建独立母版，发送保存请求后核验目标"}
-                    </p>
-                    {materials && (
-                      <p className="muted">
-                        仅保存列明的成员，引用资料仅供参考。
+                    <details className="free-save-scope">
+                      <summary>
+                        {actionLabel[currentDraft.payload.action]} · 保存范围
+                      </summary>
+                      <p>
+                        {actionLabel[currentDraft.payload.action]} ·{" "}
+                        {materials
+                          ? `${materials.story.content.name} · ${materials.members.length} 项资料`
+                          : currentDraft.payload.draftContext.target
+                            ? targetLabel(
+                                currentDraft.payload.draftContext.target,
+                              )
+                            : "发送保存请求后核验具体目标"}
                       </p>
+                      {currentDraft.payload.members && (
+                        <ul>
+                          {currentDraft.payload.members.map((member) => (
+                            <li key={member.member_id}>
+                              {kindLabel[member.kind] ?? member.kind} ·{" "}
+                              {member.content.name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </details>
+                    {versions.length > 1 && (
+                      <button
+                        className="quiet free-compare-trigger"
+                        onClick={() =>
+                          setComparison({
+                            versions,
+                            currentId: currentDraft.id,
+                          })
+                        }
+                      >
+                        并排对照
+                      </button>
                     )}
                   </>
                 )}
@@ -403,106 +438,12 @@ export function FreeInformation({
                 {info?.availability === "unavailable" && (
                   <p role="status">原版本不可取得，不会用当前新版代替。</p>
                 )}
-                {info?.availability === "exact" &&
-                  (currentDraft?.artifactKind === "story_initialization" ? (
-                    <InitializationReading
-                      draft={
-                        {
-                          initialization: currentDraft.payload.business
-                            ?.initialization as InitializationPackage,
-                        } as CreativeDraft
-                      }
-                    />
-                  ) : info.content ? (
-                    <ContentReading content={info.content} />
-                  ) : null)}
-                {currentDraft?.payload.members?.map((m) => (
-                  <details key={m.member_id}>
-                    <summary>
-                      {kindLabel[m.kind] ?? m.kind} · {m.content.name}
-                    </summary>
-                    {materials && (
-                      <p>
-                        {m.mode === "create"
-                          ? "新增 · 无基础版本"
-                          : `更新 · 基于 v${m.baseVersion}`}{" "}
-                        ·{" "}
-                        {info?.receipt?.assets?.find(
-                          (a) => a.asset_id === m.member_id,
-                        )
-                          ? `已保存为 v${info.receipt.assets.find((a) => a.asset_id === m.member_id)!.revision}`
-                          : "尚未保存"}
-                      </p>
-                    )}
-                    {materials &&
-                      (m.sourceRef ? (
-                        <button
-                          className="quiet"
-                          onClick={() =>
-                            open({
-                              ref: m.sourceRef!,
-                              title: `入包来源：${m.content.name}`,
-                              recorded: true,
-                            })
-                          }
-                        >
-                          入包来源：{m.content.name} ·{" "}
-                          {m.sourceRef.type === "asset"
-                            ? `母版 v${m.sourceRef.version}`
-                            : "角色候选固定版本"}
-                        </button>
-                      ) : (
-                        <p className="muted">
-                          {m.mode === "update"
-                            ? "基于故事既有资料修订"
-                            : "原创故事资料"}
-                        </p>
-                      ))}
-                    <ContentReading content={m.content} />
-                    {materials && (
-                      <details>
-                        <summary>完整属性</summary>
-                        <pre className="free-identity">
-                          {JSON.stringify(m.content.sourceMetadata, null, 2)}
-                        </pre>
-                      </details>
-                    )}
-                    <button
-                      className="quiet"
-                      onClick={() =>
-                        attach({
-                          ref: {
-                            ...summaryRef({
-                              group_id: currentDraft.groupId,
-                              draft_id: currentDraft.id,
-                              draft_revision: "1",
-                              draft_hash: currentDraft.draftHash,
-                              title: currentDraft.title,
-                              ordinal: currentDraft.ordinal,
-                              artifact_kind: currentDraft.artifactKind,
-                            }),
-                            member_id: m.member_id,
-                          },
-                          title: m.content.name,
-                          recorded: true,
-                        })
-                      }
-                    >
-                      引用成员：{m.content.name}
-                    </button>
-                  </details>
-                ))}
-                {currentDraft?.payload.business?.derivation != null && (
-                  <details>
-                    <summary>独立母版的保留、改写与排除</summary>
-                    <pre className="free-identity">
-                      {JSON.stringify(
-                        currentDraft.payload.business.derivation,
-                        null,
-                        2,
-                      )}
-                    </pre>
-                  </details>
+                {info?.availability === "exact" && (
+                  <FreeCandidateReading
+                    info={info}
+                    attach={attach}
+                    open={open}
+                  />
                 )}
               </div>
               <footer className="free-info-actions">
@@ -528,15 +469,51 @@ export function FreeInformation({
                     >
                       针对选中段落提意见
                     </button>
-                    <small className="muted">
-                      {selectedText
-                        ? `已选 ${Array.from(selectedText).length} 字 · 添加到消息后可编辑`
-                        : "选中正文，可针对段落提意见"}
-                    </small>
+                    {selectedText && (
+                      <small className="muted">
+                        已选 {Array.from(selectedText).length} 字 ·
+                        添加到消息后可编辑
+                      </small>
+                    )}
                   </div>
                 )}
+                {currentDraft && !info?.receipt && (
+                  <button
+                    className="secondary"
+                    disabled={!canFeedback || !!info?.claim}
+                    onClick={() => {
+                      if (!canFeedback || !displayedReference || info?.claim)
+                        return;
+                      const initialization = currentDraft.payload.business
+                        ?.initialization as InitializationPackage | undefined;
+                      const members =
+                        currentDraft.payload.members?.map(
+                          (member) => member.content.name,
+                        ) ??
+                        initialization?.assets.map(
+                          (asset) => asset.entity.content.name,
+                        ) ??
+                        [];
+                      const scope = [
+                        actionLabel[currentDraft.payload.action],
+                        ...members,
+                        ...(initialization?.chapter
+                          ? [
+                              `首章：${initialization.chapter.entity.content.name}`,
+                            ]
+                          : []),
+                      ].join("；");
+                      prepareSave(
+                        displayedReference,
+                        `请原样保存《${title}》，保留此稿的完整正文，按此稿固定的目标与范围执行：${scope}。`,
+                      );
+                    }}
+                  >
+                    准备保存此稿
+                  </button>
+                )}
                 <button
-                  className="secondary"
+                  className="quiet"
                   disabled={!canFeedback}
                   onClick={() => attach(displayedReference!)}
                 >
@@ -566,6 +543,15 @@ export function FreeInformation({
             </p>
           )}
         </>
+      )}
+      {comparison && (
+        <FreeComparison
+          api={api}
+          base={base}
+          versions={comparison.versions}
+          currentId={comparison.currentId}
+          close={() => setComparison(undefined)}
+        />
       )}
     </section>
   );

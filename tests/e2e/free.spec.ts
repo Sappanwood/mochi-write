@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto(`${f.address}/#free/new`);
   await page.getByRole("button", { name: "使用 Microsoft 账号登录" }).click();
   await expect(
-    page.getByRole("heading", { name: "从一个想法继续" }),
+    page.getByRole("heading", { name: "今天想写点什么？" }),
   ).toBeVisible();
 });
 test.afterEach(async () => {
@@ -88,7 +88,7 @@ test("empty entry expands information on demand and focus mode retains composer 
   ).not.toBeVisible();
   await page.getByRole("button", { name: "资料与草稿", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "查找资料与草稿" }),
+    page.getByRole("heading", { name: "查找资料", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "收起资料", exact: true }).click();
   const t = await send(page, "构思长角色");
@@ -177,7 +177,7 @@ test("desktop groups, @ disambiguation, browsing and new drafts keep independent
   );
   await page.getByRole("button", { name: "查找资料", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "查找资料与草稿" }),
+    page.getByRole("heading", { name: "查找资料", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "返回详情", exact: true }).click();
   await expect(page.getByLabel("下一条消息")).toHaveValue("未发送反馈");
