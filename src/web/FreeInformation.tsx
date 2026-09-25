@@ -44,6 +44,7 @@ export function FreeInformation({
   groups,
   drafts,
   attach,
+  feedback,
   open,
   onError,
 }: {
@@ -57,14 +58,43 @@ export function FreeInformation({
   groups: CandidateGroup[];
   drafts: Summary[];
   attach: (ref: Reference) => void;
+  feedback: (ref: Reference, quote?: string) => void;
   open: (ref: Reference) => void;
   onError: (error: string) => void;
 }) {
-  const [info, setInfo] = useState<Information>(),
+  const [loadedInfo, setInfo] = useState<Information>(),
     [loadedKey, setLoadedKey] = useState<string>(),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [selection, setSelection] = useState<{ key: string; text: string }>();
   const pane = useRef<HTMLDivElement>(null);
   const value = reading.current;
+  const loadKey = `${value ? refKey(value.ref) : ""}:${reading.loadId ?? 0}:${receiptsVersion}`;
+  const info = loadedKey === loadKey ? loadedInfo : undefined;
+  const canFeedback = info?.availability === "exact" && !error;
+  const selectedText = selection?.key === loadKey ? selection.text : "";
+  useEffect(() => {
+    setSelection(undefined);
+    if (!canFeedback || reading.explorer) return;
+    const capture = () => {
+      const selected = window.getSelection();
+      if (!selected || selected.isCollapsed || selected.rangeCount !== 1) {
+        setSelection(undefined);
+        return;
+      }
+      const range = selected.getRangeAt(0);
+      const article = [
+        ...(pane.current?.querySelectorAll(".markdown") ?? []),
+      ].find(
+        (element) =>
+          element.contains(range.startContainer) &&
+          element.contains(range.endContainer),
+      );
+      const text = article ? selected.toString().trim() : "";
+      setSelection(text ? { key: loadKey, text } : undefined);
+    };
+    document.addEventListener("selectionchange", capture);
+    return () => document.removeEventListener("selectionchange", capture);
+  }, [loadKey, canFeedback, reading.explorer]);
   useEffect(() => {
     setInfo(undefined);
     setLoadedKey(undefined);
@@ -75,7 +105,7 @@ export function FreeInformation({
       .then((v) => {
         if (active) {
           setInfo(v);
-          setLoadedKey(refKey(value.ref));
+          setLoadedKey(loadKey);
         }
       })
       .catch((e) => {
@@ -84,11 +114,18 @@ export function FreeInformation({
     return () => {
       active = false;
     };
-  }, [api, base, value && refKey(value.ref), reading.loadId, receiptsVersion]);
+  }, [api, base, loadKey]);
   useLayoutEffect(() => {
     if (info && pane.current) pane.current.scrollTop = reading.scroll;
   }, [info, reading.explorer]);
   const currentDraft = info?.draft;
+  const title = currentDraft
+    ? `${info?.content?.name ?? currentDraft.title} · 第 ${currentDraft.ordinal} 稿`
+    : (info?.content?.name ??
+      (value && value.title !== refLabel(value.ref)
+        ? value.title
+        : "资料与草稿"));
+  const displayedReference = value ? { ...value, title } : undefined;
   const materials =
     currentDraft?.artifactKind === "story_materials"
       ? (currentDraft.payload.business?.materials as
@@ -108,7 +145,7 @@ export function FreeInformation({
   return (
     <section className="free-information" aria-label="当前信息">
       <header className="free-pane-heading">
-        <h2>信息阅览</h2>
+        <h2>{reading.explorer ? "查找资料" : title}</h2>
         <button
           className="quiet"
           onClick={() => setReading((r) => ({ ...r, explorer: !r.explorer }))}
@@ -196,7 +233,19 @@ export function FreeInformation({
                     ? "创作草稿"
                     : "正式资产 · 精确版本"}
                 </p>
-                <h3>{info?.content?.name ?? value.title}</h3>
+                {currentDraft && (
+                  <p className="free-draft-status">
+                    第 {currentDraft.ordinal} 稿
+                    {currentDraft.id === versions.at(-1)?.draft_id
+                      ? " · 最新"
+                      : " · 历史稿"}
+                    {info?.receipt
+                      ? " · 已保存"
+                      : !info?.claim
+                        ? " · 未保存"
+                        : ""}
+                  </p>
+                )}
                 {info?.currentVersion !== undefined &&
                   value.ref.type === "asset" && (
                     <p>
@@ -247,6 +296,9 @@ export function FreeInformation({
                           {versions.map((d) => (
                             <option key={d.draft_id} value={d.draft_id}>
                               第 {d.ordinal} 稿
+                              {d.draft_id === versions.at(-1)?.draft_id
+                                ? " · 最新"
+                                : ""}
                             </option>
                           ))}
                         </select>
@@ -328,7 +380,7 @@ export function FreeInformation({
                   if (
                     !e.currentTarget.clientHeight ||
                     !info ||
-                    loadedKey !== refKey(value.ref)
+                    loadedKey !== loadKey
                   )
                     return;
                   const scroll = e.currentTarget.scrollTop;
@@ -454,10 +506,39 @@ export function FreeInformation({
                 )}
               </div>
               <footer className="free-info-actions">
+                {value.ref.type === "candidate" && (
+                  <div className="free-feedback-actions">
+                    <button
+                      className="secondary"
+                      disabled={!canFeedback}
+                      onClick={() =>
+                        canFeedback && feedback(displayedReference!)
+                      }
+                    >
+                      针对这一稿提意见
+                    </button>
+                    <button
+                      className="quiet"
+                      disabled={!canFeedback || !selectedText}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        if (canFeedback && selectedText)
+                          feedback(displayedReference!, selectedText);
+                      }}
+                    >
+                      针对选中段落提意见
+                    </button>
+                    <small className="muted">
+                      {selectedText
+                        ? `已选 ${Array.from(selectedText).length} 字 · 添加到消息后可编辑`
+                        : "选中正文，可针对段落提意见"}
+                    </small>
+                  </div>
+                )}
                 <button
                   className="secondary"
-                  disabled={info?.availability !== "exact" || !!error}
-                  onClick={() => attach(value)}
+                  disabled={!canFeedback}
+                  onClick={() => attach(displayedReference!)}
                 >
                   引用到对话
                 </button>

@@ -6,8 +6,9 @@
   --ink: #303630;
   --muted: #706f66;
   --panel: #eeeee6;
+  --sans: system-ui, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
   --serif: "Noto Serif CJK SC", "Songti SC", "Source Han Serif SC", serif;
-  font-family: system-ui, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--sans);
   color: var(--ink);
   background: var(--paper);
   font-synthesis: none;
@@ -152,7 +153,7 @@ a {
 .sidebar {
   background: #efeee7;
   border-right: 1px solid var(--line);
-  padding: 30px 20px;
+  padding: 30px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -160,10 +161,43 @@ a {
   top: 0;
   height: 100dvh;
 }
+.sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.sidebar-navigation:not([hidden]) {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: auto;
+}
+.navigation-toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 7px;
+}
+.workspace.navigation-collapsed {
+  grid-template-columns: 60px minmax(0, 1fr);
+}
+.navigation-collapsed .sidebar {
+  padding: 30px 12px;
+}
+.navigation-collapsed .sidebar-heading {
+  justify-content: center;
+}
+.navigation-collapsed .sidebar .wordmark {
+  display: none;
+}
 .sidebar .wordmark {
   text-decoration: none;
-  font-size: 17px;
-  margin: 0 0 32px;
+  font-size: 15px;
+  gap: 7px;
+  margin: 0;
   white-space: nowrap;
 }
 .sidebar nav {
@@ -721,6 +755,16 @@ legend {
   }
   .sidebar {
     padding: 25px 12px;
+  }
+  .sidebar-heading {
+    gap: 4px;
+  }
+  .sidebar .wordmark {
+    font-size: 14px;
+  }
+  .sidebar .seal {
+    width: 26px;
+    height: 30px;
   }
   .main-content {
     padding: 30px 24px;
@@ -1482,6 +1526,23 @@ summary {
     border-right: none;
     border-bottom: 1px solid var(--line);
     gap: 10px;
+  }
+  .sidebar-heading {
+    margin: 0;
+    justify-content: flex-start;
+    padding-right: 65px;
+  }
+  .navigation-collapsed .sidebar {
+    padding: 12px 16px 8px;
+  }
+  .navigation-collapsed .sidebar-heading {
+    justify-content: flex-start;
+  }
+  .navigation-collapsed .sidebar .wordmark {
+    display: flex;
+  }
+  .sidebar-navigation:not([hidden]) {
+    overflow: visible;
   }
   .sidebar .wordmark {
     margin: 0;

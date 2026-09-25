@@ -10,6 +10,7 @@ import {
 } from "./CreativeModelPicker.js";
 import { ReferenceChips, ReferenceSearch } from "./FreeReferences.js";
 import { FreeInformation, type ReadingState } from "./FreeInformation.js";
+import { FreeSplit } from "./FreeSplit.js";
 import { FreeTimeline } from "./FreeTimeline.js";
 import {
   root,
@@ -290,6 +291,41 @@ export function FreeWorkspace({
       composer: { ...old.composer, refs: [...old.composer.refs, ref] },
     }));
   }
+  function feedback(ref: Reference, quote?: string) {
+    const composer = latestLocal.current.composer;
+    const alreadyAttached = composer.refs.some(
+      (item) => refKey(item.ref) === refKey(ref.ref),
+    );
+    if (!alreadyAttached && composer.refs.length >= 8) {
+      setError("每条消息最多引用 8 项，请先移除一项资料引用");
+      return;
+    }
+    setError("");
+    const excerpt = quote
+      ? `针对《${ref.title}》的选中段落：\n${quote
+          .split("\n")
+          .map((line) => `> ${line}`)
+          .join("\n")}\n\n修改意见：`
+      : "";
+    setLocal((old) => ({
+      ...old,
+      view: "discussion",
+      layout: "split",
+      composer: {
+        message: excerpt
+          ? [old.composer.message, excerpt].filter(Boolean).join("\n\n")
+          : old.composer.message,
+        refs: alreadyAttached ? old.composer.refs : [...old.composer.refs, ref],
+      },
+    }));
+    requestAnimationFrame(() => {
+      const element = input.current;
+      if (!element) return;
+      element.focus();
+      element.setSelectionRange(element.value.length, element.value.length);
+      element.scrollTop = element.scrollHeight;
+    });
+  }
   function acknowledge(
     pending: Pending,
     result: { conversation?: FreeConversation; task: TaskView },
@@ -529,6 +565,7 @@ export function FreeWorkspace({
         ))}
       </div>
       <div className="free-columns">
+        <FreeSplit />
         <section className="free-discussion" aria-label="讨论">
           <div
             ref={timeline}
@@ -632,6 +669,26 @@ export function FreeWorkspace({
               </button>
             </div>
           )}
+          {local.composer.refs.length > 0 && (
+            <div className="free-composer-references">
+              <small>已引用到本消息</small>
+              <ReferenceChips
+                values={local.composer.refs}
+                open={open}
+                remove={(r) =>
+                  setLocal((old) => ({
+                    ...old,
+                    composer: {
+                      ...old.composer,
+                      refs: old.composer.refs.filter(
+                        (item) => refKey(item.ref) !== refKey(r.ref),
+                      ),
+                    },
+                  }))
+                }
+              />
+            </div>
+          )}
           <label className="sr-only" htmlFor="free-message">
             下一条消息
           </label>
@@ -710,26 +767,6 @@ export function FreeWorkspace({
               />
             </div>
           )}
-          {local.composer.refs.length > 0 && (
-            <div className="free-composer-references">
-              <small>已引用到本消息</small>
-              <ReferenceChips
-                values={local.composer.refs}
-                open={open}
-                remove={(r) =>
-                  setLocal((old) => ({
-                    ...old,
-                    composer: {
-                      ...old.composer,
-                      refs: old.composer.refs.filter(
-                        (item) => refKey(item.ref) !== refKey(r.ref),
-                      ),
-                    },
-                  }))
-                }
-              />
-            </div>
-          )}
           <div className="free-send">
             <CreativeModelPicker
               models={models}
@@ -773,6 +810,7 @@ export function FreeWorkspace({
           groups={groups}
           drafts={drafts}
           attach={attach}
+          feedback={feedback}
           open={open}
           onError={setError}
         />

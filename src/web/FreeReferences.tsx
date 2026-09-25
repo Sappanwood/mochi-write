@@ -46,6 +46,7 @@ export function ReferenceChips({
               <button
                 className="quiet"
                 aria-label={`删除引用 ${r.title}`}
+                title="仅移除资料引用，消息中的文字会保留"
                 onClick={() => remove(r)}
               >
                 ×

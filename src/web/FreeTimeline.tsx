@@ -26,6 +26,12 @@ export function FreeTimeline({
   operate: (id: string, action: "cancel" | "verify") => void;
   busy: boolean;
 }) {
+  const allDrafts = details.flatMap((detail) => detail.candidates);
+  const savedDrafts = new Set(
+    details.flatMap(({ task }) =>
+      task.receipt ? [task.receipt.draft_id] : [],
+    ),
+  );
   return (
     <>
       {details.map(({ task, candidates, sources }) => (
@@ -45,17 +51,19 @@ export function FreeTimeline({
             </span>
           }
           references={
-            <>
-              <small>本消息显式引用（已固定）</small>
-              <ReferenceChips
-                values={task.refs.map((ref) => ({
-                  ref,
-                  title: refLabel(ref),
-                  recorded: true,
-                }))}
-                open={open}
-              />
-            </>
+            task.refs.length > 0 ? (
+              <>
+                <small>本轮引用</small>
+                <ReferenceChips
+                  values={task.refs.map((ref) => ({
+                    ref,
+                    title: refLabel(ref),
+                    recorded: true,
+                  }))}
+                  open={open}
+                />
+              </>
+            ) : undefined
           }
         >
           {task.output && <Markdown text={task.output} />}
@@ -109,12 +117,20 @@ export function FreeTimeline({
           )}
           {candidates.map((d) => (
             <div key={d.draft_id} className="creative-draft-card">
-              <strong>
-                {d.title} · 第 {d.ordinal} 稿
-              </strong>
-              <p className="muted">草稿 · {d.group_id.slice(0, 8)}</p>
+              <strong>{d.title}</strong>
+              <p className="muted">
+                第 {d.ordinal} 稿 ·{" "}
+                {savedDrafts.has(d.draft_id) ? "已保存" : "草稿"}
+                {allDrafts.some(
+                  (other) =>
+                    other.title === d.title &&
+                    other.ordinal === d.ordinal &&
+                    other.group_id !== d.group_id,
+                ) && <small> · 组 {d.group_id.slice(0, 8)}</small>}
+              </p>
               <button
                 className="secondary"
+                aria-label={`查看：${d.title} · 第 ${d.ordinal} 稿 · 组 ${d.group_id.slice(0, 8)}`}
                 onClick={() =>
                   open({
                     ref: summaryRef(d),
@@ -123,8 +139,7 @@ export function FreeTimeline({
                   })
                 }
               >
-                查看：{d.title} · 第 {d.ordinal} 稿 · 组{" "}
-                {d.group_id.slice(0, 8)}
+                阅读稿件
               </button>
             </div>
           ))}

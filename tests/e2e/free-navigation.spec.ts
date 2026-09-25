@@ -120,6 +120,12 @@ async function finish(task: import("../../src/shared/free.js").FreeTask) {
   await expect
     .poll(async () => (await f.free.task(task.id)).executionRun?.status)
     .toBe("succeeded");
+  // Keep chronological fixtures stable when the host wall clock is adjusted.
+  const record = f.records.rows.get(`library:task:${task.id}`);
+  if (record?.kind === "task")
+    record.createdAt = new Date(
+      Date.UTC(2026, 0, 1) + record.epoch * 1000,
+    ).toISOString();
 }
 test("session rows recover unsaved ideas and saved multi-asset sessions only once; receipts round trip", async ({
   page,
