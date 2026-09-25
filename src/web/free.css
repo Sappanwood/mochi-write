@@ -461,6 +461,8 @@
     grid-row: 1;
     border-radius: 8px 8px 0 0;
     border-bottom: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
   }
   .free-layout-actions,
   .free-split {
@@ -494,7 +496,7 @@
     resize: none;
   }
   .free-info-heading {
-    max-height: 180px;
+    max-height: min(180px, 34%);
     overflow: auto;
   }
   .free-session-heading details {
@@ -509,6 +511,8 @@
   }
   .free-info-actions {
     padding: 10px;
+    max-height: none;
+    overflow: visible;
   }
 }
 .free-initial {

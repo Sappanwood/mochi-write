@@ -181,6 +181,83 @@ test("draft reading keeps metadata behind one details entry on desktop and mobil
   }
 });
 
+test("mobile draft actions remain reachable with initial context and a short viewport", async ({
+  page,
+}) => {
+  const context = await f.store.commit(
+    entity("world", worldContent("手机布局验收背景资料")),
+    null,
+  );
+  await page.goto(`${f.address}/#free/new/asset/${context.id}`);
+  await expect(page.locator(".free-initial")).toContainText(
+    context.content.name,
+  );
+  const task = await send(page, "参考背景资料构思一名守灯人，只预览不保存");
+  const candidate = await draft(
+    task,
+    "守灯人",
+    "海风吹过灯塔。\n\n".repeat(30),
+  );
+  await finish(task);
+  await show(page, candidate);
+  const posts: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST") posts.push(request.url());
+  });
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 320, height: 740 },
+    { width: 390, height: 560 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.getByRole("tab", { name: "信息", exact: true }).click();
+    await expect(page.locator(".free-initial")).toContainText(
+      "手机布局验收背景资料",
+    );
+    const pane = page.getByRole("region", { name: "当前信息", exact: true });
+    await pane.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await pane.locator(".free-pane-heading").hover();
+    await page.mouse.wheel(0, 1000);
+    await pane.locator(".free-info-actions").evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    for (const name of ["准备保存此稿", "引用到对话"]) {
+      const button = pane.getByRole("button", { name, exact: true });
+      // Check clipping and hit targets, not just the element's CSS visibility.
+      await expect(button).toBeInViewport({ ratio: 0.99 });
+      const box = (await button.boundingBox())!;
+      const paneBox = (await pane.boundingBox())!;
+      const composer = (await page.locator(".free-composer").boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.y).toBeGreaterThanOrEqual(paneBox.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(composer.y);
+      await button.click({ trial: true });
+    }
+    if (viewport.height === 844)
+      await page.screenshot({
+        path: "/tmp/mochi-write-draft-mobile-fixed.png",
+      });
+    await pane
+      .getByRole("button", { name: "准备保存此稿", exact: true })
+      .click();
+    await expect(page.getByLabel("下一条消息")).toHaveValue(/守灯人 · 第 1 稿/);
+    await expect(page.getByLabel("下一条消息")).toBeInViewport();
+    await expect(
+      page.getByRole("button", { name: "发送", exact: true }),
+    ).toBeInViewport();
+    await page.getByLabel("下一条消息").fill("");
+    await page.getByRole("button", { name: /删除引用/ }).click();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  expect(posts).toEqual([]);
+});
+
 test("save preparation rejects other candidate references without changing the message", async ({
   page,
 }) => {
