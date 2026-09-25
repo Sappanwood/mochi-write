@@ -142,6 +142,13 @@ export async function materialTool(
       if (spec.source_ref.type === "asset") {
         e.sourceAssetId = spec.source_ref.asset_id;
         e.sourceVersion = spec.source_ref.version;
+        const source = await free.content.getVersion(
+          spec.source_ref.asset_id,
+          spec.source_ref.story_id ?? null,
+          spec.source_ref.version,
+        );
+        if (!source) throw new AppError(409, "reference_unavailable");
+        if (source?.portrait) e.portrait = structuredClone(source.portrait);
       } else {
         const ref = spec.source_ref;
         e.sourceCandidate = {

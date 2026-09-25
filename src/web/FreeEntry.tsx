@@ -1,4 +1,5 @@
 import { UpdatedTime } from "./ContentSummary.js";
+import { portraitRequest } from "../shared/portrait.js";
 import { useEffect, useState } from "react";
 import type { FreeConversation, AssetRef } from "../shared/free.js";
 import type { CandidateGroup } from "../shared/free-candidates.js";
@@ -42,7 +43,9 @@ export function FreeNewEntry({
         return;
       }
       const doc = await api<Document>(
-        source === "asset" ? `/library/${sourceId}` : `/stories/${sourceId}`,
+        source === "asset" || source === "portrait"
+          ? `/library/${sourceId}`
+          : `/stories/${sourceId}`,
       );
       const reference = await resolveDiscovery(api, root, {
         type: "asset",
@@ -91,13 +94,15 @@ export function FreeNewEntry({
       initialRefs={reference ? [reference.ref] : []}
       refreshInitial={sourceId ? refreshInitial : undefined}
       initialMessage={
-        !sourceId && source === "character"
-          ? "我想构思一个角色："
-          : !sourceId && source === "world"
-            ? "我想构思一个世界观："
-            : !sourceId && source === "story"
-              ? "我想构思一个故事："
-              : ""
+        source === "portrait" && sourceId
+          ? portraitRequest
+          : !sourceId && source === "character"
+            ? "我想构思一个角色："
+            : !sourceId && source === "world"
+              ? "我想构思一个世界观："
+              : !sourceId && source === "story"
+                ? "我想构思一个故事："
+                : ""
       }
     />
   );

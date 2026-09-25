@@ -1,4 +1,10 @@
 import { Library } from "./library.js";
+import { bundlePortraits, portraitPath } from "./portrait-bundle.js";
+import {
+  requirePortraits,
+  validateStoredPortrait,
+  type PortraitStore,
+} from "./portraits.js";
 import { posix } from "node:path";
 import { z } from "zod";
 import {
@@ -74,6 +80,8 @@ function exported(files: BundleFile[]): Entity[] {
       throw new AppError(400, "导出条目身份不一致");
     return doc;
   });
+  for (const id of bundlePortraits(files, docs).keys())
+    used.add(portraitPath(id));
   if (used.size !== files.length - 1)
     throw new AppError(400, "存在清单未登记的文件");
   return docs;
@@ -348,6 +356,7 @@ export async function importFiles(
   store: Store,
   files: BundleFile[],
   batchId: string,
+  images?: PortraitStore,
 ): Promise<{ created: number; skipped: number }> {
   const docs = preflight(files, batchId, await new Library(store).vocabulary());
   const previous = new Map<string, Document>();
@@ -368,6 +377,10 @@ export async function importFiles(
       previous.set(doc.id, old);
     }
   }
+  const portraits = bundlePortraits(files, docs);
+  for (const data of portraits.values()) await validateStoredPortrait(data);
+  for (const [id, data] of portraits)
+    await requirePortraits(images).put(id, data);
   if (!files.some((f) => f.path === "manifest.json")) {
     const marker = entity(
       "import",

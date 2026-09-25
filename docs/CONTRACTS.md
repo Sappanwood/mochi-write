@@ -368,3 +368,26 @@ POST tasks 的 selectedDraft 必须在新任务占位／停止旧任务前通过
 要求 ready、未删除的真实故事及原 revision，复用 head/version 条件事务；不修改 Content 或其他资料，版本冲突返回 409。
 指引随 manifest attributes 往返，旧无字段数据无需迁移，其他实体携带 guidance 会被 schema 拒绝。
 执行注入及快照展示见 [自由会话服务](FREE_SESSION.md#故事写作指引)。
+
+## 角色头像
+
+`character` 与 `snapshot` 可含 `portrait:{imageId?:string,prompt:string}`；imageId 为 64 位小写 SHA-256 hex，
+prompt 最多 8000 UTF-16 code units。此属性位于 Entity，非 Content；原数据无需迁移，其他 kind 禁止携带。
+头像独立于角色事实正文，AI 正文保存保留旧值。母版复制快照从精确 sourceVersion 继承头像引用和提示词，不跟随最新 head。
+
+| 本人 API | 契约 |
+|---|---|
+| `POST /api/portraits` | `{data:<base64>}`，解码最多 512 KiB、请求最多 1 MiB；只接受静态 PNG/JPEG/WebP，最多 1600 万像素；去元数据并转 512×512 JPEG，201 返回 `{imageId}` |
+| `GET /api/portraits/:id` | 返回 `{data:<JPEG base64>}`，核对内容 hash；不存在为 404，不支持外部图片 URL |
+| `PUT /api/library/:id/portrait` | `{revision,portrait:<对象或null>}`，只允许未删除角色；检查图片存在与角色 CAS，返回完整 Document；null 清除属性，省略 imageId 仅移除图片；版本冲突 409 |
+
+所有图片 API 沿用本人 Bearer、同源写入、JSON 和 no-store；不接受 Mochi callback 身份，不暴露 Blob URL 或凭据。
+未配置图片存储返回 503；提示词单独保存仍可用，沿用既有 imageId 的提示词修改无需重新上传。
+图片以内容 ID create-only 持久化，更换/移除不删除 Blob；角色版本与历史快照引用保持有效。
+
+导出 v1 manifest attributes 保留 portrait，包中附加去重的 `portraits/<imageId>.json`，内容为
+`{schema:"mochi-write/portrait@1",data:<JPEG base64>}`，作为 UTF-8 附件适配现有 Web/CLI/ZIP 流程。
+附件沿用单文件 1 MiB、总包 16 MiB 与最多 1000 文件的边界；缺失、篡改、无引用附件、非法类型或超限拒绝，旧无头像包仍兼容。
+导入先核对全包及既有对象冲突，再验证全部 JPEG 并写不可变附件，之后走原对象导入；不承诺 Blob 与 Cosmos 跨服务事务。
+失败可用原包重试，缺少 Blob 配置不会静默丢弃头像。CLI preflight 与 HTTP preview 校验附件但不上传。
+文件系统安全边界沿用导入导出 v1；没有新增任意路径、symlink 或覆盖权限。

@@ -1,4 +1,6 @@
 import { ContentReading } from "./ContentReading.js";
+import { PortraitImage } from "./PortraitImage.js";
+import { PortraitPanel } from "./PortraitPanel.js";
 import { ContentSummary, UpdatedTime } from "./ContentSummary.js";
 import { AssetCreativeEntry } from "./FreeEntry.js";
 import { useEffect, useState } from "react";
@@ -135,6 +137,13 @@ export function LibraryView({
             key={d.id}
             onClick={() => navigate(`asset/${d.id}`)}
           >
+            {kind === "character" && (
+              <PortraitImage
+                api={api}
+                imageId={d.portrait?.imageId}
+                name={d.content.name}
+              />
+            )}
             <h2 title={d.content.name}>{d.content.name}</h2>
             <p>
               {[
@@ -479,6 +488,18 @@ export function AssetEditor({
         </form>
       ) : (
         <>
+          {base?.kind === "character" && (
+            <PortraitPanel
+              key={base.id}
+              api={api}
+              doc={base}
+              onSaved={(doc) => {
+                setBase(doc);
+                setContent(doc.content);
+              }}
+              navigate={navigate}
+            />
+          )}
           <ContentReading content={content} />
           <button
             className="danger quiet"

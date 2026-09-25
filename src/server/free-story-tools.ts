@@ -117,6 +117,12 @@ export async function storyTool(
         if (!source || source.type !== "asset")
           throw new AppError(403, "forbidden_scope");
         const full = await free.references.read(task.conversationId, source);
+        const sourceEntity = await free.content.getVersion(
+          source.asset_id,
+          null,
+          source.version,
+        );
+        if (!sourceEntity) throw new AppError(409, "reference_unavailable");
         return {
           source: {
             title: full.content.name,
@@ -135,6 +141,9 @@ export async function storyTool(
               source.asset_id,
             ),
             currentVersion: source.version,
+            ...(sourceEntity.portrait
+              ? { portrait: structuredClone(sourceEntity.portrait) }
+              : {}),
           },
         };
       },

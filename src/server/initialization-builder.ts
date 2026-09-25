@@ -85,6 +85,9 @@ export async function buildInitialization(
           ),
           sourceAssetId: master.id,
           sourceVersion: master.currentVersion,
+          ...(master.portrait
+            ? { portrait: structuredClone(master.portrait) }
+            : {}),
         },
         baseRevision: null,
         source,

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { Document, Page } from "../shared/model.js";
 import { type Api, message } from "./api.js";
 import { ContentReading } from "./ContentReading.js";
+import { PortraitImage } from "./PortraitImage.js";
 import { ContentSummary, UpdatedTime } from "./ContentSummary.js";
 import { StoryGuidance } from "./StoryGuidance.js";
 export function StoriesView({
@@ -258,6 +259,14 @@ export function StoryReader({
                         : "原创资料"}{" "}
                     · 当前故事第 {current.currentVersion} 版
                   </p>
+                )}
+                {current.portrait?.imageId && (
+                  <PortraitImage
+                    api={api}
+                    imageId={current.portrait.imageId}
+                    name={current.content.name}
+                    large
+                  />
                 )}
                 <ContentReading content={current.content} />
                 {section === "chapter" && (

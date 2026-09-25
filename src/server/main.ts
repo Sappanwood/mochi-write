@@ -21,6 +21,7 @@ import { ManagedIdentityCredential } from "@azure/identity";
 import fastifyStatic from "@fastify/static";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { configuredPortraits } from "./portrait-store.js";
 
 try {
   const config = loadConfig();
@@ -41,7 +42,7 @@ try {
     },
   });
   const store = new CosmosStore(database);
-  registerBusiness(app, store);
+  registerBusiness(app, store, configuredPortraits(config));
   const credential = new ManagedIdentityCredential({
     clientId: config.managedIdentityClientId,
   });

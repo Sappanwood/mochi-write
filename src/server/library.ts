@@ -117,6 +117,9 @@ export class Library {
       ...entity("snapshot", structuredClone(master.content), story, id),
       sourceAssetId: master.id,
       sourceVersion: master.currentVersion,
+      ...(master.portrait
+        ? { portrait: structuredClone(master.portrait) }
+        : {}),
     };
     try {
       return await this.store.commit(doc, null);

@@ -75,7 +75,18 @@ Mochi 的无工具会话/任务 v1 API 已与应用进行本地 HTTP 联调；�
 
 Azure Cosmos DB 已确定为业务主存储。角色、世界观、故事快照、章节、版本、草稿及应用会话关联保存为业务文档，
 正文保留 Markdown 字符串。章节和历史版本分别建模，不将整部故事或全部会话历史放进单一文档。
-Blob 不作为首期业务主存储；附件或导出包存储在出现具体需求时另行确定。
+业务文档仍以 Cosmos 为主存储；角色头像使用独立私有 Azure Blob，导出包仍即时生成。
+
+`Entity.portrait` 是可选展示属性，与 `Content` 的事实正文分离，避免角色候选保存覆盖图片。
+`portraits` 本人 API 通过 Sharp 重新编码上传，SHA-256 作为不可变图片 ID；`BlobPortraitStore` 使用 Managed Identity，
+上传携带 `If-None-Match: *`，同图重试核对已有字节，下载按大小和 etag 限定。图片不进入 Cosmos 正文或模型上下文。
+角色与故事快照持有固定图片引用及提示词，无级联删除；模型完整复制母版时从精确不可变版本继承展示属性，AI 正文更新保留它。
+上传与角色 CAS 是独立操作，失败或放弃可能留下未引用图片；本期不建设 GC，以免误删历史或快照依赖。
+`PortraitCrop` 在浏览器裁剪，`PortraitPanel` 独立编辑与保存，`PortraitImage` 经带认证的 API 读取后用内存 data URL 展示。
+`FreeNewEntry` 的 portrait 入口复用自由会话与既有模型选择，初始提示词要求区分已有设定与建议补充，无自动发送或独立生图 provider。
+Blob 资源、角色权限和环境变量由 CCP 管理，应用只消费配置；未配置时图片能力明确不可用，文字服务 readiness 不受影响。
+接入依据：[Azure Blob JS SDK](https://learn.microsoft.com/en-us/javascript/api/overview/azure/storage-blob-readme?view=azure-node-latest)、
+[Sharp 输入限制](https://sharp.pixelplumbing.com/api-constructor/)。
 按用户“最大程度使用免费额度”的要求，采用 Cosmos DB for NoSQL 的 Free Tier + 手动预配吞吐方向，替代此前 Serverless 建议。
 CCP 已完成 Free Tier 名额核对并创建应用数据库与两个 container；后续扩容仍须核对账户总额度。
 以单区域、账户总预配吞吐不超过可用免费额度为初始约束；Free Tier 当前为 1,000 RU/s 和 25 GB，

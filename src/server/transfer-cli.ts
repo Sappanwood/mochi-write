@@ -1,6 +1,9 @@
 import { CosmosClient, ConsistencyLevel } from "@azure/cosmos";
 import { ManagedIdentityCredential } from "@azure/identity";
 import { loadConfig } from "./config.js";
+import { configuredPortraits } from "./portrait-store.js";
+import { bundlePortraits } from "./portrait-bundle.js";
+import { validateStoredPortrait } from "./portraits.js";
 import { CosmosStore } from "./cosmos-store.js";
 import { readBundle, writeBundle } from "./filesystem.js";
 import { preflight, importFiles } from "./import.js";
@@ -20,7 +23,10 @@ try {
       "用法：transfer preflight|import <源目录> <批次标识>；transfer export <新目标目录>",
     );
   if (command === "preflight") {
-    const docs = preflight(await readBundle(path), batch!);
+    const files = await readBundle(path);
+    const docs = preflight(files, batch!);
+    for (const data of bundlePortraits(files, docs).values())
+      await validateStoredPortrait(data);
     console.info(JSON.stringify({ ok: true, count: docs.length }));
   } else {
     const config = loadConfig();
@@ -36,11 +42,16 @@ try {
       console.info(
         JSON.stringify({
           ok: true,
-          ...(await importFiles(store, await readBundle(path), batch!)),
+          ...(await importFiles(
+            store,
+            await readBundle(path),
+            batch!,
+            configuredPortraits(config),
+          )),
         }),
       );
     else {
-      const files = await exportFiles(store);
+      const files = await exportFiles(store, configuredPortraits(config));
       await writeBundle(path, files);
       console.info(JSON.stringify({ ok: true, files: files.length }));
     }

@@ -468,13 +468,16 @@ it("different story drafts competing for one OP freeze only one directory/claim"
 it("copies a read master version completely and never refreshes its frozen snapshot", async () => {
   const { free, content } = fixture();
   const old = await content.commit(
-    entity("character", {
-      name: "母版",
-      markdown: "正文\r\n",
-      genres: [],
-      ageBand: "",
-      sourceMetadata: { legacy: { unknown: 7 }, occupation: "侦探" },
-    }),
+    {
+      ...entity("character", {
+        name: "母版",
+        markdown: "正文\r\n",
+        genres: [],
+        ageBand: "",
+        sourceMetadata: { legacy: { unknown: 7 }, occupation: "侦探" },
+      }),
+      portrait: { imageId: "a".repeat(64), prompt: "2.5D，银发" },
+    },
     null,
   );
   const source = {
@@ -490,6 +493,7 @@ it("copies a read master version completely and never refreshes its frozen snaps
     {
       ...old,
       content: { ...old.content, markdown: "later" },
+      portrait: { imageId: "b".repeat(64), prompt: "后来更换的头像" },
       currentVersion: 2,
     },
     old.revision,
@@ -510,6 +514,7 @@ it("copies a read master version completely and never refreshes its frozen snaps
   expect(copy.content).toEqual(old.content);
   expect(copy.sourceAssetId).toBe(old.id);
   expect(copy.sourceVersion).toBe(1);
+  expect(copy.portrait).toEqual(old.portrait);
   const current = (await content.get(old.id, null))!;
   await content.commit(
     {

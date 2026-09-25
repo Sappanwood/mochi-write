@@ -6,6 +6,7 @@ Agent 执行由 Mochi 提供，云基础设施与部署由 CCP 管理。
 ## 当前状态
 
 已实现个人登录接入、角色/世界观编辑、故事阅读、Markdown 导入导出及 Mochi 单 Agent 写作侧栏。
+角色头像与默认 2.5D 生图提示词入口已在本地实现，应用镜像尚未发布；CCP 已部署私有 Blob、容器级身份权限和 ACA 环境变量，见下文配置。
 侧栏支持上下文预览、持续会话、生成/反馈重写、取消/恢复与原子章节采纳。
 故事级写作指引已发布：故事页维护、跨会话注入、执行快照查看及导入导出保留。线上已验证保存／清空、版本冲突、刷新恢复，以及现有订阅模型读取指引生成独立草稿；指引为创作提示，不保证逐条格式约束，验收中每段句数未严格遵循。
 已发布至 [Mochi Write](https://mochi-write.whitemeadow-6e32159b.eastus.azurecontainerapps.io)，
@@ -82,6 +83,8 @@ MOCHI_REPO_ROOT=/absolute/path/to/mochi npm run test:integration
 | `APP_ORIGIN` | 精确同源地址，无路径或尾部斜杠；公开地址要求 HTTPS |
 | `COSMOS_ENDPOINT` | 既有 Cosmos HTTPS endpoint |
 | `COSMOS_DATABASE` | 默认 `mochi-write` |
+| `PORTRAIT_BLOB_ENDPOINT` | 可选，Azure 公有云 Storage account 的 `https://<account>.blob.core.windows.net`，不含路径、SAS 或凭据 |
+| `PORTRAIT_BLOB_CONTAINER` | 默认 `portraits`，预先创建的私有 container |
 | `AZURE_CLIENT_ID` | 可选的 user-assigned Managed Identity client ID |
 | `MOCHI_ORIGIN` / `MOCHI_ENTRA_AUDIENCE` | 可选但必须成对；Mochi 精确 origin 与 Entra API audience UUID |
 | `MOCHI_TOOLS_CLIENT_ID` / `MOCHI_TOOLS_PRINCIPAL_ID` | 可选但必须成对；反向工具 callback 的 Mochi 服务 client/principal UUID，要求 Write.Tools.Invoke app role；main 已注册可信任务 callback，缺少此配置时拒绝工具请求 |
@@ -94,6 +97,16 @@ Write 的反向角色配置必须对应上述身份。该接入不自动创建�
 后端目前使用 Managed Identity，不自动创建数据库、container 或 registration。API registration 需签发 v2 access token，
 scope 为 `api://<API client ID>/Write.Access`；SPA redirect 为 `APP_ORIGIN/redirect.html`。
 MSAL v5 使用独立 redirect bridge 页面，反向代理不得为该页面设置 COOP header。
+
+CCP 已在既有 `mochidataa4c005ba3f` Storage Account 配置私有 `mochi-write-portraits` Blob container、关闭匿名访问，
+并为 Write Managed Identity 在该 container 授予 `Storage Blob Data Contributor`；ACA 已注入对应
+`PORTRAIT_BLOB_ENDPOINT` 与 `PORTRAIT_BLOB_CONTAINER`。部署参数见 [CCP 输出](https://github.com/Sappanwood/ccp/blob/main/docs/WRITE_DEPLOYMENT_OUTPUTS.json)。
+浏览器通过本人 API 读写图片，不使用公共链接或 SAS；后端不自动创建资源。此容器不受现有 Files/Cosmos 备份覆盖，
+完整头像备份需使用包含附件的导出包；配置就绪不代表新应用头像链路已上线或完成云端业务验收。
+未配置 Blob 时仍可阅读文字、整理和保存提示词；图片读写以及含头像附件的导入导出会明确报错，不产生缺图的成功备份。
+头像、提示词与角色版本一起保存；上传后须点击「保存头像与提示词」才关联角色，冲突可保留草稿后对照最新版本。
+「整理 2.5D 提示词」只准备已有文字会话的输入，用户发送后调用现有模型；输出由用户复制回提示词栏并保存，不直接调用生图模型。
+原图在浏览器裁剪为正方形，服务器重新编码为 512×512 JPEG；原图不保存。旧头像与未采纳上传保留，不自动删除，以保护历史版本及故事快照。
 开发 endpoint 已登记于 workspace `.pops/workspace.json` 的 `projects.mochi-write.dev`：单 `web` endpoint，
 `127.0.0.1:12600`，Repo 相对 cwd `.`，命令 `npm run dev`。ProjectOps 注入 `HOST=127.0.0.1`，
 并通过受限变量将 `WEB_PORT` 映射到 `PORT`、`WEB_ORIGIN` 映射到 `APP_ORIGIN`；默认 8080 不是本工作区分配。

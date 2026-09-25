@@ -8,6 +8,8 @@ import {
 import type { Store } from "./store.js";
 import { clean, hash } from "./entities.js";
 import { checkFiles } from "./markdown.js";
+import { exportPortraits } from "./portrait-bundle.js";
+import type { PortraitStore } from "./portraits.js";
 export async function collect(store: Store, filter: Filter): Promise<Entity[]> {
   const result: Entity[] = [];
   let cursor: string | undefined;
@@ -20,7 +22,10 @@ export async function collect(store: Store, filter: Filter): Promise<Entity[]> {
   } while (cursor);
   return result;
 }
-export async function exportFiles(store: Store): Promise<BundleFile[]> {
+export async function exportFiles(
+  store: Store,
+  images?: PortraitStore,
+): Promise<BundleFile[]> {
   const library = (await collect(store, { projectId: null })).filter(
     (e) => e.kind !== "import",
   );
@@ -70,6 +75,7 @@ export async function exportFiles(store: Store): Promise<BundleFile[]> {
       2,
     ),
   });
+  files.push(...(await exportPortraits(docs, images)));
   checkFiles(files);
   return files;
 }

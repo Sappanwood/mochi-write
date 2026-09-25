@@ -1,0 +1,78 @@
+.portrait-image {
+  display: inline-flex;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #eee7df;
+  color: #665347;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+.portrait-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.portrait-large {
+  width: 176px;
+  height: 176px;
+  font-size: 4rem;
+}
+.portrait-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  margin: 24px 0;
+}
+.portrait-controls {
+  flex: 1;
+  min-width: 0;
+}
+.portrait-controls fieldset {
+  border: 0;
+  padding: 12px 0;
+  min-width: 0;
+}
+.portrait-controls label,
+.portrait-crop label {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.portrait-controls textarea {
+  width: 100%;
+  min-height: 180px;
+}
+.portrait-controls pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.portrait-crop canvas {
+  width: min(100%, 280px);
+  height: auto;
+  border-radius: 12px;
+}
+.portrait-crop input[type="range"] {
+  width: min(100%, 280px);
+  padding: 0;
+}
+.portrait-controls input[type="file"] {
+  width: 100%;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .portrait-panel {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .portrait-controls {
+    width: 100%;
+  }
+  .portrait-large {
+    width: 128px;
+    height: 128px;
+  }
+}

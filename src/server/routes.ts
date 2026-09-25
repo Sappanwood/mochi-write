@@ -1,6 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Store } from "./store.js";
+import { registerPortraits, type PortraitStore } from "./portraits.js";
+import { bundlePortraits } from "./portrait-bundle.js";
+import { validateStoredPortrait } from "./portraits.js";
 import { AppError, contentSchema } from "../shared/model.js";
 import { Library } from "./library.js";
 import { importFiles, preflight } from "./import.js";
@@ -20,7 +23,12 @@ const importSchema = z
       .max(1000),
   })
   .strict();
-export function registerBusiness(app: FastifyInstance, store: Store) {
+export function registerBusiness(
+  app: FastifyInstance,
+  store: Store,
+  images?: PortraitStore,
+) {
+  registerPortraits(app, store, images);
   const library = new Library(store);
   async function story(id: string) {
     const doc = await store.get(id, id);
@@ -146,16 +154,18 @@ export function registerBusiness(app: FastifyInstance, store: Store) {
         await library.vocabulary(),
       );
       const counts: Record<string, number> = {};
+      for (const data of bundlePortraits(body.files, docs).values())
+        await validateStoredPortrait(data);
       for (const d of docs) counts[d.kind] = (counts[d.kind] ?? 0) + 1;
       return { count: docs.length, counts };
     },
   );
   app.post("/api/import", { bodyLimit: 32 * 1024 * 1024 }, async (request) => {
     const body = importSchema.parse(request.body);
-    return importFiles(store, body.files, body.batchId);
+    return importFiles(store, body.files, body.batchId, images);
   });
   app.post("/api/export", async (request) => {
     z.object({}).strict().parse(request.body);
-    return { files: await exportFiles(store) };
+    return { files: await exportFiles(store, images) };
   });
 }

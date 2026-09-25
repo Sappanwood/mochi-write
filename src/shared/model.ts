@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { portraitSchema } from "./portrait.js";
 import { GUIDANCE_MAX_LENGTH } from "./guidance.js";
 export const genres = [
   "都市",
@@ -47,6 +48,7 @@ export const entitySchema = z
     deleted: z.boolean().optional(),
     initializationPending: z.literal(true).optional(),
     guidance: z.string().max(GUIDANCE_MAX_LENGTH).optional(),
+    portrait: portraitSchema.optional(),
     sourceAssetId: z.uuid().optional(),
     sourceVersion: z.number().int().positive().optional(),
     sourceCandidate: z
@@ -70,6 +72,12 @@ export const entitySchema = z
       .optional(),
   })
   .strict()
+  .refine(
+    (value) =>
+      value.portrait === undefined ||
+      ["character", "snapshot"].includes(value.kind),
+    "Portrait belongs to a character or snapshot",
+  )
   .refine(
     (value) => value.guidance === undefined || value.kind === "story",
     "Guidance belongs to a story",

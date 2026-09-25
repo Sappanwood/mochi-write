@@ -157,6 +157,7 @@ it("direct update retains legacy metadata, entity source and snapshots; next rou
         },
       }),
       source: { path: "legacy/a.md", hash: "hash", raw: "original" },
+      portrait: { imageId: "a".repeat(64), prompt: "2.5D，银发" },
     },
     null,
   );
@@ -194,6 +195,7 @@ it("direct update retains legacy metadata, entity source and snapshots; next rou
     world: "新名",
   });
   expect(current.source).toEqual(original.source);
+  expect(current.portrait).toEqual(original.portrait);
   expect(await content.get(snapshot.id, storyId)).toEqual(snapshot);
   expect(
     (

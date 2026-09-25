@@ -29,6 +29,28 @@ const schema = z.object({
     .string()
     .regex(/^[a-zA-Z0-9-]+$/)
     .default("mochi-write"),
+  PORTRAIT_BLOB_ENDPOINT: z
+    .url()
+    .refine((value) => {
+      const url = new URL(value);
+      return (
+        url.protocol === "https:" &&
+        /^[a-z0-9]{3,24}\.blob\.core\.windows\.net$/.test(url.hostname) &&
+        !url.username &&
+        !url.password &&
+        !url.port &&
+        !url.search &&
+        !url.hash &&
+        url.pathname === "/"
+      );
+    })
+    .optional(),
+  PORTRAIT_BLOB_CONTAINER: z
+    .string()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .min(3)
+    .max(63)
+    .default("portraits"),
   MOCHI_ORIGIN: origin.optional(),
   MOCHI_ENTRA_AUDIENCE: z.uuid().optional(),
   MOCHI_TOOLS_CLIENT_ID: z.uuid().optional(),
@@ -81,6 +103,8 @@ export function loadConfig(
         : undefined,
     cosmosEndpoint: value.COSMOS_ENDPOINT,
     cosmosDatabase: value.COSMOS_DATABASE,
+    portraitBlobEndpoint: value.PORTRAIT_BLOB_ENDPOINT,
+    portraitBlobContainer: value.PORTRAIT_BLOB_CONTAINER,
     managedIdentityClientId: value.AZURE_CLIENT_ID,
     mochiOrigin: value.MOCHI_ORIGIN,
     mochiAudience: value.MOCHI_ENTRA_AUDIENCE,

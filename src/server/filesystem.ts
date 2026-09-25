@@ -1,4 +1,5 @@
 import { bundleFileByteLimit } from "../shared/bundle-limits.js";
+import { portraitFilePattern } from "../shared/portrait.js";
 import { constants } from "node:fs";
 import { lstat, mkdir, open, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, parse, relative, resolve } from "node:path";
@@ -32,7 +33,11 @@ export async function readBundle(input: string): Promise<BundleFile[]> {
     }
     if (!info.isFile()) throw new AppError(400, "源文件必须是普通文件");
     const rel = safePath(relative(root, path));
-    if (!rel.endsWith(".md") && rel !== "manifest.json")
+    if (
+      !rel.endsWith(".md") &&
+      rel !== "manifest.json" &&
+      !portraitFilePattern.test(rel)
+    )
       throw new AppError(400, "源目录包含不支持的文件");
     const fileLimit = bundleFileByteLimit(rel);
     if (files.length >= limits.files || info.size > fileLimit)

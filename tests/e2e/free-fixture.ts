@@ -6,6 +6,7 @@ import { createApp } from "../../src/server/app.js";
 import { createVerifier } from "../../src/server/auth.js";
 import { loadConfig } from "../../src/server/config.js";
 import { registerBusiness } from "../../src/server/routes.js";
+import type { PortraitStore } from "../../src/server/portraits.js";
 import { registerFree } from "../../src/server/free-routes.js";
 import { FreeSession } from "../../src/server/free-session.js";
 import { MemoryStore } from "../support/memory-store.js";
@@ -42,7 +43,7 @@ export class FreeBrowserMochi extends FakeCreativeMochi {
     return result;
   }
 }
-export async function freeFixture() {
+export async function freeFixture(images?: PortraitStore) {
   const config = loadConfig({
     ENTRA_TENANT_ID: randomUUID(),
     ENTRA_OWNER_OID: randomUUID(),
@@ -84,7 +85,7 @@ export async function freeFixture() {
     records = new MemoryFreeStore(store),
     mochi = new FreeBrowserMochi(),
     free = new FreeSession(store, records, mochi, { pollMs: 10 });
-  registerBusiness(server, store);
+  registerBusiness(server, store, images);
   registerFree(server, free);
   server.get("/api/writing/models", async () => mochi.request("/v1/models"));
   server.get("/fixture-token", async (_request, reply) =>

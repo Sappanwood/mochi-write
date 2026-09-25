@@ -11,6 +11,25 @@ const env = {
 };
 
 describe("startup configuration", () => {
+  it("accepts only configured Azure Blob endpoints without credentials or paths", () => {
+    expect(
+      loadConfig({
+        ...env,
+        PORTRAIT_BLOB_ENDPOINT: "https://writeimages.blob.core.windows.net",
+      }).portraitBlobContainer,
+    ).toBe("portraits");
+    for (const endpoint of [
+      "http://writeimages.blob.core.windows.net",
+      "https://user:secret@writeimages.blob.core.windows.net",
+      "https://writeimages.blob.core.windows.net/private",
+      "https://writeimages.blob.core.windows.net?sig=secret",
+      "https://other.example",
+    ]) {
+      expect(() =>
+        loadConfig({ ...env, PORTRAIT_BLOB_ENDPOINT: endpoint }),
+      ).toThrow();
+    }
+  });
   it("enables service identity only with an explicit client/principal pair", () => {
     expect(loadConfig(env).toolAuth).toBeUndefined();
     for (const field of ["MOCHI_TOOLS_CLIENT_ID", "MOCHI_TOOLS_PRINCIPAL_ID"])

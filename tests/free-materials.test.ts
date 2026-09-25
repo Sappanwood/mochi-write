@@ -84,10 +84,13 @@ it("unavailable capability and ambiguous draft members return to conversation wi
 it("master sources expand full independent Content and preserve source version", async () => {
   const f = await materialFixture();
   const master = await f.content.commit(
-    entity("character", {
-      ...worldContent("访客"),
-      sourceMetadata: { legacy: { secret: "完整元数据" } },
-    }),
+    {
+      ...entity("character", {
+        ...worldContent("访客"),
+        sourceMetadata: { legacy: { secret: "完整元数据" } },
+      }),
+      portrait: { imageId: "a".repeat(64), prompt: "2.5D，固定银发" },
+    },
     null,
   );
   const ref = assetReference(master);
@@ -103,6 +106,12 @@ it("master sources expand full independent Content and preserve source version",
   });
   expect(d.payload.members?.[0]?.content).toEqual(master.content);
   expect(d.payload.members?.[0]?.sourceRef).toEqual(ref);
+  expect(
+    (
+      d.payload.business
+        ?.materials as import("../src/shared/story-materials.js").MaterialPackage
+    ).members[0]?.entity.portrait,
+  ).toEqual(master.portrait);
   await expect(
     materialDraft(f.free, resolved, {
       members: [{ key: "visitor", name: "摘要", markdown: "缺失的摘要" }],
