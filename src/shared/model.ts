@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GUIDANCE_MAX_LENGTH } from "./guidance.js";
 export const genres = [
   "都市",
   "现代日常",
@@ -45,6 +46,7 @@ export const entitySchema = z
     status: z.enum(["building", "ready"]).optional(),
     deleted: z.boolean().optional(),
     initializationPending: z.literal(true).optional(),
+    guidance: z.string().max(GUIDANCE_MAX_LENGTH).optional(),
     sourceAssetId: z.uuid().optional(),
     sourceVersion: z.number().int().positive().optional(),
     sourceCandidate: z
@@ -67,7 +69,11 @@ export const entitySchema = z
       })
       .optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) => value.guidance === undefined || value.kind === "story",
+    "Guidance belongs to a story",
+  );
 export type Entity = z.infer<typeof entitySchema>;
 export type Document = Entity & { revision: string };
 export interface LibraryFilter {

@@ -59,6 +59,27 @@ export function FreeTimeline({
           }
         >
           {task.output && <Markdown text={task.output} />}
+          {task.storyGuidance && (
+            <details className="free-details">
+              <summary>本轮写作指引</summary>
+              <p className="muted">
+                执行前固定 · 故事第 {task.storyGuidance.story_version} 版
+              </p>
+              {task.storyGuidance.text ? (
+                <Markdown text={task.storyGuidance.text} />
+              ) : (
+                <p>本轮未设置写作指引。</p>
+              )}
+              <button
+                className="quiet"
+                onClick={() =>
+                  navigate(`story/${task.storyGuidance!.story_id}/chapter`)
+                }
+              >
+                查看故事与当前指引
+              </button>
+            </details>
+          )}
           {task.error && (
             <p role="alert" className="error">
               {task.error === "world_creation_unavailable"

@@ -9,6 +9,22 @@ import { MemoryStore } from "./support/memory-store.js";
 import { MemoryCreativeStore } from "./support/creative-store.js";
 
 const cleanup: Creative[] = [];
+
+it("legacy creative runs include story guidance but intent runs do not", async () => {
+  const f = await fixture();
+  const story = (await f.content.get(f.storyId, f.storyId))!;
+  f.content.heads.set(`${story.id}:${story.id}`, {
+    ...story,
+    guidance: "慢热",
+  });
+  const task = await f.submit();
+  await waitTask(f.service, task, (t) => !!t.runId);
+  const prompts = f.mochi.calls
+    .filter((c) => c.path.endsWith("/runs") && c.body)
+    .map((c) => JSON.parse(c.body!.prompt as string));
+  expect(prompts.find((p) => p.task)?.story_guidance.text).toBe("慢热");
+  expect(prompts.find((p) => !p.task)).not.toHaveProperty("story_guidance");
+});
 afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((service) => service.close()));
 });

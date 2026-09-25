@@ -35,7 +35,8 @@ character/world 禁止 story_id；故事及其资料必须提供 story_id，stor
 | GET /discover | 首条消息前的正式资产发现，参数同会话 discover；不允许 candidate、不创建会话 |
 | POST /references/resolve | 首条消息前解析正式资产 locator，不允许 candidate |
 | POST /conversations | `{clientRequestId,message,provider,model,thinkingLevel?,initialRefs?,refs?}` → `{conversation,task}` |
-| GET /conversations | `cursor?,limit?` → `{items,nextCursor}`，只列 v2 |
+| GET /conversations | `cursor?,limit?` → `{items,nextCursor}`，只列未隐藏的 v2，先过滤再分页 |
+| POST /conversations/:id/hide | 严格空 JSON `{}`；持久隐藏该会话，成功或重复隐藏返回 204，不存在返回 404 |
 | GET /conversations/by-request/:clientRequestId | 恢复原 `{conversation,task}`，不派发 |
 | GET /conversations/:id | `{conversation,activeTask?,associations,nextCursor}` |
 | GET /conversations/:id/tasks | 会话任务分页 `{items,nextCursor}` |
@@ -53,6 +54,12 @@ character/world 禁止 story_id；故事及其资料必须提供 story_id，stor
 
 任务 DTO 只暴露目标/动作摘要、运行状态/用量与恢复信息，不暴露授权 ID、可信执行 payload 或完整 binding。
 401/403 为身份/范围失败，404 为缺失，409 为请求/版本/授权冲突；错误保留原输入和已持久成果。
+
+conversation 可选 `hiddenAt` 由服务端写入；旧记录缺省可见。隐藏沿用 library transaction 的 revision CAS，
+并发变更返回 409，由用户重试，不覆盖新会话状态。隐藏只影响最近会话及关联会话列表；原 ID、by-request、
+任务、候选与收据仍可读取，原链接可继续对话，后续消息不自动恢复列表可见性。它不撤回授权、不停止任务、
+不删除 Write 或 Mochi 记录，不修改正式故事、章节和母版。当前没有恢复列表入口或永久清理功能。
+列表的“从列表移除”先确认，成功后移除该行，失败保留该行并允许重试；桌面和手机共用此行为。
 
 ## 候选与轻量发现
 
@@ -258,3 +265,13 @@ head Create/IfMatch、未修改业务内容的 story head IfMatch guard 与 OP/r
 资料正式保存分类提示短消息（最多 256 个 UTF-16 code units）使用完整原文证据，长消息按位置表选择精确片段；后端仍逐字核验保存授权。预览不要求证据位置，非法结构或无法定位的成员由创作对话处理。保存校验失败仍需澄清，不自动修正授权或重试。
 
 世界观及资料能力已发布到云端。真实合成验收确认同 session 的五成员资料候选、同组反馈、精确旧稿整包保存、当前设定/大纲/角色快照 v2 的 agent_read 与续章，旧章节和原引用内容保持。原 OP 查询、真实收据导航及刷新恢复通过。模型意图仍可能被逐字证据校验拒绝，需明确重述；一次原运行状态未知已通过原 run 核实恢复，未重建会话或重放成功保存。
+
+## 故事写作指引
+
+execute 首次固定 payload 前，优先取 binding/draftContext 的故事目标并核对 storyAllowlist；无目标且无候选上下文时仅采用
+唯一允许故事。新故事及非故事候选不继承参考故事指引，多故事无目标时不猜测。当前已保存指引以
+`story_guidance:{story_id,story_version,text}|null` 和 `guidance_policy` 注入；与 executionRun 同次 CAS 保存
+`task.storyGuidance`，本人 task DTO 返回该快照供「本轮写作指引」展开阅读。intent 不收到指引，resolve 仅声明无指引。
+恢复使用已持久 payload，不重新读取最新指引。空 text 和 null 明确取消沿用历史指引，旧任务没有快照时不补造。
+指引不能改变本轮保存授权、工具范围或原样保存的精确内容，不创建 source/agent_read 记录冒充工具取材。
+编辑 API、版本冲突和导出字段见 [实现契约](CONTRACTS.md#故事写作指引)。

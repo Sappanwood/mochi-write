@@ -118,6 +118,7 @@ export interface FreeBase {
 }
 export interface FreeConversation extends FreeBase {
   kind: "conversation";
+  hiddenAt?: string;
   protocolVersion: 2;
   toolsetVersion?: "world-v1" | "materials-v1";
   sessionId?: string;
@@ -178,6 +179,7 @@ export interface FreeTask extends FreeBase {
   intentRun?: PhaseRun;
   resolutionRun?: PhaseRun;
   executionRun?: PhaseRun;
+  storyGuidance?: import("./guidance.js").StoryGuidanceSnapshot | null;
   cancelRequestedAt?: string;
   stopPending?: boolean;
   eventCursor?: number;

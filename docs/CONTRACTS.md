@@ -360,3 +360,11 @@ POST tasks 的 selectedDraft 必须在新任务占位／停止旧任务前通过
 ## 单故事资料候选
 
 资料包角色来源可为本会话未保存完整候选。snapshot 实体可选 sourceCandidate={conversationId,groupId,draftId,draftRevision:"1",draftHash}，严格身份/hash 格式，供正式独立快照溯源；不代表可跨会话访问候选，也不修改 Content。母版来源仍用 sourceAssetId/sourceVersion。资料候选由后端固定成员 ID/版本/来源，完整契约见 FREE_SESSION 的单故事资料候选章节。
+
+## 故事写作指引
+
+仅 story 允许可选 `guidance:string`，最多 4000 UTF-16 code units；无字段视为空，更新时 trim 两端空白，空字符串表示移除。
+`PUT /api/stories/:id/guidance` 接收 `{revision,text}` 并返回完整故事 Document，沿用本人 Bearer、同源 Origin 和 JSON 边界。
+要求 ready、未删除的真实故事及原 revision，复用 head/version 条件事务；不修改 Content 或其他资料，版本冲突返回 409。
+指引随 manifest attributes 往返，旧无字段数据无需迁移，其他实体携带 guidance 会被 schema 拒绝。
+执行注入及快照展示见 [自由会话服务](FREE_SESSION.md#故事写作指引)。

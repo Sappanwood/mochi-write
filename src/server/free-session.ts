@@ -59,6 +59,16 @@ export class FreeSession {
     if (!t) throw new AppError(404, "task_not_found");
     return t;
   }
+  async hideConversation(id: string) {
+    const conversation = await this.conversation(id);
+    if (conversation.hiddenAt) return;
+    await this.records.transaction("library", [
+      {
+        record: { ...conversation, hiddenAt: new Date().toISOString() },
+        revision: conversation.revision,
+      },
+    ]);
+  }
   async byRequest(id: string) {
     const r = await this.records.get<RequestRecord>("library", "request", id);
     if (!r) throw new AppError(404, "request_not_found");

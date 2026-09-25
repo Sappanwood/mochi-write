@@ -119,7 +119,29 @@ export function FreeConversations({
   const [rows, setRows] = useState<SessionRow[]>([]),
     [names, setNames] = useState<Record<string, string | null>>({}),
     [error, setError] = useState(""),
+    [removing, setRemoving] = useState<string | null>(null),
     [loaded, setLoaded] = useState(false);
+  async function remove(row: SessionRow) {
+    const title = row.tasks[0]?.input.message.slice(0, 80) ?? "未命名会话";
+    if (
+      !confirm(
+        `将“${title}”从最近会话和关联会话列表移除？聊天、草稿和已保存内容仍保留，原链接仍可打开；正在运行的任务不会停止。`,
+      )
+    )
+      return;
+    setRemoving(row.conversation.id);
+    setError("");
+    try {
+      await api(`${root}/conversations/${row.conversation.id}/hide`, {});
+      setRows((current) =>
+        current.filter((r) => r.conversation.id !== row.conversation.id),
+      );
+    } catch (e) {
+      setError(`移除未确认，请重试：${message(e)}`);
+    } finally {
+      setRemoving(null);
+    }
+  }
   useEffect(() => {
     let active = true;
     void (async () => {
@@ -274,6 +296,13 @@ export function FreeConversations({
           {!c.associatedAssets.length && (
             <p className="muted">尚无正式成果，也可以继续此会话。</p>
           )}
+          <button
+            className="quiet"
+            disabled={removing !== null}
+            onClick={() => void remove({ conversation: c, tasks, groups })}
+          >
+            {removing === c.id ? "正在移除…" : "从列表移除"}
+          </button>
         </article>
       ))}
     </section>

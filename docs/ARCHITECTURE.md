@@ -64,6 +64,10 @@ Mochi 的无工具会话/任务 v1 API 已与应用进行本地 HTTP 联调；�
 接近上下文预算时提示整理或新建会话，不静默增加摘要、评审等模型调用。
 应用拥有会话与故事的关联、输入资料版本、草稿和采纳结果；Mochi 拥有执行会话与历史，不建立两份可独立编辑的对话 authority。
 
+自由会话的列表移除由 Write 在 conversation 上以现有 library CAS 事务保存可选 `hiddenAt`；
+最近会话与资产关联列表共用先过滤隐藏记录、再分页的 API。该标记只控制列表可见性，旧记录无需迁移。
+原会话读写、任务恢复、草稿与保存收据继续使用原身份和权限，不调用 Mochi 删除或取消接口。
+
 未来 ProjectOps 可以用同一模式提供项目、Backlog、Plan 和执行上下文，但代码开发需接入其执行与验收契约。
 页面感知不授权代码执行，也不要求 Mochi 首期开放工具。
 
@@ -264,3 +268,13 @@ Mochi 的初始化收据、草稿类型与有界数组 schema 扩展已经接通
 ## 单故事资料候选
 
 FreeSession 新建持久 materials-v1；free-material-resolver 固定 story/成员身份与版本，正式保存另核验本轮成员原文意图，预览不要求逐字证据，free-material-tools 展开完整来源和候选。资料候选沿 library FreeCandidates 不可变组/稿，候选不写正式故事；free-material-save 经独立 OP 固定精确包后以逐对象 CAS 正式提交。shared/story-materials 定义成员身份和目标包，来源候选 provenance 独立保存到实体 sourceCandidate，不污染 Content/hash。
+
+## 故事写作指引
+
+故事 `Entity.guidance` 保存可选写作指引，与 `Content` 的事实资料分离。本人专用更新端点复用 Store 的故事分区
+head CAS 与不可变版本事务；不新增 container、索引或 Mochi 工具。导出 manifest attributes 保留此字段。
+`story-guidance` 按故事范围读取，FreeWorkflow 在 execute 的 payload 固定时同时保存 `FreeTask.storyGuidance`，
+DTO 与时间线仅展示该快照，不读取最新 head 冒充历史输入。intent 解释器不接收指引，resolve 阶段不注入故事指引；
+execute 使用已有后端核验目标与 allowlist，明确非故事候选不继承参考故事指引。空指引仍发送快照，明确取代会话历史。
+旧 Creative 将完整创作 prompt 与首次派发标记一起持久化；无工具 Writing 沿用草稿的冻结 prompt 和上下文预算。
+恢复使用原执行输入，不因指引更新重新生成。UI 的 `StoryGuidance` 独立处理编辑、版本冲突和服务器全文对照。

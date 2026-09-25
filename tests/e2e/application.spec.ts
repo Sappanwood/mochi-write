@@ -215,6 +215,65 @@ test("mobile workspace has no horizontal overflow", async ({ page }) => {
   ).toBe(true);
 });
 
+test("story guidance survives refresh and keeps edits on conflict", async ({
+  page,
+}) => {
+  const id = randomUUID();
+  const story = await store.commit(
+    {
+      ...entity(
+        "story",
+        {
+          name: "指引测试",
+          markdown: "",
+          genres: [],
+          ageBand: "",
+          sourceMetadata: {},
+        },
+        id,
+        id,
+      ),
+      status: "ready",
+    },
+    null,
+  );
+  await page.goto(`${address}/#story/${story.id}/chapter`);
+  await page.getByText("写作指引", { exact: true }).click();
+  await page.getByLabel("故事写作指引").fill("慢热；少用旁白。");
+  await page.getByRole("button", { name: "保存指引", exact: true }).click();
+  await expect(page.getByText("指引已保存")).toBeVisible();
+  await page.reload();
+  await page.getByText("写作指引", { exact: true }).click();
+  await expect(page.getByLabel("故事写作指引")).toHaveValue("慢热；少用旁白。");
+  await page.getByLabel("故事写作指引").fill("我的未保存指引");
+  const current = (await store.get(id, id))!;
+  await store.commit(
+    {
+      ...current,
+      guidance: "另一窗口的指引",
+      currentVersion: current.currentVersion + 1,
+    },
+    current.revision,
+  );
+  await page.getByRole("button", { name: "保存指引", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("故事版本已变化");
+  await expect(page.getByLabel("故事写作指引")).toHaveValue("我的未保存指引");
+  await page.getByRole("button", { name: "读取最新指引，保留输入" }).click();
+  await expect(page.getByText("另一窗口的指引", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("故事写作指引")).toHaveValue("我的未保存指引");
+  await page.getByRole("button", { name: "保存指引", exact: true }).click();
+  await expect(page.getByText("指引已保存")).toBeVisible();
+  await page.getByLabel("故事写作指引").fill("");
+  await page.getByRole("button", { name: "保存指引", exact: true }).click();
+  await expect.poll(async () => (await store.get(id, id))?.guidance).toBe("");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("writing sidebar freezes target through navigation, rewrites and atomically accepts", async ({
   page,
 }) => {

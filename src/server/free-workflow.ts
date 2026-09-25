@@ -6,6 +6,7 @@ import { AppError } from "../shared/model.js";
 import type { FreeSession } from "./free-session.js";
 import { freeDigest } from "./free-references.js";
 import { freeTools } from "./free-tools.js";
+import { freeStoryGuidance, GUIDANCE_POLICY } from "./story-guidance.js";
 import {
   CONVERSATION_POLICY,
   isSaveIntent,
@@ -304,6 +305,10 @@ export class FreeWorkflow {
           throw new AppError(400, "task_budget_exhausted");
       }
       const c = await this.host.conversation(task.conversationId);
+      const guidance =
+        phase === "execute"
+          ? await freeStoryGuidance(this.host.content, task)
+          : null;
       stage = {
         key: `${task.id}:${phase}:1`,
         sessionId,
@@ -335,6 +340,8 @@ export class FreeWorkflow {
                   binding: phase === "execute" ? (task.binding ?? null) : null,
                   draft_context:
                     phase === "execute" ? (task.draftContext ?? null) : null,
+                  guidance_policy: GUIDANCE_POLICY,
+                  story_guidance: guidance,
                 }),
           }),
           ...(phase === "intent"
@@ -351,6 +358,7 @@ export class FreeWorkflow {
       task = await this.host.changeActive(task.id, (t) => {
         if (t[field]) throw new AppError(409, "run_dispatch_conflict");
         t[field] = stage;
+        if (phase === "execute") t.storyGuidance = guidance;
       });
     }
     let run: RemoteRun;

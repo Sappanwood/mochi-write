@@ -56,6 +56,20 @@ test("complete result is persisted and accepted once with immutable version", as
   );
   expect(f.content.history.size).toBe(2);
 });
+
+test("legacy writing includes current story guidance and preserves the submitted prompt", async () => {
+  const f = await fixture();
+  const story = (await f.content.get(f.scope.id, f.scope.id))!;
+  f.content.heads.set(`${story.id}:${story.id}`, {
+    ...story,
+    guidance: "慢热",
+  });
+  const preview = await f.writing.resolve(f.input);
+  expect(JSON.parse(preview.prompt).story_guidance.text).toBe("慢热");
+  const draft = await f.writing.submit(f.input);
+  f.content.heads.set(`${story.id}:${story.id}`, { ...story, guidance: "" });
+  expect((await f.writing.submit(f.input)).prompt).toBe(draft.prompt);
+});
 test("lost submission response is recovered by request key without second run", async () => {
   const f = await fixture();
   f.mochi.loseResponse = true;

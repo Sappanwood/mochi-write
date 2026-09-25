@@ -36,6 +36,7 @@ export type TaskView = Pick<
   target?: Target;
   action?: Action;
   executionRun?: { runId?: string; status?: string };
+  storyGuidance?: import("../shared/guidance.js").StoryGuidanceSnapshot | null;
   resolutionRun?: { runId?: string; status?: string };
 };
 export type Summary = Omit<CandidateRef, "type"> & {

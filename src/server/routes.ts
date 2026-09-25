@@ -5,6 +5,8 @@ import { AppError, contentSchema } from "../shared/model.js";
 import { Library } from "./library.js";
 import { importFiles, preflight } from "./import.js";
 import { exportFiles } from "./export.js";
+import { clean } from "./entities.js";
+import { GUIDANCE_MAX_LENGTH } from "../shared/guidance.js";
 const idParams = z.object({ id: z.uuid() });
 const paging = {
   cursor: z.string().max(16384).optional(),
@@ -79,6 +81,27 @@ export function registerBusiness(app: FastifyInstance, store: Store) {
   app.get("/api/stories/:id", async (request) =>
     story(idParams.parse(request.params).id),
   );
+  app.put("/api/stories/:id/guidance", async (request) => {
+    const body = z
+      .object({
+        revision: z.string().min(1),
+        text: z.string().max(GUIDANCE_MAX_LENGTH),
+      })
+      .strict()
+      .parse(request.body);
+    const current = await story(idParams.parse(request.params).id);
+    if (current.revision !== body.revision)
+      throw new AppError(409, "故事版本已变化，请保留指引并读取最新版本");
+    return store.commit(
+      {
+        ...clean(current),
+        guidance: body.text.trim(),
+        currentVersion: current.currentVersion + 1,
+        updatedAt: new Date().toISOString(),
+      },
+      body.revision,
+    );
+  });
   app.get("/api/stories/:id/documents", async (request) => {
     const id = idParams.parse(request.params).id;
     await story(id);

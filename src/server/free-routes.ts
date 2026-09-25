@@ -54,6 +54,7 @@ export function freeTaskDto(task: FreeTask) {
     target: task.binding?.target,
     action: task.binding?.action,
     draftContext: task.draftContext,
+    storyGuidance: task.storyGuidance,
     stopPending: task.stopPending ?? false,
     receipt: task.receipt,
     output: task.output,
@@ -97,7 +98,9 @@ export function registerFree(app: FastifyInstance, free: FreeSession) {
   });
   app.get(`${root}/conversations`, async (request) =>
     page(
-      await free.records.list<FreeConversation>("conversation"),
+      (await free.records.list<FreeConversation>("conversation")).filter(
+        (c) => !c.hiddenAt,
+      ),
       request.query,
       "free-conversations",
     ),
@@ -127,6 +130,11 @@ export function registerFree(app: FastifyInstance, free: FreeSession) {
       associations: associations.items,
       nextCursor: associations.nextCursor,
     };
+  });
+  app.post(`${base}/hide`, { bodyLimit: 4096 }, async (request, reply) => {
+    z.object({}).strict().parse(request.body);
+    await free.hideConversation(conversationId(request.params));
+    return reply.code(204).send();
   });
   app.get(`${base}/tasks`, async (request) => {
     const id = conversationId(request.params);

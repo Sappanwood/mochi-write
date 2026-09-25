@@ -29,6 +29,7 @@ function configureRuntime(pi, factory) {
       chapter = msg.includes("续写"),
       saved = msg.startsWith("原样保存");
     if (!context.tools?.length) {
+      assert.equal(input.story_guidance, undefined);
       const evidence = { start: 0, end: msg.length, text: msg };
       content = [
         {
@@ -71,6 +72,11 @@ function configureRuntime(pi, factory) {
         },
       ];
     } else {
+      assert.equal(input.story_guidance.story_id, storyId);
+      assert.equal(
+        input.story_guidance.text,
+        chapter ? "侧重对白" : "慢热，少用旁白",
+      );
       let name, args;
       if (chapter) {
         if (!results.length) {
@@ -185,6 +191,15 @@ async function finish(id) {
 try {
   const initial = await h.story();
   storyId = initial.id;
+  const initialStory = await h.content.get(storyId, storyId);
+  await h.content.commit(
+    {
+      ...initialStory,
+      guidance: "慢热，少用旁白",
+      currentVersion: initialStory.currentVersion + 1,
+    },
+    initialStory.revision,
+  );
   const full = {
     name: "第一章",
     markdown: "原有正文",
@@ -242,6 +257,15 @@ try {
     {},
   );
   currentSetting = await h.content.get(oldSetting.id, storyId);
+  const currentStory = await h.content.get(storyId, storyId);
+  await h.content.commit(
+    {
+      ...currentStory,
+      guidance: "侧重对白",
+      currentVersion: currentStory.currentVersion + 1,
+    },
+    currentStory.revision,
+  );
   const third = await h.request(
     `/api/creative/free/conversations/${first.conversation.id}/tasks`,
     {

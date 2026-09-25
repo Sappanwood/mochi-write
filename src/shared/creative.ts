@@ -125,6 +125,7 @@ export interface CreativeTask extends RecordBase {
   inputValidated?: boolean;
   intentDispatchStarted?: boolean;
   creativeDispatchStarted?: boolean;
+  creativePrompt?: string;
   stopPending?: boolean;
   operationStatus?: "unknown" | "committed" | "rejected";
   intentUsage?: CreativeTask["usage"];

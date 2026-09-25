@@ -1,4 +1,4 @@
-import { it, expect, afterEach } from "vitest";
+import { it, expect, afterEach, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { createApp } from "../src/server/app.js";
 import { loadConfig } from "../src/server/config.js";
@@ -53,6 +53,138 @@ async function fixture() {
     },
   };
 }
+it("hides a conversation before paging while retaining its tasks, drafts and original access", async () => {
+  const f = await fixture();
+  const { conversation, task } = await f.free.start(f.input);
+  await f.free.change(task.id, (t) => {
+    t.draftContext = { mode: "new_character", baseRevision: null };
+    t.state = "authorized";
+  });
+  const draft = await f.free.candidates.freeze(
+    await f.free.task(task.id),
+    {
+      artifactKind: "character",
+      content: {
+        name: "保留草稿",
+        markdown: "正文",
+        genres: [],
+        ageBand: "",
+        sourceMetadata: {},
+      },
+    },
+    "draft",
+  );
+  const other = await f.free.start({
+    ...f.input,
+    clientRequestId: randomUUID(),
+  });
+  const before = new Map((f.free.records as MemoryFreeStore).rows);
+  const base = `${f.root}/conversations/${conversation.id}`;
+  const hide = () =>
+    f.app.inject({
+      method: "POST",
+      url: base + "/hide",
+      headers: f.headers,
+      payload: {},
+    });
+  expect((await hide()).statusCode).toBe(204);
+  const hidden = await f.free.conversation(conversation.id);
+  expect(hidden).toHaveProperty("hiddenAt", expect.any(String));
+  expect((await hide()).statusCode).toBe(204);
+  expect(await f.free.conversation(conversation.id)).toEqual(hidden);
+  for (const [key, record] of before) {
+    if (key !== `library:conversation:${conversation.id}`)
+      expect((f.free.records as MemoryFreeStore).rows.get(key)).toEqual(record);
+  }
+  const list = await f.app.inject({
+    url: f.root + "/conversations?limit=1",
+    headers: f.headers,
+  });
+  expect(list.json()).toMatchObject({
+    items: [{ id: other.conversation.id }],
+    nextCursor: null,
+  });
+  for (const path of [
+    base,
+    base + "/tasks",
+    base + `/drafts/${draft.id}`,
+    `${f.root}/conversations/by-request/${f.input.clientRequestId}`,
+  ])
+    expect(
+      (await f.app.inject({ url: path, headers: f.headers })).statusCode,
+    ).toBe(200);
+  await f.free.submit(conversation.id, {
+    ...f.input,
+    clientRequestId: randomUUID(),
+  });
+  expect(
+    (
+      await f.app.inject({ url: f.root + "/conversations", headers: f.headers })
+    ).json().items,
+  ).toHaveLength(1);
+});
+it("protects list removal with authentication, origin, strict input and storage errors", async () => {
+  const f = await fixture();
+  const { conversation } = await f.free.start(f.input);
+  const url = `${f.root}/conversations/${conversation.id}/hide`;
+  for (const [headers, payload, status] of [
+    [{ origin: f.headers.origin }, {}, 401],
+    [{ ...f.headers, origin: "https://other.example" }, {}, 403],
+    [f.headers, { hiddenAt: "forged" }, 400],
+  ] as const)
+    expect(
+      (await f.app.inject({ method: "POST", url, headers, payload }))
+        .statusCode,
+    ).toBe(status);
+  expect(
+    (
+      await f.app.inject({
+        method: "POST",
+        url: `${f.root}/conversations/${randomUUID()}/hide`,
+        headers: f.headers,
+        payload: {},
+      })
+    ).statusCode,
+  ).toBe(404);
+  (f.free.records as MemoryFreeStore).failPartition = "library";
+  expect(
+    (
+      await f.app.inject({
+        method: "POST",
+        url,
+        headers: f.headers,
+        payload: {},
+      })
+    ).statusCode,
+  ).toBe(503);
+  expect(await f.free.conversation(conversation.id)).toEqual(conversation);
+});
+it("does not overwrite a concurrent conversation update when hiding", async () => {
+  const f = await fixture();
+  const { conversation } = await f.free.start(f.input);
+  const transaction = f.free.records.transaction.bind(f.free.records);
+  vi.spyOn(f.free.records, "transaction").mockImplementationOnce(
+    async (partition, writes) => {
+      await transaction("library", [
+        {
+          record: { ...conversation, epoch: 2 },
+          revision: conversation.revision,
+        },
+      ]);
+      return transaction(partition, writes);
+    },
+  );
+  const response = await f.app.inject({
+    method: "POST",
+    url: `${f.root}/conversations/${conversation.id}/hide`,
+    headers: f.headers,
+    payload: {},
+  });
+  expect(response.statusCode).toBe(409);
+  const current = await f.free.conversation(conversation.id);
+  expect(current.epoch).toBe(2);
+  expect(current).not.toHaveProperty("hiddenAt");
+});
 it("serves the accepted scoped task wire and rejects cross-conversation access", async () => {
   const f = await fixture();
   const { conversation, task } = (

@@ -4,6 +4,7 @@ import type { Document, Page } from "../shared/model.js";
 import { type Api, message } from "./api.js";
 import { ContentReading } from "./ContentReading.js";
 import { ContentSummary, UpdatedTime } from "./ContentSummary.js";
+import { StoryGuidance } from "./StoryGuidance.js";
 export function StoriesView({
   api,
   navigate,
@@ -176,6 +177,9 @@ export function StoryReader({
         </button>
       </header>
       <AssetCreativeEntry api={api} id={id} kind="story" navigate={navigate} />
+      {story?.id === id && (
+        <StoryGuidance key={id} api={api} story={story} onSaved={setStory} />
+      )}
       <nav className="tabs" aria-label="故事内容">
         {Object.entries(labels).map(([key, label]) => (
           <button
