@@ -112,7 +112,7 @@ test("browse, filter and persist an asset edit across refresh", async ({
   await expect(page.getByText("没有匹配的角色")).toBeVisible();
   await page.getByLabel("名称", { exact: true }).fill("林舟");
   await page.getByRole("button", { name: /林舟.*阅读与编辑/ }).click();
-  await page.getByRole("button", { name: "编辑资产" }).click();
+  await page.getByRole("button", { name: "编辑资料" }).click();
   await page.getByLabel("资料正文").fill("更新后的灯塔资料。");
   await page.getByRole("button", { name: "保存修改" }).click();
   await expect(page.getByRole("status")).toHaveText("已保存");
@@ -126,7 +126,7 @@ test("failed saves and real stale revisions retain the draft", async ({
   page,
 }) => {
   await page.goto(`${address}/#asset/${asset.id}`);
-  await page.getByRole("button", { name: "编辑资产" }).click();
+  await page.getByRole("button", { name: "编辑资料" }).click();
   await page.getByLabel("资料正文").fill("我的未保存草稿");
   store.failNext = true;
   await page.getByRole("button", { name: "保存修改" }).click();

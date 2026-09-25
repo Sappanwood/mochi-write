@@ -31,7 +31,7 @@ test("default modes and asset entry preserve explicit initial context and local 
   await page.getByRole("link", { name: "角色库", exact: true }).click();
   await page.getByRole("button", { name: /导航角色/ }).click();
   await expect(page.getByText("正式正文", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "编辑资产", exact: true }).click();
+  await page.getByRole("button", { name: "编辑资料", exact: true }).click();
   await page.getByLabel("资料正文").fill("人工未保存正文");
   await page.getByRole("button", { name: "带此资产新建会话" }).click();
   await expect(page.getByText("初始上下文 · 仅作为资料")).toBeVisible();
@@ -338,7 +338,7 @@ test("stale initial context rejects submission and explicit refresh keeps the ty
   );
   await page.getByRole("link", { name: "角色库", exact: true }).click();
   await page.getByRole("button", { name: /版本角色/ }).click();
-  await page.getByRole("button", { name: "带此资产新建会话" }).click();
+  await page.getByRole("button", { name: "带入新会话" }).click();
   await page.getByLabel("下一条消息").fill("保留我的讨论意图");
   const { Library } = await import("../../src/server/library.js");
   const changed = await new Library(f.store).save(doc.id, doc.revision, {
@@ -385,7 +385,7 @@ test("receipt reading bypasses unsaved manual edits while retaining their origin
   );
   await page.getByRole("link", { name: "角色库", exact: true }).click();
   await page.getByRole("button", { name: /并行编辑角色/ }).click();
-  await page.getByRole("button", { name: "编辑资产", exact: true }).click();
+  await page.getByRole("button", { name: "编辑资料", exact: true }).click();
   await page.getByLabel("资料正文").fill("保留这份未保存的人工正文");
   await page.getByRole("button", { name: "带此资产新建会话" }).click();
   await page.locator(".free-initial .free-references button").click();

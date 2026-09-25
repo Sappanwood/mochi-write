@@ -102,6 +102,10 @@ for (const width of [1280, 390]) {
       await expect(
         page.getByText("正式内容保留", { exact: true }),
       ).toBeVisible();
+      await page
+        .getByRole("region", { name: "角色档案", exact: true })
+        .getByText("更多", { exact: true })
+        .click();
       await page.getByText("返回已有会话", { exact: true }).click();
       await expect(
         page.getByText("暂无关联自由会话。发送第一条消息后会出现在这里。"),

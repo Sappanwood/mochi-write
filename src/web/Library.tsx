@@ -1,8 +1,8 @@
-import { ContentReading } from "./ContentReading.js";
+import { ContentMetadata, ContentReading } from "./ContentReading.js";
 import { PortraitImage } from "./PortraitImage.js";
 import { PortraitPanel } from "./PortraitPanel.js";
 import { ContentSummary, UpdatedTime } from "./ContentSummary.js";
-import { AssetCreativeEntry } from "./FreeEntry.js";
+import { AssetCreativeEntry, FreeConversations } from "./FreeEntry.js";
 import { useEffect, useState } from "react";
 import type { Content, Document, Page } from "../shared/model.js";
 import type { Api } from "./api.js";
@@ -133,28 +133,36 @@ export function LibraryView({
       <div className="asset-grid">
         {page.items.map((d) => (
           <button
-            className="asset-card"
+            className={`asset-card${kind === "character" ? " character-card" : ""}`}
             key={d.id}
             onClick={() => navigate(`asset/${d.id}`)}
           >
-            {kind === "character" && (
-              <PortraitImage
-                api={api}
-                imageId={d.portrait?.imageId}
-                name={d.content.name}
-              />
-            )}
-            <h2 title={d.content.name}>{d.content.name}</h2>
-            <p>
-              {[
-                kind === "world"
-                  ? d.content.sourceMetadata.era
-                  : d.content.sourceMetadata.occupation,
-                d.content.ageBand,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
+            <div className="asset-card-identity">
+              {kind === "character" && (
+                <PortraitImage
+                  api={api}
+                  imageId={d.portrait?.imageId}
+                  name={d.content.name}
+                />
+              )}
+              <div>
+                <h2 title={d.content.name}>{d.content.name}</h2>
+                {(d.content.sourceMetadata.occupation ||
+                  d.content.sourceMetadata.era ||
+                  d.content.ageBand) && (
+                  <p>
+                    {[
+                      kind === "world"
+                        ? d.content.sourceMetadata.era
+                        : d.content.sourceMetadata.occupation,
+                      d.content.ageBand,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+              </div>
+            </div>
             <ContentSummary markdown={d.content.markdown} />
             <div className="tags">
               {d.content.genres.map((t) => (
@@ -305,43 +313,100 @@ export function AssetEditor({
         )}
       </>
     );
+  const isCharacter = (base?.kind ?? kind) === "character";
   return (
-    <>
+    <div className={isCharacter ? "character-page" : undefined}>
       <button
         className="back-link"
         onClick={() => navigate(`library/${base?.kind ?? kind}`)}
       >
-        ← 返回资产库
+        ← {isCharacter ? "返回角色库" : "返回资产库"}
       </button>
-      <header className="page-heading">
-        <div>
-          <p className="eyebrow">
-            {base?.kind === "world" || kind === "world"
-              ? "世界观母版"
-              : "角色母版"}
-          </p>
-          <h1>
-            {id
-              ? base?.content.name
-              : "新建" + (kind === "character" ? "角色" : "世界观")}
-          </h1>
-          <p>母版的变化不会影响已有故事。</p>
-        </div>
-        {!editing &&
-          (formalRead && draft ? (
-            <button onClick={() => navigate(`asset/${id}`)}>
-              继续未保存编辑
-            </button>
-          ) : (
-            <button onClick={() => setEditing(true)}>编辑资产</button>
-          ))}
-      </header>
+      {isCharacter && base && !editing ? (
+        <PortraitPanel
+          key={base.id}
+          api={api}
+          doc={base}
+          onSaved={(doc) => {
+            setBase(doc);
+            setContent(doc.content);
+          }}
+          navigate={navigate}
+        >
+          <div className="character-identity">
+            <p className="eyebrow">角色档案</p>
+            <h1>{base.content.name}</h1>
+            <ContentMetadata content={content} />
+            <div className="character-actions">
+              <button onClick={() => navigate(`free/new/asset/${id}`)}>
+                带入新会话
+              </button>
+              <button
+                className="secondary"
+                onClick={() =>
+                  formalRead && draft
+                    ? navigate(`asset/${id}`)
+                    : setEditing(true)
+                }
+              >
+                {formalRead && draft ? "继续未保存编辑" : "编辑资料"}
+              </button>
+              <details className="character-more">
+                <summary>更多</summary>
+                <div className="character-more-content">
+                  <details>
+                    <summary>返回已有会话</summary>
+                    <FreeConversations api={api} assetId={id} compact />
+                  </details>
+                  <button
+                    className="danger quiet"
+                    disabled={busy}
+                    onClick={() => void remove()}
+                  >
+                    删除角色
+                  </button>
+                </div>
+              </details>
+            </div>
+          </div>
+        </PortraitPanel>
+      ) : (
+        <header className="page-heading">
+          <div>
+            <p className="eyebrow">
+              {base?.kind === "world" || kind === "world"
+                ? "世界观母版"
+                : "角色档案"}
+            </p>
+            <h1>
+              {id
+                ? base?.content.name
+                : "新建" + (kind === "character" ? "角色" : "世界观")}
+            </h1>
+            <p>
+              {isCharacter
+                ? "修改仅影响角色库，已有故事中的角色保持不变。"
+                : "母版的变化不会影响已有故事。"}
+            </p>
+          </div>
+          {!editing &&
+            (formalRead && draft ? (
+              <button onClick={() => navigate(`asset/${id}`)}>
+                继续未保存编辑
+              </button>
+            ) : (
+              <button onClick={() => setEditing(true)}>
+                {isCharacter ? "编辑资料" : "编辑资产"}
+              </button>
+            ))}
+        </header>
+      )}
       {formalRead && draft && !editing && (
         <p className="notice">
           正在阅读正式内容；未保存人工编辑及其原始版本仍保留，可单独继续编辑。
         </p>
       )}
-      {id && (
+      {id && (!isCharacter || editing) && (
         <AssetCreativeEntry
           api={api}
           id={id}
@@ -488,28 +553,20 @@ export function AssetEditor({
         </form>
       ) : (
         <>
-          {base?.kind === "character" && (
-            <PortraitPanel
-              key={base.id}
-              api={api}
-              doc={base}
-              onSaved={(doc) => {
-                setBase(doc);
-                setContent(doc.content);
-              }}
-              navigate={navigate}
-            />
+          <div className={isCharacter ? "character-reading" : undefined}>
+            <ContentReading content={content} showMetadata={!isCharacter} />
+          </div>
+          {!isCharacter && (
+            <button
+              className="danger quiet"
+              disabled={busy}
+              onClick={() => void remove()}
+            >
+              删除母版
+            </button>
           )}
-          <ContentReading content={content} />
-          <button
-            className="danger quiet"
-            disabled={busy}
-            onClick={() => void remove()}
-          >
-            删除母版
-          </button>
         </>
       )}
-    </>
+    </div>
   );
 }

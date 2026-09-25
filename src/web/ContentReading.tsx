@@ -23,7 +23,14 @@ export function ContentMetadata({ content }: { content: Content }) {
             "tags",
           ] as const
         )
-          .filter((k) => content.sourceMetadata[k] !== undefined)
+          .filter((k) => {
+            const value = content.sourceMetadata[k];
+            return (
+              value !== undefined &&
+              value !== null &&
+              String(value).trim() !== ""
+            );
+          })
           .map((k) => (
             <div key={k}>
               <dt>

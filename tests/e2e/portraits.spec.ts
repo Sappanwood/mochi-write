@@ -32,7 +32,7 @@ test("uploads and crops a portrait, preserves prompt drafts, resolves conflicts 
   );
   await page.goto(`${f.address}/#asset/${doc.id}`);
   await page.getByRole("button", { name: "使用 Microsoft 账号登录" }).click();
-  await page.getByText("管理头像与提示词", { exact: true }).click();
+  await page.getByText("头像与提示词", { exact: true }).click();
   await page
     .getByLabel("采用的生图提示词")
     .fill("2.5D，银色短发，绿眼睛，柔和体积光影。");
@@ -59,7 +59,7 @@ test("uploads and crops a portrait, preserves prompt drafts, resolves conflicts 
   expect(saved.portrait?.imageId).toBeTruthy();
   await page.reload();
   await expect(page.getByRole("img", { name: "银发旅人的头像" })).toBeVisible();
-  await page.getByText("管理头像与提示词", { exact: true }).click();
+  await page.getByText("头像与提示词", { exact: true }).click();
   await page.getByLabel("采用的生图提示词").fill("2.5D，保留新的提示词草稿");
   await f.store.commit(
     {
@@ -94,7 +94,7 @@ test("uploads and crops a portrait, preserves prompt drafts, resolves conflicts 
   await expect(page.getByText("初始上下文 · 仅作为资料")).toBeVisible();
   expect((await f.records.list("conversation", "")).length).toBe(0);
   await page.goto(`${f.address}/#asset/${doc.id}`);
-  await page.getByText("管理头像与提示词", { exact: true }).click();
+  await page.getByText("头像与提示词", { exact: true }).click();
   await page.getByRole("button", { name: "移除头像", exact: true }).click();
   await page.getByRole("button", { name: "保存头像与提示词" }).click();
   await expect(

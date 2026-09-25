@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Document } from "../shared/model.js";
 import { portraitSchema, type Portrait } from "../shared/portrait.js";
 import { ApiError, message, type Api } from "./api.js";
@@ -14,7 +14,9 @@ export function PortraitPanel({
   doc,
   onSaved,
   navigate,
+  children,
 }: {
+  children: ReactNode;
   api: Api;
   doc: Document;
   onSaved: (doc: Document) => void;
@@ -34,6 +36,7 @@ export function PortraitPanel({
     }
     return undefined;
   });
+  const [expanded, setExpanded] = useState(draft !== undefined);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
@@ -99,87 +102,105 @@ export function PortraitPanel({
     }
   }
   return (
-    <section className="portrait-panel" aria-label="角色头像">
-      <PortraitImage
-        api={api}
-        imageId={value.imageId}
-        name={doc.content.name}
-        large
-      />
-      <div className="portrait-controls">
+    <section className="character-profile" aria-label="角色档案">
+      <div className="character-portrait">
+        <PortraitImage
+          api={api}
+          imageId={value.imageId}
+          name={doc.content.name}
+          large
+        />
         <button
-          className="secondary"
-          onClick={() => navigate(`free/new/portrait/${doc.id}`)}
+          className="quiet"
+          aria-expanded={expanded}
+          aria-controls="portrait-manager"
+          onClick={() => setExpanded(!expanded)}
         >
-          整理 2.5D 提示词
+          {value.imageId ? "更换头像" : "添加头像"}
         </button>
-        <p className="muted">
-          带已保存角色资料进入文字会话，发送后整理提示词。生成图片后可上传到这里。
-        </p>
-        <details open={draft !== undefined || undefined}>
-          <summary>管理头像与提示词{draft ? " · 尚未保存" : ""}</summary>
-          <fieldset disabled={busy}>
-            <PortraitCrop
-              onCrop={async (data) => {
-                setBusy(true);
-                try {
-                  const uploaded = await api<{ imageId: string }>(
-                    "/portraits",
-                    { data },
-                  );
-                  change({ ...value, imageId: uploaded.imageId });
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            />
-            {value.imageId && (
-              <button
-                type="button"
-                className="quiet"
-                onClick={() => change({ prompt: value.prompt })}
-              >
-                移除头像
-              </button>
-            )}
-            <label>
-              采用的生图提示词
-              <textarea
-                maxLength={8000}
-                value={value.prompt}
-                onChange={(e) => change({ ...value, prompt: e.target.value })}
-                placeholder="将选定提示词粘贴在这里，保留画风、固定视觉锚点与本次构图。"
+        {draft && <span className="portrait-unsaved">尚未保存</span>}
+      </div>
+      {children}
+      <div className="portrait-controls">
+        <details
+          id="portrait-manager"
+          open={expanded}
+          onToggle={(e) => setExpanded(e.currentTarget.open)}
+        >
+          <summary>头像与提示词{draft ? " · 尚未保存" : ""}</summary>
+          <div className="portrait-manager-body">
+            <button
+              className="secondary"
+              onClick={() => navigate(`free/new/portrait/${doc.id}`)}
+            >
+              整理 2.5D 提示词
+            </button>
+            <p className="muted">
+              带已保存角色资料进入文字会话，发送后整理提示词。生成图片后可上传到这里。
+            </p>
+            <fieldset disabled={busy}>
+              <PortraitCrop
+                onCrop={async (data) => {
+                  setBusy(true);
+                  try {
+                    const uploaded = await api<{ imageId: string }>(
+                      "/portraits",
+                      { data },
+                    );
+                    change({ ...value, imageId: uploaded.imageId });
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
               />
-            </label>
-            <div className="actions">
-              <button disabled={!draft} onClick={() => void save()}>
-                保存头像与提示词
-              </button>
-              <button
-                className="secondary"
-                disabled={!value.prompt}
-                onClick={() => void copy()}
-              >
-                复制提示词
-              </button>
-              {draft && (
+              {value.imageId && (
                 <button
+                  type="button"
                   className="quiet"
-                  onClick={() => {
-                    if (confirm("放弃未保存的头像与提示词？")) {
-                      setDraft(undefined);
-                      sessionStorage.removeItem(key);
-                      setError("");
-                      setRemote(undefined);
-                      setConflict(false);
-                    }
-                  }}
+                  onClick={() => change({ prompt: value.prompt })}
                 >
-                  放弃头像修改
+                  移除头像
                 </button>
               )}
-            </div>
-          </fieldset>
+              <label>
+                采用的生图提示词
+                <textarea
+                  maxLength={8000}
+                  value={value.prompt}
+                  onChange={(e) => change({ ...value, prompt: e.target.value })}
+                  placeholder="将选定提示词粘贴在这里，保留画风、固定视觉锚点与本次构图。"
+                />
+              </label>
+              <div className="actions">
+                <button disabled={!draft} onClick={() => void save()}>
+                  保存头像与提示词
+                </button>
+                <button
+                  className="secondary"
+                  disabled={!value.prompt}
+                  onClick={() => void copy()}
+                >
+                  复制提示词
+                </button>
+                {draft && (
+                  <button
+                    className="quiet"
+                    onClick={() => {
+                      if (confirm("放弃未保存的头像与提示词？")) {
+                        setDraft(undefined);
+                        sessionStorage.removeItem(key);
+                        setError("");
+                        setRemote(undefined);
+                        setConflict(false);
+                      }
+                    }}
+                  >
+                    放弃头像修改
+                  </button>
+                )}
+              </div>
+            </fieldset>
+          </div>
         </details>
         {conflict && (
           <button
