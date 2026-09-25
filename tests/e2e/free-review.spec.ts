@@ -513,3 +513,32 @@ for (const kind of ["world", "chapter"] as const)
       dialog.getByRole("region", { name: "右侧稿件" }),
     ).toContainText(`新版${kind === "world" ? "世界观" : "章节"}完整正文`);
   });
+
+test("same-name draft references and unnamed historical references stay distinguishable on mobile", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const task = await send(page, "构思同名人物的不同方案");
+  const first = await draft(task, "守灯人", "第一组的正文");
+  const second = await draft(task, "守灯人", "第二组的正文");
+  const revised = await draft(task, "守灯人", "第一组第二稿正文", first);
+  await finish(task);
+  for (const item of [first, second, revised]) {
+    await page.getByRole("tab", { name: "讨论", exact: true }).click();
+    await show(page, item);
+    await page.getByRole("button", { name: "引用到对话", exact: true }).click();
+  }
+  const chips = page.locator(".free-composer-references .free-reference");
+  await expect(chips).toHaveCount(3);
+  await expect(chips.nth(0)).toContainText(first.id.slice(0, 8));
+  await expect(chips.nth(1)).toContainText(second.id.slice(0, 8));
+  await expect(chips.nth(2)).not.toContainText(revised.id.slice(0, 8));
+  await page.getByRole("tab", { name: "讨论", exact: true }).click();
+  f.mochi.freeIntent = "discuss";
+  const next = await send(page, "比较这三个方案，仅讨论");
+  await finish(next);
+  const history = page.locator(".free-timeline .free-references").last();
+  for (const item of [first, second, revised]) {
+    await expect(history).toContainText(item.id.slice(0, 8));
+  }
+});

@@ -11,6 +11,9 @@ import {
   pages,
   root,
   resolveDiscovery,
+  readInformation,
+  refKey,
+  refLabel,
   kindLabel,
   taskStatusLabel,
   type TaskView,
@@ -123,6 +126,9 @@ export function FreeConversations({
 }) {
   const [rows, setRows] = useState<SessionRow[]>([]),
     [names, setNames] = useState<Record<string, string | null>>({}),
+    [initialNames, setInitialNames] = useState<Record<string, string | null>>(
+      {},
+    ),
     [error, setError] = useState(""),
     [removing, setRemoving] = useState<string | null>(null),
     [loaded, setLoaded] = useState(false);
@@ -211,6 +217,37 @@ export function FreeConversations({
         }),
       );
       if (active) setNames(Object.fromEntries(entries));
+      const initialEntries = await Promise.all(
+        rows.flatMap(({ conversation }) =>
+          [
+            ...new Map(
+              conversation.initialRefs.map((ref) => [refKey(ref), ref]),
+            ).values(),
+          ].map(async (ref) => {
+            const key = `${conversation.id}:${refKey(ref)}`;
+            try {
+              const info = await readInformation(
+                api,
+                `${root}/conversations/${conversation.id}`,
+                {
+                  ref,
+                  title: refLabel(ref),
+                  recorded: true,
+                },
+              );
+              return [
+                key,
+                info.availability === "exact"
+                  ? (info.content?.name ?? null)
+                  : null,
+              ] as const;
+            } catch {
+              return [key, null] as const;
+            }
+          }),
+        ),
+      );
+      if (active) setInitialNames(Object.fromEntries(initialEntries));
     })().catch((e) => {
       if (active) setError(message(e));
     });
@@ -258,20 +295,18 @@ export function FreeConversations({
             </a>
           </h2>
           <div className="session-meta">
-            <UpdatedTime value={tasks.at(-1)?.createdAt ?? c.createdAt} />
             <span className="session-status">
               {taskStatusLabel(tasks.at(-1))}
             </span>
           </div>
           {tasks.at(-1) && (
-            <p className="content-summary">
+            <p
+              className="content-summary session-preview"
+              title={tasks.at(-1)!.input.message}
+            >
               最近消息：{tasks.at(-1)!.input.message}
             </p>
           )}
-          <p>
-            {groups.length} 组草稿 · {tasks.filter((t) => t.receipt).length}{" "}
-            次已确认保存
-          </p>
           <div className="free-associations">
             {c.associatedAssets.map((t) => (
               <a
@@ -283,31 +318,59 @@ export function FreeConversations({
                 {names[assetPath(t)] === undefined
                   ? "名称读取中"
                   : (names[assetPath(t)] ?? "内容暂不可用")}
-                <small>
-                  {" "}
-                  · {(t.kind !== "story" ? t.asset_id : t.story_id).slice(0, 8)}
-                </small>
               </a>
             ))}
             {c.initialRefs
               .filter((r): r is AssetRef => r.type === "asset")
               .map((r) => (
-                <span key={r.asset_id}>
-                  初始资料：{kindLabel[r.kind]} · {r.asset_id.slice(0, 8)} · v
-                  {r.version}
+                <span key={refKey(r)} title={refLabel(r)}>
+                  初始资料：{kindLabel[r.kind]} ·{" "}
+                  {initialNames[`${c.id}:${refKey(r)}`] === undefined
+                    ? "名称读取中"
+                    : (initialNames[`${c.id}:${refKey(r)}`] ??
+                      "原版本不可用")}{" "}
+                  · 第 {r.version} 版
                 </span>
               ))}
           </div>
           {!c.associatedAssets.length && (
             <p className="muted">尚无正式成果，也可以继续此会话。</p>
           )}
-          <button
-            className="quiet"
-            disabled={removing !== null}
-            onClick={() => void remove({ conversation: c, tasks, groups })}
-          >
-            {removing === c.id ? "正在移除…" : "从列表移除"}
-          </button>
+          <footer className="session-footer">
+            <div className="session-meta">
+              <UpdatedTime value={tasks.at(-1)?.createdAt ?? c.createdAt} />
+              <span>
+                {groups.length} 组草稿 · {tasks.filter((t) => t.receipt).length}{" "}
+                次已确认保存
+              </span>
+            </div>
+            <details className="session-more">
+              <summary>更多</summary>
+              <div className="session-more-content">
+                <button
+                  className="quiet"
+                  disabled={removing !== null}
+                  onClick={() =>
+                    void remove({ conversation: c, tasks, groups })
+                  }
+                >
+                  {removing === c.id ? "正在移除…" : "从列表移除"}
+                </button>
+                <div className="free-identity">
+                  <p>会话：{c.id}</p>
+                  {c.associatedAssets.map((t) => (
+                    <p key={assetPath(t)}>
+                      正式{kindLabel[t.kind]}：
+                      {t.kind !== "story" ? t.asset_id : t.story_id}
+                    </p>
+                  ))}
+                  {c.initialRefs.map((r) => (
+                    <p key={refKey(r)}>初始资料：{refLabel(r)}</p>
+                  ))}
+                </div>
+              </div>
+            </details>
+          </footer>
         </article>
       ))}
     </section>

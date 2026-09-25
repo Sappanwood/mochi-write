@@ -28,13 +28,13 @@
   margin: 3px 0;
 }
 .free-session-heading .eyebrow {
-  font-size: 11px;
+  font-size: var(--text-small);
   letter-spacing: 0.12em;
 }
 .free-session-heading > details {
   flex-shrink: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-small);
 }
 .free-session-heading > details > summary {
   padding: 6px 0;
@@ -93,7 +93,7 @@
   background: var(--accent);
 }
 .free-split:focus-visible {
-  outline: 2px solid #799981;
+  outline: 2px solid var(--focus);
   outline-offset: -3px;
 }
 .free-layout-actions {
@@ -102,7 +102,7 @@
   gap: 8px;
 }
 .free-layout-actions button {
-  font-size: 13px;
+  font-size: var(--text-small);
   padding: 5px 10px;
 }
 .free-empty .free-timeline {
@@ -125,7 +125,7 @@
 }
 .free-start p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--text-ui);
   line-height: 1.8;
   margin: 0 0 24px;
 }
@@ -136,7 +136,7 @@
   gap: 8px;
 }
 .free-start-actions button {
-  font-size: 13px;
+  font-size: var(--text-small);
   border-color: transparent;
   background: var(--panel);
   color: var(--ink);
@@ -187,7 +187,7 @@
   outline: none;
 }
 .free-composer:has(textarea:focus-visible) {
-  outline: 2px solid #799981;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 .free-composer p {
@@ -204,7 +204,7 @@
 }
 .free-send > button {
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: var(--text-ui);
 }
 .free-references {
   display: flex;
@@ -221,7 +221,7 @@
   border: 1px solid var(--line, #ddd);
 }
 .free-reference button {
-  font-size: 12px;
+  font-size: var(--text-small);
   overflow-wrap: anywhere;
   text-align: left;
   padding: 5px 8px;
@@ -247,7 +247,7 @@
 }
 .free-pane-heading > button,
 .free-pane-heading > details {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .free-pane-heading > button {
   padding: 6px 8px;
@@ -293,11 +293,11 @@
   margin-left: 0;
 }
 .free-info-heading .free-reading-details h3 {
-  font-size: 13px;
+  font-size: var(--text-small);
   margin-top: 12px;
 }
 .free-info-heading p {
-  font-size: 12px;
+  font-size: var(--text-small);
   margin: 3px 0;
   line-height: 1.65;
 }
@@ -312,20 +312,21 @@
 }
 .free-version-controls {
   display: flex;
+  align-items: end;
   gap: 10px;
   margin: 6px 0;
 }
 .free-version-controls label {
   min-width: 0;
   flex: 1;
-  font-size: 11px;
+  font-size: var(--text-small);
   gap: 4px;
   color: var(--muted);
 }
 .free-version-controls select {
   width: 100%;
   padding: 6px 8px;
-  font-size: 12px;
+  font-size: var(--text-small);
   color: var(--ink);
 }
 .free-information .free-reading {
@@ -377,7 +378,7 @@
 }
 .free-info-actions button {
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: var(--text-small);
 }
 .free-feedback-actions {
   display: contents;
@@ -393,11 +394,23 @@
 .free-feedback-actions small {
   flex-basis: 100%;
   order: 1;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
-.free-draft-status {
+.free-info-heading .free-draft-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
+}
+.free-draft-status strong {
+  color: var(--ink);
+  font-size: var(--text-ui);
+}
+.free-draft-status span {
+  padding: 2px 8px;
+  background: var(--panel);
+  border-radius: var(--control-radius);
 }
 .free-explorer {
   padding: 16px;
@@ -485,7 +498,7 @@
     overflow: auto;
   }
   .free-session-heading details {
-    font-size: 12px;
+    font-size: var(--text-small);
     max-width: 45%;
   }
   .free-info-heading {
@@ -506,7 +519,7 @@
   margin: 0 0 0.3rem;
 }
 .free-conversations article {
-  padding: 1rem 0;
+  padding: 20px 0;
   border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
@@ -525,7 +538,7 @@
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .session-status {
   background: var(--panel);
@@ -533,18 +546,56 @@
   padding: 3px 7px;
 }
 .free-conversations article > p {
-  font-size: 13px;
+  font-size: var(--text-small);
   color: var(--muted);
+}
+.free-conversations .session-preview {
+  -webkit-line-clamp: 1;
+  margin: 10px 0;
+}
+.session-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 12px;
+}
+.session-footer > .session-meta {
+  flex: 1;
+  padding-top: 10px;
+}
+.session-more {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+.session-more > summary {
+  padding: 8px 10px;
+}
+.session-more[open] {
+  flex-basis: 100%;
+}
+.session-more-content {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+}
+.session-more .free-identity p {
+  margin: 8px 0;
 }
 .list-new {
   white-space: nowrap;
 }
 .free-associations a,
 .free-associations > span {
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .free-associations small {
   color: var(--muted);
@@ -567,7 +618,7 @@
 }
 .asset-creative-entry summary {
   padding: 8px 0;
-  font-size: 13px;
+  font-size: var(--text-small);
 }
 .asset-creative-entry h2 {
   font-size: 17px;
@@ -587,7 +638,7 @@
 }
 .free-details {
   color: #66755a;
-  font-size: 12px;
+  font-size: var(--text-small);
   margin: 8px 0;
 }
 .free-details > summary {
@@ -617,7 +668,7 @@
 }
 .free-composer .creative-model-settings select {
   padding: 7px 6px;
-  font-size: 12px;
+  font-size: var(--text-small);
   border-color: transparent;
   background: transparent;
   color: var(--muted);
@@ -633,7 +684,7 @@
 }
 .free-status-settled {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .free-status-attention {
   color: #8a472b;
@@ -728,5 +779,22 @@
 @media (prefers-reduced-motion: reduce) {
   .free-split::after {
     transition: none;
+  }
+}
+
+.free-version-controls select,
+.free-info-actions button,
+.free-compare-trigger {
+  font-size: var(--text-ui);
+}
+@media (max-width: 700px), (pointer: coarse) {
+  .free-associations a {
+    min-height: 44px;
+  }
+  .free-version-controls {
+    flex-wrap: wrap;
+  }
+  .free-version-controls label {
+    flex-basis: 35%;
   }
 }

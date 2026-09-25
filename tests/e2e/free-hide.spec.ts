@@ -66,6 +66,15 @@ for (const width of [1280, 390]) {
       await page.getByRole("link", { name: "最近会话", exact: true }).click();
       const row = page.locator(`[data-session-id="${conversation.id}"]`);
       await expect(row).toContainText("待移除的会话");
+      await expect(
+        row.getByRole("button", { name: "从列表移除" }),
+      ).not.toBeVisible();
+      const more = row.getByText("更多", { exact: true });
+      await more.focus();
+      await more.press("Enter");
+      if (width === 390) {
+        expect((await more.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
       page.once("dialog", async (dialog) => {
         expect(dialog.message()).toContain("聊天、草稿和已保存内容仍保留");
         await dialog.dismiss();
@@ -118,6 +127,20 @@ for (const width of [1280, 390]) {
       await expect(
         page.getByRole("region", { name: "信息正文" }),
       ).toContainText("草稿内容保留");
+      await expect(page.locator(".free-draft-status")).toContainText("第 1 稿");
+      await expect(page.locator(".free-draft-status")).toContainText("未保存");
+      if (width === 390) {
+        for (const name of ["草稿", "版本"]) {
+          expect(
+            (await page
+              .getByRole("combobox", { name, exact: true })
+              .boundingBox())!.height,
+          ).toBeGreaterThanOrEqual(44);
+        }
+        const prose = page.getByRole("region", { name: "信息正文" });
+        expect((await prose.boundingBox())!.height).toBeGreaterThan(100);
+      }
+      await page.screenshot({ path: `/tmp/mochi-session-draft-${width}.png` });
       expect(await f.free.candidates.get(conversation.id, draft.id)).toEqual(
         draft,
       );

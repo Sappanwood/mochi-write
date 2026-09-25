@@ -19,41 +19,70 @@ export function ReferenceChips({
   open: (r: Reference) => void;
   remove?: (r: Reference) => void;
 }) {
+  const labels = values.map((r) => {
+    const fallback = r.title === refLabel(r.ref);
+    const title = fallback
+      ? r.ref.type === "candidate"
+        ? r.ref.member_id
+          ? "草稿成员"
+          : "草稿"
+        : (kindLabel[r.ref.kind] ?? "资料")
+      : r.title;
+    const version =
+      r.ref.type === "candidate"
+        ? "固定版本"
+        : `${kindLabel[r.ref.kind]} v${r.ref.version}`;
+    return {
+      title,
+      version,
+      fallback: fallback || ["原版本不可用", "名称读取中"].includes(title),
+    };
+  });
   return (
     <div className="free-references">
       {values.length ? (
-        values.map((r) => (
-          <span className="free-reference" key={refKey(r.ref)}>
-            <button
-              className="quiet"
-              title={refLabel(r.ref)}
-              onClick={() => open(r)}
-            >
-              {r.title === refLabel(r.ref)
-                ? r.ref.type === "candidate"
-                  ? `草稿 ${r.ref.draft_id.slice(0, 8)}${r.ref.member_id ? ` · 成员 ${r.ref.member_id.slice(0, 8)}` : ""}`
-                  : kindLabel[r.ref.kind]
-                : r.title}
-              <small>
-                {" "}
-                ·{" "}
-                {r.ref.type === "candidate"
-                  ? `组 ${r.ref.group_id.slice(0, 8)}`
-                  : `${kindLabel[r.ref.kind]} v${r.ref.version} · ${r.ref.asset_id.slice(0, 8)}`}
-              </small>
-            </button>
-            {remove && (
+        values.map((r, index) => {
+          const label = labels[index]!;
+          const ambiguous =
+            label.fallback ||
+            labels.some(
+              (other, otherIndex) =>
+                otherIndex !== index &&
+                other.title === label.title &&
+                other.version === label.version,
+            );
+          const identifier =
+            r.ref.type === "candidate"
+              ? (r.ref.member_id ?? r.ref.draft_id)
+              : r.ref.asset_id;
+          const suffix = ambiguous ? ` · ${identifier.slice(0, 8)}` : "";
+          return (
+            <span className="free-reference" key={refKey(r.ref)}>
               <button
                 className="quiet"
-                aria-label={`删除引用 ${r.title}`}
-                title="仅移除资料引用，消息中的文字会保留"
-                onClick={() => remove(r)}
+                title={refLabel(r.ref)}
+                onClick={() => open(r)}
               >
-                ×
+                {label.title}
+                <small>
+                  {" "}
+                  · {label.version}
+                  {suffix}
+                </small>
               </button>
-            )}
-          </span>
-        ))
+              {remove && (
+                <button
+                  className="quiet"
+                  aria-label={`删除引用 ${label.title}${suffix}`}
+                  title="仅移除资料引用，消息中的文字会保留"
+                  onClick={() => remove(r)}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          );
+        })
       ) : (
         <span className="muted">无</span>
       )}

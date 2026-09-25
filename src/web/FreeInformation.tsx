@@ -227,9 +227,12 @@ export function FreeInformation({
           {value ? (
             <>
               <div className="free-info-heading">
-                {currentDraft && (info?.receipt || !info?.claim) && (
+                {currentDraft && (
                   <p className="free-draft-status">
-                    {info?.receipt ? "已保存" : "未保存"}
+                    <strong>第 {currentDraft.ordinal} 稿</strong>
+                    {(info?.receipt || !info?.claim) && (
+                      <span>{info?.receipt ? "已保存" : "未保存"}</span>
+                    )}
                   </p>
                 )}
                 {info?.currentVersion !== undefined &&
@@ -301,20 +304,20 @@ export function FreeInformation({
                           ))}
                         </select>
                       </label>
+                      {versions.length > 1 && (
+                        <button
+                          className="quiet free-compare-trigger"
+                          onClick={() =>
+                            setComparison({
+                              versions,
+                              currentId: currentDraft.id,
+                            })
+                          }
+                        >
+                          并排对照
+                        </button>
+                      )}
                     </div>
-                    {versions.length > 1 && (
-                      <button
-                        className="quiet free-compare-trigger"
-                        onClick={() =>
-                          setComparison({
-                            versions,
-                            currentId: currentDraft.id,
-                          })
-                        }
-                      >
-                        并排对照
-                      </button>
-                    )}
                   </>
                 )}
                 {!info?.receipt && info?.claim && (

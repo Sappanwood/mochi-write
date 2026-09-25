@@ -19,6 +19,7 @@ import {
   settleSubmission,
   refKey,
   refLabel,
+  readInformation,
   summaryRef,
   type Composer,
   type Reference,
@@ -89,6 +90,10 @@ export function FreeWorkspace({
       return state;
     }),
     [conversation, setConversation] = useState<FreeConversation>(),
+    [initialNames, setInitialNames] = useState<{
+      scope: string;
+      names: Record<string, string>;
+    }>(),
     [models, setModels] = useState<CreativeModel[]>([]),
     [model, setModel] = useState(""),
     [thinking, setThinking] = useState<ThinkingLevel | "">(""),
@@ -114,6 +119,54 @@ export function FreeWorkspace({
   const base = conversationId
     ? `${root}/conversations/${conversationId}`
     : root;
+  const initialSignature = JSON.stringify(
+    conversation?.initialRefs ?? initialRefs,
+  );
+  const initialScope = `${base}:${initialSignature}`;
+  const initialReferences = (conversation?.initialRefs ?? initialRefs).map(
+    (ref) => ({
+      ref,
+      title:
+        initialNames?.scope === initialScope
+          ? (initialNames.names[refKey(ref)] ?? "原版本不可用")
+          : "名称读取中",
+      recorded: !!conversationId,
+    }),
+  );
+  useEffect(() => {
+    let active = true;
+    const refs = JSON.parse(initialSignature) as ExactRef[];
+    void Promise.all(
+      [...new Map(refs.map((ref) => [refKey(ref), ref])).values()].map(
+        async (ref) => {
+          try {
+            const info = await readInformation(api, base, {
+              ref,
+              title: refLabel(ref),
+              recorded: base !== root,
+            });
+            return [
+              refKey(ref),
+              info.availability === "exact"
+                ? (info.content?.name ?? "原版本不可用")
+                : "原版本不可用",
+            ] as const;
+          } catch {
+            return [refKey(ref), "原版本不可用"] as const;
+          }
+        },
+      ),
+    ).then((entries) => {
+      if (active)
+        setInitialNames({
+          scope: initialScope,
+          names: Object.fromEntries(entries),
+        });
+    });
+    return () => {
+      active = false;
+    };
+  }, [api, base, initialSignature, initialScope]);
   latestLocal.current = local;
   const timelineVersion = details
     .map(
@@ -496,14 +549,7 @@ export function FreeWorkspace({
             新会话
           </button>
           <p>初始上下文</p>
-          <ReferenceChips
-            values={(conversation?.initialRefs ?? initialRefs).map((ref) => ({
-              ref,
-              title: refLabel(ref),
-              recorded: !!conversationId,
-            }))}
-            open={open}
-          />
+          <ReferenceChips values={initialReferences} open={open} />
         </details>
       </header>
       {conversation && !conversation.toolsetVersion && (
@@ -547,14 +593,7 @@ export function FreeWorkspace({
               重新读取初始资料
             </button>
           )}
-          <ReferenceChips
-            values={(conversation?.initialRefs ?? initialRefs).map((ref) => ({
-              ref,
-              title: refLabel(ref),
-              recorded: !!conversationId,
-            }))}
-            open={open}
-          />
+          <ReferenceChips values={initialReferences} open={open} />
         </div>
       )}
       <div className="free-layout-actions">

@@ -101,6 +101,12 @@ test("session summaries show the latest request and never infer a save without a
   await expect(row).toContainText("保存结果待核实");
   await expect(row).toContainText("0 次已确认保存");
   await expect(row.locator("time")).toHaveAttribute("datetime", /T/);
+  await expect(row.locator(".session-footer")).toContainText("0 次已确认保存");
+  await expect(row.locator(".session-footer time")).toBeVisible();
+  await expect(row.locator(".session-preview")).toHaveCSS(
+    "-webkit-line-clamp",
+    "1",
+  );
 });
 async function finish(task: import("../../src/shared/free.js").FreeTask) {
   f.mochi.finish(task.executionRun!.runId!);
@@ -593,4 +599,60 @@ test("legacy conversation explains world capability and opens an independent new
   expect(await f.free.conversation(first.conversationId)).toEqual(persistedOld);
   await page.goto(`${f.address}/#free/conversation/${first.conversationId}`);
   await expect(page.getByLabel("下一条消息")).toHaveValue("留在原会话的消息");
+});
+
+test("initial names keep their exact version in the session and list", async ({
+  page,
+}) => {
+  const original = await f.store.commit(
+    entity("character", {
+      name: "旧名灯塔守卫",
+      markdown: "第一版正文",
+      genres: [],
+      ageBand: "",
+      sourceMetadata: {},
+    }),
+    null,
+  );
+  await page.getByRole("link", { name: "角色库", exact: true }).click();
+  await page.getByRole("button", { name: /旧名灯塔守卫/ }).click();
+  await page.getByRole("button", { name: "带入新会话" }).click();
+  await expect(page.locator(".free-initial")).toContainText("旧名灯塔守卫");
+  f.mochi.freeIntent = "discuss";
+  const task = await send(page, "带着旧资料讨论灯塔");
+  await finish(task);
+  const { Library } = await import("../../src/server/library.js");
+  await new Library(f.store).save(original.id, original.revision, {
+    ...original.content,
+    name: "新版远航者",
+  });
+  await page.reload();
+  const initial = page.locator(".free-initial");
+  await expect(initial).toContainText("旧名灯塔守卫");
+  await expect(initial).not.toContainText("新版远航者");
+  await expect(initial).not.toContainText(original.id.slice(0, 8));
+  await page.getByRole("link", { name: "最近会话", exact: true }).click();
+  const row = page.locator(`[data-session-id="${task.conversationId}"]`);
+  await expect(row.locator(".free-associations > span")).toContainText(
+    "旧名灯塔守卫 · 第 1 版",
+  );
+  await expect(row.locator(".free-associations > span")).not.toContainText(
+    "新版远航者",
+  );
+  await expect(row.locator(".free-associations > span")).not.toContainText(
+    original.id.slice(0, 8),
+  );
+  await row.getByText("更多", { exact: true }).click();
+  await expect(row.locator(".free-identity")).toContainText(original.id);
+  f.store.history.delete(`${original.id}:1`);
+  await page.reload();
+  await expect(row.locator(".free-associations > span")).toContainText(
+    "原版本不可用 · 第 1 版",
+  );
+  await expect(row.locator(".free-associations > span")).not.toContainText(
+    "新版远航者",
+  );
+  await page.goto(`${f.address}/#free/conversation/${task.conversationId}`);
+  await expect(initial).toContainText("原版本不可用");
+  await expect(initial).not.toContainText("新版远航者");
 });
