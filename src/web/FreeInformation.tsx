@@ -5,7 +5,7 @@ import type { Api } from "./api.js";
 import { message } from "./api.js";
 import type { CandidateGroup } from "../shared/free-candidates.js";
 import type { InitializationPackage } from "../shared/creative.js";
-import type { MaterialPackage } from "../shared/story-materials.js";
+import { FreeReadingDetails } from "./FreeReadingDetails.js";
 import { ReferenceSearch } from "./FreeReferences.js";
 import {
   readInformation,
@@ -14,8 +14,6 @@ import {
   refLabel,
   summaryRef,
   actionLabel,
-  receiptLabel,
-  targetLabel,
   kindLabel,
   type Reference,
   type Information,
@@ -129,11 +127,6 @@ export function FreeInformation({
         ? value.title
         : "资料与草稿"));
   const displayedReference = value ? { ...value, title } : undefined;
-  const materials =
-    currentDraft?.artifactKind === "story_materials"
-      ? (currentDraft.payload.business?.materials as
-          MaterialPackage | undefined)
-      : undefined;
   const versions = currentDraft
     ? drafts.filter((d) => d.group_id === currentDraft.groupId)
     : [];
@@ -148,7 +141,11 @@ export function FreeInformation({
   return (
     <section className="free-information" aria-label="当前信息">
       <header className="free-pane-heading">
-        <h2>{reading.explorer ? "查找资料" : title}</h2>
+        <h2>
+          {reading.explorer
+            ? "查找资料"
+            : (info?.content?.name ?? currentDraft?.title ?? title)}
+        </h2>
         <button
           className="quiet"
           onClick={() => setReading((r) => ({ ...r, explorer: !r.explorer }))}
@@ -230,26 +227,15 @@ export function FreeInformation({
           {value ? (
             <>
               <div className="free-info-heading">
-                <p className="eyebrow">
-                  {value.ref.type === "candidate"
-                    ? "创作草稿"
-                    : "正式资产 · 精确版本"}
-                </p>
-                {currentDraft && (
+                {currentDraft && (info?.receipt || !info?.claim) && (
                   <p className="free-draft-status">
-                    第 {currentDraft.ordinal} 稿
-                    {currentDraft.id === versions.at(-1)?.draft_id
-                      ? " · 最新"
-                      : " · 历史稿"}
-                    {info?.receipt
-                      ? " · 已保存"
-                      : !info?.claim
-                        ? " · 未保存"
-                        : ""}
+                    {info?.receipt ? "已保存" : "未保存"}
                   </p>
                 )}
                 {info?.currentVersion !== undefined &&
-                  value.ref.type === "asset" && (
+                  value.ref.type === "asset" &&
+                  (value.ref.version !== info.currentVersion ||
+                    info.currentDeleted) && (
                     <p>
                       正在看 v{value.ref.version} · 当前版本 v
                       {info.currentVersion}
@@ -316,31 +302,6 @@ export function FreeInformation({
                         </select>
                       </label>
                     </div>
-                    <details className="free-save-scope">
-                      <summary>
-                        {actionLabel[currentDraft.payload.action]} · 保存范围
-                      </summary>
-                      <p>
-                        {actionLabel[currentDraft.payload.action]} ·{" "}
-                        {materials
-                          ? `${materials.story.content.name} · ${materials.members.length} 项资料`
-                          : currentDraft.payload.draftContext.target
-                            ? targetLabel(
-                                currentDraft.payload.draftContext.target,
-                              )
-                            : "发送保存请求后核验具体目标"}
-                      </p>
-                      {currentDraft.payload.members && (
-                        <ul>
-                          {currentDraft.payload.members.map((member) => (
-                            <li key={member.member_id}>
-                              {kindLabel[member.kind] ?? member.kind} ·{" "}
-                              {member.content.name}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </details>
                     {versions.length > 1 && (
                       <button
                         className="quiet free-compare-trigger"
@@ -356,55 +317,23 @@ export function FreeInformation({
                     )}
                   </>
                 )}
-                {info?.receipt ? (
+                {!info?.receipt && info?.claim && (
                   <p className="notice">
-                    {receiptLabel[info.receipt.kind]} · 第{" "}
-                    {info.receipt.revision} 版
+                    {info.claim.status === "conflict"
+                      ? "版本冲突 · 草稿已保留"
+                      : info.claim.status === "revoked"
+                        ? "保存授权已撤回"
+                        : "保存结果待核实"}
                   </p>
-                ) : (
-                  info?.claim && (
-                    <p className="notice">
-                      {info.claim.status === "conflict"
-                        ? "版本冲突 · 草稿已保留"
-                        : info.claim.status === "revoked"
-                          ? "保存授权已撤回"
-                          : "保存结果待核实"}
-                    </p>
-                  )
                 )}
-                <details className="free-details">
-                  <summary>版本与保存详情</summary>
-                  <p className="free-identity">{refLabel(value.ref)}</p>
-                  {currentDraft && (
-                    <>
-                      <p className="free-identity">
-                        基础版本：
-                        {currentDraft.payload.draftContext.baseRevision ??
-                          "新建"}
-                      </p>
-                      {currentDraft.payload.draftContext.target && (
-                        <pre className="free-identity">
-                          {JSON.stringify(
-                            currentDraft.payload.draftContext.target,
-                            null,
-                            2,
-                          )}
-                        </pre>
-                      )}
-                      <p>浏览此稿不代表保存授权。</p>
-                    </>
-                  )}
-                  {info?.receipt && (
-                    <p className="free-identity">
-                      保存记录：{info.receipt.operation_id}
-                    </p>
-                  )}
-                  {info?.claim && (
-                    <p className="free-identity">
-                      原保存操作：{info.claim.status} · {info.claim.operationId}
-                    </p>
-                  )}
-                </details>
+                {info?.availability === "exact" && (
+                  <FreeReadingDetails
+                    key={refKey(value.ref)}
+                    info={info}
+                    value={value}
+                    open={open}
+                  />
+                )}
               </div>
               <div
                 ref={pane}

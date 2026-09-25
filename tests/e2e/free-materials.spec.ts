@@ -87,13 +87,23 @@ for (const width of [1280, 390])
       .click();
     const body = page.getByRole("region", { name: "信息正文" });
     await body.locator("summary", { hasText: "快照 · 守塔人" }).click();
-    await expect(body).toContainText("新增 · 无基础版本");
-    await expect(body).toContainText("母版 v1");
-    await body.getByText("完整属性", { exact: true }).first().click();
-    await expect(body).toContainText("完整来源字段");
+    await expect(body).not.toContainText("无基础版本");
+    await expect(body).not.toContainText("母版 v1");
+    await expect(body.getByText("完整属性", { exact: true })).toHaveCount(0);
     await body.locator("summary", { hasText: "设定 · setting" }).click();
-    await expect(body).toContainText("更新 · 基于 v1");
     await expect(body).toContainText("初稿完整正文");
+    const details = page.locator(".free-reading-details");
+    await expect(details).not.toHaveAttribute("open");
+    await details.getByText("稿件详情", { exact: true }).click();
+    await expect(
+      details.getByText("新增 · 无基础版本", { exact: false }),
+    ).toBeVisible();
+    await expect(
+      details.getByRole("button", { name: /母版 v1/ }),
+    ).toBeVisible();
+    await expect(details.getByText(/完整来源字段/)).toBeVisible();
+    await expect(details).toContainText("更新 · 基于 v1");
+    await details.getByText("稿件详情", { exact: true }).click();
     await page.getByRole("button", { name: "引用到对话", exact: true }).click();
     if (width === 390)
       await page.getByRole("tab", { name: "讨论", exact: true }).click();

@@ -281,15 +281,16 @@ export function FreeWorkspace({
         (r) => refKey(r.ref) === refKey(ref.ref),
       )
     )
-      return;
+      return true;
     if (latestLocal.current.composer.refs.length >= 8) {
       setError("每条消息最多引用 8 项");
-      return;
+      return false;
     }
     setLocal((old) => ({
       ...old,
       composer: { ...old.composer, refs: [...old.composer.refs, ref] },
     }));
+    return true;
   }
   function feedback(ref: Reference, quote?: string) {
     const composer = latestLocal.current.composer;
@@ -793,14 +794,17 @@ export function FreeWorkspace({
                 storyId={local.reading.storyId || undefined}
                 onError={setError}
                 select={(r) => {
-                  attach(r);
+                  if (!attach(r)) return;
                   setLocal((old) => ({
                     ...old,
                     composer: {
                       ...old.composer,
                       message:
                         old.composer.message === local.composer.message
-                          ? old.composer.message.replace(/@[^@\n]*$/, "")
+                          ? old.composer.message.replace(
+                              /@[^@\n]*$/,
+                              () => `${r.title} `,
+                            )
                           : old.composer.message,
                     },
                   }));

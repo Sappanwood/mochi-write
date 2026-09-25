@@ -1,6 +1,6 @@
 import type { Content } from "../shared/model.js";
 import { Markdown } from "./Markdown.js";
-export function ContentReading({ content }: { content: Content }) {
+export function ContentMetadata({ content }: { content: Content }) {
   return (
     <>
       {(content.genres.length > 0 || content.ageBand) && (
@@ -47,6 +47,20 @@ export function ContentReading({ content }: { content: Content }) {
             </div>
           ))}
       </dl>
+    </>
+  );
+}
+
+export function ContentReading({
+  content,
+  showMetadata = true,
+}: {
+  content: Content;
+  showMetadata?: boolean;
+}) {
+  return (
+    <>
+      {showMetadata && <ContentMetadata content={content} />}
       <Markdown text={content.markdown} />
     </>
   );

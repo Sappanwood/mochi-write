@@ -166,9 +166,9 @@ test("desktop groups, @ disambiguation, browsing and new drafts keep independent
     .locator(".free-information .free-details .free-identity")
     .filter({ hasText: a.id });
   await expect(identity).not.toBeVisible();
-  await page.getByText("版本与保存详情", { exact: true }).click();
+  await page.getByText("稿件详情", { exact: true }).click();
   await expect(identity).toBeVisible();
-  await page.getByText("版本与保存详情", { exact: true }).click();
+  await page.getByText("稿件详情", { exact: true }).click();
   await page.getByRole("button", { name: "引用到对话", exact: true }).click();
   await page.getByLabel("下一条消息").fill("未发送反馈");
   await page.getByLabel("草稿", { exact: true }).selectOption(b.groupId);
@@ -195,6 +195,8 @@ test("desktop groups, @ disambiguation, browsing and new drafts keep independent
   await page.getByLabel("下一条消息").press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: /删除引用/ })).toHaveCount(1);
+  await expect(page.getByLabel("下一条消息")).toHaveValue(/林岚/);
+  await expect(completions).toHaveCount(0);
   await page.getByRole("button", { name: /删除引用/ }).click();
   await page.getByLabel("下一条消息").fill("@林岚");
   await completions
@@ -500,10 +502,12 @@ test("one session moves from unsaved role to story and back to an independently 
   );
   await finish(reverse);
   await show(page, master);
-  await page.getByText("独立母版的保留、改写与排除", { exact: true }).click();
-  await expect(page.getByRole("region", { name: "信息正文" })).toContainText(
-    "来信剧情",
+  await page.getByText("稿件详情", { exact: true }).click();
+  await expect(page.locator(".free-reading-details")).toContainText(
+    "独立母版的保留、改写与排除",
   );
+  await expect(page.locator(".free-reading-details")).toContainText("来信剧情");
+  await page.getByText("稿件详情", { exact: true }).click();
   await page.getByRole("button", { name: "引用到对话", exact: true }).click();
   f.mochi.freeIntent = "save_current";
   const saving = await send(page, "新建独立母版，保存这个版本");
@@ -677,6 +681,43 @@ test("assets complete before a session, explorer browsing stays passive and stal
   await expect(page.getByLabel("下一条消息")).toHaveValue("请讨论这一版资料");
   await expect(page.getByRole("button", { name: /删除引用/ })).toHaveCount(1);
   expect((await f.records.list("conversation")).length).toBe(0);
+});
+
+test("@ completion keeps the full character name in the sentence and submitted message", async ({
+  page,
+}) => {
+  const character = await f.store.commit(
+    entity("character", {
+      name: "林舟",
+      markdown: "角色资料",
+      genres: [],
+      ageBand: "",
+      sourceMetadata: {},
+    }),
+    null,
+  );
+  const input = page.getByLabel("下一条消息");
+  await input.fill("请让@林");
+  await page.getByLabel("引用补全").getByRole("button").click();
+  await expect(input).toHaveValue("请让林舟 ");
+  await expect(input).toBeFocused();
+  await expect(page.getByLabel("引用补全")).toHaveCount(0);
+  await input.press("End");
+  await input.press("Backspace");
+  await input.pressSequentially("去调查灯塔。");
+  await expect(page.getByLabel("引用补全")).toHaveCount(0);
+  const task = await send(page, await input.inputValue());
+  expect(task.input.message).toBe("请让林舟去调查灯塔。");
+  expect(task.input.refs).toEqual([
+    expect.objectContaining({ asset_id: character.id }),
+  ]);
+  await finish(task);
+  await input.fill("再次请@林");
+  await page.getByLabel("引用补全").getByRole("button").click();
+  await page
+    .getByRole("button", { name: "删除引用 林舟", exact: true })
+    .click();
+  await expect(input).toHaveValue("再次请林舟 ");
 });
 
 test("an in-flight @ selection gates send and cannot erase later input", async ({

@@ -34,7 +34,8 @@ export function FreeCandidateReading({
         (currentDraft?.artifactKind === "story_initialization" ? (
           <InitializationReading
             expandAssets={expanded}
-            showScope={!expanded}
+            showScope={false}
+            showAssets={expanded}
             draft={
               {
                 initialization: currentDraft.payload.business
@@ -43,7 +44,7 @@ export function FreeCandidateReading({
             }
           />
         ) : info.content ? (
-          <ContentReading content={info.content} />
+          <ContentReading content={info.content} showMetadata={expanded} />
         ) : null)}
       {(currentDraft?.artifactKind !== "story_initialization" || !expanded) &&
         currentDraft?.payload.members?.map((m) => (
@@ -51,7 +52,7 @@ export function FreeCandidateReading({
             <summary>
               {kindLabel[m.kind] ?? m.kind} · {m.content.name}
             </summary>
-            {materials && (
+            {materials && expanded && (
               <p>
                 {m.mode === "create"
                   ? "新增 · 无基础版本"
@@ -63,6 +64,7 @@ export function FreeCandidateReading({
               </p>
             )}
             {materials &&
+              expanded &&
               (m.sourceRef ? (
                 <button
                   className="quiet"
@@ -87,8 +89,8 @@ export function FreeCandidateReading({
                     : "原创故事资料"}
                 </p>
               ))}
-            <ContentReading content={m.content} />
-            {materials && (
+            <ContentReading content={m.content} showMetadata={expanded} />
+            {materials && expanded && (
               <details>
                 <summary>完整属性</summary>
                 <pre className="free-identity">
@@ -123,7 +125,7 @@ export function FreeCandidateReading({
             )}
           </details>
         ))}
-      {currentDraft?.payload.business?.derivation != null && (
+      {expanded && currentDraft?.payload.business?.derivation != null && (
         <details>
           <summary>独立母版的保留、改写与排除</summary>
           <pre className="free-identity">

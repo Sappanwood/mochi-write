@@ -284,6 +284,18 @@
 .free-info-heading > .free-details {
   margin: 2px 0;
 }
+.free-info-heading > .free-reading-details {
+  flex-basis: auto;
+  margin-left: auto;
+}
+.free-info-heading > .free-reading-details[open] {
+  flex-basis: 100%;
+  margin-left: 0;
+}
+.free-info-heading .free-reading-details h3 {
+  font-size: 13px;
+  margin-top: 12px;
+}
 .free-info-heading p {
   font-size: 12px;
   margin: 3px 0;

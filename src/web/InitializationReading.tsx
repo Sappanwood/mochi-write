@@ -52,10 +52,12 @@ export function InitializationReading({
   draft,
   showScope = true,
   expandAssets = false,
+  showAssets = true,
 }: {
   draft: CreativeDraft;
   showScope?: boolean;
   expandAssets?: boolean;
+  showAssets?: boolean;
 }) {
   const value = draft.initialization!;
   return (
@@ -73,38 +75,42 @@ export function InitializationReading({
           <Markdown text={value.chapter.entity.content.markdown} />
         </article>
       )}
-      <section aria-label="关联资料全文">
-        <h2>关联资料</h2>
-        {!value.assets.length && <p className="muted">本版本没有附带资料。</p>}
-        {value.assets.map((a) => (
-          <details
-            className="initialization-asset"
-            key={a.entity.id}
-            open={expandAssets || undefined}
-          >
-            <summary>
-              {a.baseRevision ? "更新" : "新增"} · {a.entity.content.name} ·{" "}
-              {labels[a.entity.kind as keyof typeof labels]}
-            </summary>
-            {a.source ? (
-              <p className="muted">
-                来源：{a.source.title} · 母版第 {a.source.version} 版 ·
-                完整独立快照
-              </p>
-            ) : a.entity.sourceAssetId ? (
-              <p className="muted">
-                保留母版第 {a.entity.sourceVersion}{" "}
-                版的溯源；本次更新仅属于当前作品。
-              </p>
-            ) : (
-              <p className="muted">为当前作品创作的资料。</p>
-            )}
-            <div className="reading-pane">
-              <Markdown text={a.entity.content.markdown} />
-            </div>
-          </details>
-        ))}
-      </section>
+      {showAssets && (
+        <section aria-label="关联资料全文">
+          <h2>关联资料</h2>
+          {!value.assets.length && (
+            <p className="muted">本版本没有附带资料。</p>
+          )}
+          {value.assets.map((a) => (
+            <details
+              className="initialization-asset"
+              key={a.entity.id}
+              open={expandAssets || undefined}
+            >
+              <summary>
+                {a.baseRevision ? "更新" : "新增"} · {a.entity.content.name} ·{" "}
+                {labels[a.entity.kind as keyof typeof labels]}
+              </summary>
+              {a.source ? (
+                <p className="muted">
+                  来源：{a.source.title} · 母版第 {a.source.version} 版 ·
+                  完整独立快照
+                </p>
+              ) : a.entity.sourceAssetId ? (
+                <p className="muted">
+                  保留母版第 {a.entity.sourceVersion}{" "}
+                  版的溯源；本次更新仅属于当前作品。
+                </p>
+              ) : (
+                <p className="muted">为当前作品创作的资料。</p>
+              )}
+              <div className="reading-pane">
+                <Markdown text={a.entity.content.markdown} />
+              </div>
+            </details>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

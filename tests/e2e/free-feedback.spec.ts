@@ -282,9 +282,8 @@ test("recorded references use the loaded work title and matching draft cards sho
   await expect(page.getByRole("region", { name: "信息正文" })).toContainText(
     "第一组正文",
   );
-  await expect(page.locator(".free-pane-heading h2")).toHaveText(
-    "守灯人 · 第 1 稿",
-  );
+  await expect(page.locator(".free-pane-heading h2")).toHaveText("守灯人");
+  await expect(page.getByLabel("版本", { exact: true })).toHaveValue(first.id);
   for (const candidate of [first, second]) {
     const button = page.getByRole("button", {
       name: `查看：${candidate.title} · 第 ${candidate.ordinal} 稿 · 组 ${candidate.groupId.slice(0, 8)}`,

@@ -134,6 +134,53 @@ test("preparing an exact old draft save preserves input and assets without submi
   ).toHaveCount(0);
 });
 
+test("draft reading keeps metadata behind one details entry on desktop and mobile", async ({
+  page,
+}) => {
+  const task = await send(page, "构思角色");
+  const result = await f.invoke(task, "save_character", {
+    mode: "draft",
+    name: "守灯人",
+    markdown: "海风吹过灯塔。\n\n他合上手中的书。",
+    genres: [],
+    age_band: "",
+    occupation: "守塔人",
+  });
+  const candidate = await f.free.candidates.get(
+    task.conversationId,
+    (result.data as { draft_id: string }).draft_id,
+  );
+  await finish(task);
+  await show(page, candidate);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    if (width === 390)
+      await page.getByRole("tab", { name: "信息", exact: true }).click();
+    const body = page.getByRole("region", { name: "信息正文", exact: true });
+    await expect(
+      body.getByText("海风吹过灯塔。", { exact: true }),
+    ).toBeVisible();
+    await expect(body.locator(".metadata, .tags, .free-identity")).toHaveCount(
+      0,
+    );
+    await expect(page.locator(".free-info-heading > details")).toHaveCount(1);
+    const details = page.locator(".free-reading-details");
+    await expect(details).not.toHaveAttribute("open");
+    await details.getByText("稿件详情", { exact: true }).click();
+    await expect(details).toContainText("基础版本");
+    await expect(details).toContainText("守塔人");
+    await details.getByText("稿件详情", { exact: true }).click();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: `/tmp/mochi-write-clean-reading-${width}.png`,
+    });
+  }
+});
+
 test("save preparation rejects other candidate references without changing the message", async ({
   page,
 }) => {
