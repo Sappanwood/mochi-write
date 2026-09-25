@@ -16,19 +16,29 @@ export function StoriesView({
 }) {
   const [page, setPage] = useState<Page>({ items: [] }),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(true);
+    [loading, setLoading] = useState(true),
+    [loadingMore, setLoadingMore] = useState(false),
+    [moreError, setMoreError] = useState(""),
+    [generation, setGeneration] = useState(0);
   async function more() {
+    if (loadingMore || !page.cursor) return;
+    setLoadingMore(true);
+    setMoreError("");
     try {
       const next = await api<Page>(
         `/stories?cursor=${encodeURIComponent(page.cursor!)}`,
       );
       setPage((p) => ({ ...next, items: [...p.items, ...next.items] }));
     } catch (e) {
-      setError(message(e));
+      setMoreError(message(e));
+    } finally {
+      setLoadingMore(false);
     }
   }
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError("");
     void api<Page>("/stories")
       .then((p) => {
         if (active) setPage(p);
@@ -42,7 +52,7 @@ export function StoriesView({
     return () => {
       active = false;
     };
-  }, [api]);
+  }, [api, generation]);
   return (
     <section className="story-shelf">
       <header className="page-heading">
@@ -54,13 +64,38 @@ export function StoriesView({
         <button onClick={() => navigate("free/new/story")}>新建故事</button>
       </header>
       {error && (
-        <p role="alert" className="error">
+        <div role="alert" className="error">
           {error}
-        </p>
+          <button className="quiet" onClick={() => setGeneration((g) => g + 1)}>
+            重新读取故事
+          </button>
+        </div>
       )}
-      {loading && <p role="status">正在读取…</p>}
+      {loading && (
+        <div role="status">
+          <p>正在读取故事…</p>
+          <div className="story-grid" aria-hidden="true">
+            {[0, 1, 2].map((index) => (
+              <div className="story-placeholder" key={index}>
+                <div className="book-cover" />
+                <div className="story-card-body">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {!loading && !error && !page.items.length && (
-        <div className="empty">书架上还没有故事。先聊聊你的想法。</div>
+        <div className="empty">
+          <p>书架上还没有故事。</p>
+          <p>先聊聊你的想法，写下故事的开头。</p>
+          <button onClick={() => navigate("free/new/story")}>
+            创建第一个故事
+          </button>
+        </div>
       )}
       <div className="story-grid">
         {page.items.map((s) => (
@@ -95,9 +130,22 @@ export function StoriesView({
           </button>
         ))}
       </div>
+      {moreError && (
+        <p role="alert" className="error">
+          {moreError}
+        </p>
+      )}
       {page.cursor && (
-        <button className="secondary" onClick={() => void more()}>
-          加载更多
+        <button
+          className="secondary"
+          disabled={loadingMore}
+          onClick={() => void more()}
+        >
+          {loadingMore
+            ? "正在加载更多…"
+            : moreError
+              ? "重试加载更多"
+              : "加载更多"}
         </button>
       )}
     </section>

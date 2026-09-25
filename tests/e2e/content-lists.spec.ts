@@ -18,7 +18,7 @@ test("cards expose readable summaries and update dates, with empty and long cont
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("link", { name: "角色库", exact: true }).click();
-  await expect(page.getByText(/没有匹配的角色/)).toBeVisible();
+  await expect(page.getByText("还没有角色", { exact: true })).toBeVisible();
   const longName = "负责守护海上灯塔与远航来信的年轻记录员".repeat(3);
   for (const [name, markdown] of [
     [
@@ -85,8 +85,32 @@ test("story summaries survive pagination without duplicate titles or changed des
   const first = page.locator(".story-card").first();
   await expect(first.locator("h2, h3")).toHaveCount(1);
   await expect(first.locator(".content-summary")).toContainText("来信与航行");
+  let releaseMore!: () => void;
+  const pendingMore = new Promise<void>((resolve) => {
+    releaseMore = resolve;
+  });
+  let moreRequests = 0;
+  await page.route("**/api/stories?cursor=*", async (route) => {
+    moreRequests++;
+    if (moreRequests === 1) {
+      await pendingMore;
+      await route.fulfill({ status: 503, json: { error: "书架暂时不可用" } });
+    } else {
+      await route.continue();
+    }
+  });
   await page.getByRole("button", { name: "加载更多", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "正在加载更多…" }),
+  ).toBeDisabled();
+  await expect(page.locator(".story-card")).toHaveCount(40);
+  releaseMore();
+  await expect(page.getByRole("alert")).toContainText("书架暂时不可用");
+  await expect(page.locator(".story-card")).toHaveCount(40);
+  await page.getByRole("button", { name: "重试加载更多", exact: true }).click();
   await expect(page.locator(".story-card")).toHaveCount(41);
+  expect(moreRequests).toBe(2);
+  await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "加载更多", exact: true }),
   ).toHaveCount(0);
@@ -97,6 +121,86 @@ test("story summaries survive pagination without duplicate titles or changed des
   await expect(
     page.getByRole("heading", { name: title, exact: true }),
   ).toBeVisible();
+});
+
+test("shelf reserves cards while loading, retries failures and offers an empty-shelf action", async ({
+  page,
+}) => {
+  let releaseLoad!: () => void;
+  const pendingLoad = new Promise<void>((resolve) => {
+    releaseLoad = resolve;
+  });
+  let requests = 0;
+  await page.route("**/api/stories", async (route) => {
+    requests++;
+    if (requests === 1) {
+      await pendingLoad;
+      await route.fulfill({ status: 503, json: { error: "书架暂时不可用" } });
+    } else {
+      await route.continue();
+    }
+  });
+  await page.getByRole("link", { name: "故事书架", exact: true }).click();
+  await expect(page.locator(".story-placeholder")).toHaveCount(3);
+  await expect(page.getByRole("status")).toContainText("正在读取故事");
+  await expect(page.getByText("书架上还没有故事。")).toHaveCount(0);
+  releaseLoad();
+  await expect(page.getByRole("alert")).toContainText("书架暂时不可用");
+  await expect(page.getByText("书架上还没有故事。")).toHaveCount(0);
+  await page.getByRole("button", { name: "重新读取故事", exact: true }).click();
+  await expect(
+    page.getByText("书架上还没有故事。", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".story-placeholder")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "创建第一个故事", exact: true })
+    .click();
+  await expect(page).toHaveURL(/#free\/new\/story$/);
+  expect(requests).toBe(2);
+});
+
+test("update dates omit the current year and preserve full timestamps", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date("2026-09-25T12:00:00Z"));
+  for (const [name, updatedAt] of [
+    ["今年的故事", "2026-09-20T12:34:00Z"],
+    ["去年的故事", "2025-12-20T12:34:00Z"],
+  ]) {
+    const id = randomUUID();
+    await f.store.commit(
+      {
+        ...entity(
+          "story",
+          {
+            name: name!,
+            markdown: "故事摘要",
+            genres: [],
+            ageBand: "",
+            sourceMetadata: {},
+          },
+          id,
+          id,
+        ),
+        status: "ready",
+        updatedAt: updatedAt!,
+      },
+      null,
+    );
+  }
+  await page.getByRole("link", { name: "故事书架", exact: true }).click();
+  const current = page
+    .locator(".story-card")
+    .filter({ hasText: "今年的故事" })
+    .locator("time");
+  const previous = page
+    .locator(".story-card")
+    .filter({ hasText: "去年的故事" })
+    .locator("time");
+  await expect(current).toHaveText("9月20日");
+  await expect(previous).toHaveText("2025年12月20日");
+  await expect(current).toHaveAttribute("datetime", "2026-09-20T12:34:00Z");
+  await expect(current).toHaveAttribute("title", /2026.*\d+:34/);
 });
 
 test("shelf keeps long titles, summaries and pending stories readable on narrow screens", async ({

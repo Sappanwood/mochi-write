@@ -17,7 +17,8 @@
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 28px;
 }
-.story-shelf .story-card {
+.story-shelf .story-card,
+.story-shelf .story-placeholder {
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -43,17 +44,56 @@
   margin: 0;
   font-family: var(--serif);
   font-size: 27px;
-  line-height: 1.6;
+  line-height: 1.5;
+  text-wrap: balance;
   -webkit-line-clamp: 3;
 }
 .story-shelf .book-cover-label {
-  font-size: 9px;
-  opacity: 0.7;
+  font-size: 10px;
+  opacity: 0.85;
   letter-spacing: 0.18em;
 }
 .book-cover-rule {
   width: 32px;
   border-top: 1px solid #f4f0df88;
+}
+.story-shelf .cover-0 {
+  background-color: #52654f;
+  border-left-color: #354a38;
+}
+.story-shelf .cover-1 {
+  background-color: #775f4b;
+  border-left-color: #574334;
+}
+.story-shelf .cover-1 .book-cover-rule {
+  width: 48px;
+}
+.story-shelf .cover-2 {
+  background-color: #536875;
+  border-left-color: #384f5c;
+}
+.story-shelf .cover-2 .book-cover-rule {
+  width: 64px;
+}
+.story-placeholder {
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.story-shelf .story-placeholder .book-cover {
+  background: #dce1d5;
+  border-left-color: #c7cebd;
+}
+.story-placeholder .story-card-body {
+  min-height: 210px;
+}
+.story-placeholder .story-card-body span {
+  display: block;
+  height: 13px;
+  border-radius: 4px;
+  background: #e5e7df;
+}
+.story-placeholder .story-card-body span:last-child {
+  width: 60%;
 }
 .story-card-body {
   flex: 1;
@@ -67,7 +107,7 @@
   margin: 0;
 }
 .story-card-body .story-card-status {
-  font-size: 11px;
+  font-size: var(--text-small);
   color: var(--accent);
 }
 .story-card-body .content-summary {
@@ -76,7 +116,7 @@
 }
 .story-card-body .content-updated {
   margin-top: auto;
-  font-size: 11px;
+  font-size: var(--text-small);
   line-height: 1.7;
 }
 .story-card-link {
@@ -219,7 +259,8 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
   }
-  .story-shelf .story-card {
+  .story-shelf .story-card,
+  .story-shelf .story-placeholder {
     display: grid;
     grid-template-columns: minmax(100px, 0.8fr) minmax(0, 1.4fr);
   }
@@ -241,7 +282,7 @@
     gap: 12px;
   }
   .story-card-body .content-summary {
-    font-size: 12px;
+    font-size: var(--text-small);
   }
   .story-reader .page-heading {
     flex-wrap: wrap;

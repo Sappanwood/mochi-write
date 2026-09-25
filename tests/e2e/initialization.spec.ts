@@ -27,7 +27,7 @@ test("legacy shelf entry opens the original conversation without title or asset"
   f.store.heads.clear();
   await page.reload();
   await expect(
-    page.getByText("书架上还没有故事。先聊聊你的想法。", { exact: true }),
+    page.getByText("书架上还没有故事。", { exact: true }),
   ).toBeVisible();
   await page.locator(".sidebar-more > summary").click();
   await page.getByRole("button", { name: "旧版新建故事", exact: true }).click();

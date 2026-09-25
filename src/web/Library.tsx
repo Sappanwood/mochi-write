@@ -3,7 +3,7 @@ import { PortraitImage } from "./PortraitImage.js";
 import { PortraitPanel } from "./PortraitPanel.js";
 import { ContentSummary, UpdatedTime } from "./ContentSummary.js";
 import { AssetCreativeEntry, FreeConversations } from "./FreeEntry.js";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Content, Document, Page } from "../shared/model.js";
 import type { Api } from "./api.js";
 import { message } from "./api.js";
@@ -30,7 +30,11 @@ export function LibraryView({
   });
   const [page, setPage] = useState<Page>({ items: [] }),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(true);
+    [loading, setLoading] = useState(true),
+    [failedCursor, setFailedCursor] = useState<string>();
+  const requestVersion = useRef(0);
+  const label = kind === "character" ? "角色" : "世界观";
+  const filtered = !!(name || genre || age);
   useEffect(() => {
     void api<typeof terms>("/vocabulary")
       .then(setTerms)
@@ -38,39 +42,31 @@ export function LibraryView({
   }, [api]);
   const query = new URLSearchParams({ kind, name, genre, ageBand: age });
   async function load(cursor?: string) {
+    const version = ++requestVersion.current;
     setLoading(true);
     setError("");
+    if (!cursor) setPage({ items: [] });
     try {
       const next = await api<Page>(
         `/library?${query}${cursor ? "&cursor=" + encodeURIComponent(cursor) : ""}`,
       );
+      if (version !== requestVersion.current) return;
       setPage((old) =>
         cursor ? { ...next, items: [...old.items, ...next.items] } : next,
       );
     } catch (e) {
-      setError(message(e));
+      if (version === requestVersion.current) {
+        setError(message(e));
+        setFailedCursor(cursor);
+      }
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError("");
-    void api<Page>(
-      `/library?${new URLSearchParams({ kind, name, genre, ageBand: age })}`,
-    )
-      .then((p) => {
-        if (active) setPage(p);
-      })
-      .catch((e) => {
-        if (active) setError(message(e));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    void load();
     return () => {
-      active = false;
+      requestVersion.current++;
     };
   }, [api, kind, name, genre, age]);
   return (
@@ -118,19 +114,52 @@ export function LibraryView({
       {error && (
         <div role="alert" className="error">
           {error}
-          <button className="quiet" onClick={() => void load()}>
+          <button
+            className="quiet"
+            disabled={loading}
+            onClick={() => void load(failedCursor)}
+          >
             重试
           </button>
         </div>
       )}
-      {loading && <p role="status">正在读取…</p>}
+      {loading && <p role="status">正在读取{label}…</p>}
       {!loading && !error && !page.items.length && (
         <div className="empty">
-          没有匹配的{kind === "character" ? "角色" : "世界观"}
-          。可以新建，或从导入页面添加资料。
+          <p>{filtered ? `没有匹配的${label}` : `还没有${label}`}</p>
+          <p>
+            {filtered
+              ? "试试其他名称或条件，也可以清除筛选查看全部资料。"
+              : "从一个想法开始构思，也可以从导入页面添加已有资料。"}
+          </p>
+          {filtered ? (
+            <button
+              className="secondary"
+              onClick={() => {
+                setName("");
+                setGenre("");
+                setAge("");
+              }}
+            >
+              清除筛选
+            </button>
+          ) : (
+            <button onClick={() => navigate(`free/new/${kind}`)}>
+              创建第一个{label}
+            </button>
+          )}
         </div>
       )}
-      <div className="asset-grid">
+      <div className="asset-grid" aria-busy={loading}>
+        {loading &&
+          !page.items.length &&
+          [0, 1, 2].map((index) => (
+            <div className="asset-placeholder" aria-hidden="true" key={index}>
+              <span />
+              <span />
+              <span />
+            </div>
+          ))}
         {page.items.map((d) => (
           <button
             className={`asset-card${kind === "character" ? " character-card" : ""}`}

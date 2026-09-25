@@ -25,11 +25,12 @@ export function UpdatedTime({ value }: { value: string }) {
   return (
     <time dateTime={value} title={date.toLocaleString("zh-CN")}>
       {new Intl.DateTimeFormat("zh-CN", {
-        year: "numeric",
-        month: "short",
+        year:
+          date.getFullYear() === new Date().getFullYear()
+            ? undefined
+            : "numeric",
+        month: "long",
         day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
       }).format(date)}
     </time>
   );
