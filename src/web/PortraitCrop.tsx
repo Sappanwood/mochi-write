@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { message } from "./api.js";
+import { portraitWidth, portraitHeight } from "../shared/portrait.js";
 
 export function PortraitCrop({
   onCrop,
@@ -29,19 +30,21 @@ export function PortraitCrop({
   useEffect(() => {
     const ctx = canvas.current?.getContext("2d");
     if (!ctx || !source) return;
-    const size = Math.min(source.width, source.height) / zoom;
+    const ratio = portraitWidth / portraitHeight;
+    const width = Math.min(source.width, source.height * ratio) / zoom;
+    const height = width / ratio;
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillRect(0, 0, portraitWidth, portraitHeight);
     ctx.drawImage(
       source,
-      ((source.width - size) * x) / 100,
-      ((source.height - size) * y) / 100,
-      size,
-      size,
+      ((source.width - width) * x) / 100,
+      ((source.height - height) * y) / 100,
+      width,
+      height,
       0,
       0,
-      512,
-      512,
+      portraitWidth,
+      portraitHeight,
     );
   }, [source, zoom, x, y]);
   async function select(file?: File) {
@@ -100,12 +103,33 @@ export function PortraitCrop({
           }}
         />
       </label>
+      <button
+        type="button"
+        className="secondary"
+        aria-label="粘贴头像图片"
+        disabled={busy}
+        onPaste={(e) => {
+          if (e.currentTarget.matches(":disabled")) return;
+          const file = Array.from(e.clipboardData.files).find((item) =>
+            item.type.startsWith("image/"),
+          );
+          if (!file) {
+            setError("剪贴板中没有图片，请复制图片本身或截图后再粘贴");
+            return;
+          }
+          e.preventDefault();
+          void select(file);
+        }}
+      >
+        点击此处，再按 Ctrl / ⌘ + V 粘贴图片
+      </button>
+      <p className="muted">3:4 竖幅头像，可调整缩放与位置。</p>
       {source && (
         <>
           <canvas
             ref={canvas}
-            width={512}
-            height={512}
+            width={portraitWidth}
+            height={portraitHeight}
             aria-label="头像裁剪预览"
           />
           <label>

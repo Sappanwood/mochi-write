@@ -30,6 +30,8 @@ test("character profile keeps identity, reading and management usable on desktop
   ).toBeVisible();
   await expect(profile.getByText("灯塔守望者", { exact: true })).toBeVisible();
   await expect(profile.getByText("性别", { exact: true })).toHaveCount(0);
+  const portraitBounds = await profile.locator(".portrait-image").boundingBox();
+  expect(portraitBounds!.width / portraitBounds!.height).toBeCloseTo(3 / 4, 2);
   await expect(page.getByLabel("采用的生图提示词")).not.toBeVisible();
   const portraitManager = profile.getByRole("button", {
     name: "头像与提示词",
@@ -51,6 +53,8 @@ test("character profile keeps identity, reading and management usable on desktop
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(portraitManager).toBeVisible();
+    const bounds = await profile.locator(".portrait-image").boundingBox();
+    expect(bounds!.width / bounds!.height).toBeCloseTo(3 / 4, 2);
     const managerBounds = await portraitManager.boundingBox();
     expect(managerBounds!.height).toBeGreaterThanOrEqual(44);
     await portraitManager.click();
@@ -92,6 +96,10 @@ test("character profile keeps identity, reading and management usable on desktop
   ).toBeVisible();
   await page.getByRole("button", { name: "返回角色库" }).click();
   await expect(page.locator(".character-card")).toHaveCount(1);
+  const cardPortrait = await page
+    .locator(".character-card .portrait-image")
+    .boundingBox();
+  expect(cardPortrait!.width / cardPortrait!.height).toBeCloseTo(3 / 4, 2);
   await page.screenshot({
     path: "/tmp/mochi-character-library.png",
     fullPage: true,

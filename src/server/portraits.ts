@@ -4,7 +4,12 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import type { Store } from "./store.js";
 import { AppError } from "../shared/model.js";
-import { imageIdSchema, portraitSchema } from "../shared/portrait.js";
+import {
+  imageIdSchema,
+  portraitSchema,
+  portraitWidth,
+  portraitHeight,
+} from "../shared/portrait.js";
 import { clean } from "./entities.js";
 
 export interface PortraitStore {
@@ -51,7 +56,7 @@ export async function normalizePortrait(data: Buffer) {
       throw new Error();
     const result = await source
       .rotate()
-      .resize(512, 512, { fit: "cover" })
+      .resize(portraitWidth, portraitHeight, { fit: "cover" })
       .flatten({ background: "#ffffff" })
       .jpeg({ quality: 85 })
       .toBuffer();
@@ -67,15 +72,17 @@ export async function normalizePortrait(data: Buffer) {
 export async function validateStoredPortrait(data: Buffer) {
   try {
     const source = sharp(data, {
-      limitInputPixels: 512 * 512,
+      limitInputPixels: portraitWidth * portraitHeight,
       failOn: "warning",
     });
     const meta = await source.metadata();
     if (
       data.length > 512 * 1024 ||
       meta.format !== "jpeg" ||
-      meta.width !== 512 ||
-      meta.height !== 512 ||
+      !(
+        (meta.width === portraitWidth && meta.height === portraitHeight) ||
+        (meta.width === 512 && meta.height === 512)
+      ) ||
       meta.exif ||
       meta.xmp ||
       meta.icc ||
@@ -84,7 +91,10 @@ export async function validateStoredPortrait(data: Buffer) {
       throw new Error();
     await source.raw().toBuffer();
   } catch {
-    throw new AppError(400, "头像附件不是有效的 512×512 JPEG");
+    throw new AppError(
+      400,
+      "头像附件不是有效的 768×1024 JPEG（兼容旧版 512×512）",
+    );
   }
 }
 export function registerPortraits(

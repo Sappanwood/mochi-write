@@ -1,7 +1,7 @@
 .portrait-image {
   display: inline-flex;
   width: 72px;
-  height: 72px;
+  aspect-ratio: 3 / 4;
   flex: 0 0 auto;
   border-radius: 18px;
   overflow: hidden;
@@ -18,7 +18,6 @@
 }
 .portrait-large {
   width: 176px;
-  height: 176px;
   font-size: 4rem;
 }
 .portrait-controls {
@@ -63,7 +62,6 @@
   }
   .portrait-large {
     width: 128px;
-    height: 128px;
   }
 }
 
@@ -261,7 +259,6 @@
   }
   .character-portrait .portrait-large {
     width: 96px;
-    height: 96px;
     border-radius: 16px;
     font-size: 2.5rem;
   }

@@ -377,7 +377,7 @@ prompt 最多 8000 UTF-16 code units。此属性位于 Entity，非 Content；�
 
 | 本人 API | 契约 |
 |---|---|
-| `POST /api/portraits` | `{data:<base64>}`，解码最多 512 KiB、请求最多 1 MiB；只接受静态 PNG/JPEG/WebP，最多 1600 万像素；去元数据并转 512×512 JPEG，201 返回 `{imageId}` |
+| `POST /api/portraits` | `{data:<base64>}`，解码最多 512 KiB、请求最多 1 MiB；只接受静态 PNG/JPEG/WebP，最多 1600 万像素；去元数据并转 768×1024 JPEG（3:4），201 返回 `{imageId}` |
 | `GET /api/portraits/:id` | 返回 `{data:<JPEG base64>}`，核对内容 hash；不存在为 404，不支持外部图片 URL |
 | `PUT /api/library/:id/portrait` | `{revision,portrait:<对象或null>}`，只允许未删除角色；检查图片存在与角色 CAS，返回完整 Document；null 清除属性，省略 imageId 仅移除图片；版本冲突 409 |
 
@@ -387,6 +387,7 @@ prompt 最多 8000 UTF-16 code units。此属性位于 Entity，非 Content；�
 
 导出 v1 manifest attributes 保留 portrait，包中附加去重的 `portraits/<imageId>.json`，内容为
 `{schema:"mochi-write/portrait@1",data:<JPEG base64>}`，作为 UTF-8 附件适配现有 Web/CLI/ZIP 流程。
+附件接受 768×1024 JPEG 及旧版 512×512 JPEG，不重编码旧图片，保留其 hash 和引用。
 附件沿用单文件 1 MiB、总包 16 MiB 与最多 1000 文件的边界；缺失、篡改、无引用附件、非法类型或超限拒绝，旧无头像包仍兼容。
 导入先核对全包及既有对象冲突，再验证全部 JPEG 并写不可变附件，之后走原对象导入；不承诺 Blob 与 Cosmos 跨服务事务。
 失败可用原包重试，缺少 Blob 配置不会静默丢弃头像。CLI preflight 与 HTTP preview 校验附件但不上传。

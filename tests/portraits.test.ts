@@ -10,6 +10,7 @@ import { entity } from "../src/server/entities.js";
 import { exportFiles } from "../src/server/export.js";
 import { importFiles, preflight } from "../src/server/import.js";
 import { MemoryStore } from "./support/memory-store.js";
+import { imageHash, validateStoredPortrait } from "../src/server/portraits.js";
 
 const content = {
   name: "头像角色",
@@ -86,8 +87,8 @@ it("normalizes uploaded images, authenticates reads and updates portraits with C
   const jpeg = f.blobs.values.get(imageId)!;
   expect(await sharp(jpeg).metadata()).toMatchObject({
     format: "jpeg",
-    width: 512,
-    height: 512,
+    width: 768,
+    height: 1024,
   });
   expect((await f.upload()).json().imageId).toBe(imageId);
   const url = `/api/portraits/${imageId}`;
@@ -179,47 +180,94 @@ it("keeps prompt editing available without image storage and reports unavailable
   );
 });
 
-it("freezes portraits in story snapshots and round-trips complete image bundles", async () => {
-  const f = await setup();
-  const { imageId } = (await f.upload()).json();
-  const portrait = { imageId, prompt: "2.5D，银发" };
-  const saved = (await f.save(f.doc.revision, portrait)).json();
-  const storyId = randomUUID();
-  await f.store.commit(
-    { ...entity("story", content, storyId, storyId), status: "ready" },
-    null,
-  );
-  const snapshot = await new Library(f.store).addSnapshot(
-    storyId,
-    f.doc.id,
-    randomUUID(),
-  );
-  expect(snapshot.portrait).toEqual(portrait);
-  await f.save(saved.revision, null);
-  const bundle = await exportFiles(f.store, f.blobs);
-  expect(bundle.filter((v) => v.path.startsWith("portraits/"))).toHaveLength(1);
-  const restored = new MemoryStore(),
-    target = images();
-  await importFiles(restored, bundle, "restore", target);
-  expect((await restored.get(snapshot.id, storyId))?.portrait).toEqual(
-    portrait,
-  );
-  expect(target.values.get(imageId)).toEqual(f.blobs.values.get(imageId));
-  expect(await importFiles(restored, bundle, "restore", target)).toMatchObject({
-    created: 0,
-  });
-  expect(() =>
-    preflight(
-      bundle.filter((v) => !v.path.startsWith("portraits/")),
-      "missing",
-    ),
-  ).toThrow();
-  const broken = structuredClone(bundle);
-  broken.find((v) => v.path.startsWith("portraits/"))!.text = JSON.stringify({
-    data: f.png.toString("base64"),
-  });
-  await expect(
-    importFiles(new MemoryStore(), broken, "bad", images()),
-  ).rejects.toThrow();
-  await expect(exportFiles(f.store)).rejects.toMatchObject({ statusCode: 503 });
+it.each(["current", "legacy"])(
+  "freezes %s portraits in story snapshots and round-trips complete image bundles",
+  async (format) => {
+    const f = await setup();
+    let imageId: string;
+    if (format === "legacy") {
+      const jpeg = await sharp(f.png).resize(512, 512).jpeg().toBuffer();
+      imageId = imageHash(jpeg);
+      await f.blobs.put(imageId, jpeg);
+    } else {
+      imageId = (await f.upload()).json().imageId;
+    }
+    const portrait = { imageId, prompt: "2.5D，银发" };
+    const saved = (await f.save(f.doc.revision, portrait)).json();
+    const storyId = randomUUID();
+    await f.store.commit(
+      { ...entity("story", content, storyId, storyId), status: "ready" },
+      null,
+    );
+    const snapshot = await new Library(f.store).addSnapshot(
+      storyId,
+      f.doc.id,
+      randomUUID(),
+    );
+    expect(snapshot.portrait).toEqual(portrait);
+    await f.save(saved.revision, null);
+    const bundle = await exportFiles(f.store, f.blobs);
+    expect(bundle.filter((v) => v.path.startsWith("portraits/"))).toHaveLength(
+      1,
+    );
+    const restored = new MemoryStore(),
+      target = images();
+    await importFiles(restored, bundle, "restore", target);
+    expect((await restored.get(snapshot.id, storyId))?.portrait).toEqual(
+      portrait,
+    );
+    expect(target.values.get(imageId)).toEqual(f.blobs.values.get(imageId));
+    expect(
+      await importFiles(restored, bundle, "restore", target),
+    ).toMatchObject({
+      created: 0,
+    });
+    expect(() =>
+      preflight(
+        bundle.filter((v) => !v.path.startsWith("portraits/")),
+        "missing",
+      ),
+    ).toThrow();
+    const broken = structuredClone(bundle);
+    broken.find((v) => v.path.startsWith("portraits/"))!.text = JSON.stringify({
+      data: f.png.toString("base64"),
+    });
+    await expect(
+      importFiles(new MemoryStore(), broken, "bad", images()),
+    ).rejects.toThrow();
+    await expect(exportFiles(f.store)).rejects.toMatchObject({
+      statusCode: 503,
+    });
+  },
+);
+
+it.each([
+  [768, 1024],
+  [512, 512],
+])("accepts stored JPEG dimensions %i × %i", async (width, height) => {
+  const jpeg = await sharp({
+    create: { width, height, channels: 3, background: "red" },
+  })
+    .jpeg()
+    .toBuffer();
+  await expect(validateStoredPortrait(jpeg)).resolves.toBeUndefined();
 });
+
+it.each([
+  [512, 768],
+  [1024, 768],
+  [768, 1023],
+  [1536, 2048],
+])(
+  "rejects unsupported stored JPEG dimensions %i × %i",
+  async (width, height) => {
+    const jpeg = await sharp({
+      create: { width, height, channels: 3, background: "red" },
+    })
+      .jpeg()
+      .toBuffer();
+    await expect(validateStoredPortrait(jpeg)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+  },
+);
