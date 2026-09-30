@@ -94,6 +94,9 @@ CCP 已完成 Free Tier 名额核对并创建应用数据库与两个 container�
 免费层不适用于 Serverless，须在账户创建时启用；超额存储、恢复及其他云资源不承诺免费。
 
 故事业务 container 的分区路径确定为 `/projectId`，值为故事 ID；同一故事的快照、章节、版本与草稿共用分区。
+故事删除复用 `Store.commit` 的 head CAS 与不可变版本事务，仅标记 story head 的 `deleted`，不批量改写分区内文档。
+阅读、快照添加和新资料引用检查故事删除状态；列表及导出由未删除 story head 确定可见范围。已记录来源仍可读取精确历史版本。
+母版删除沿用 library 的同类事务，不级联故事快照、会话或头像 Blob；删除不调用 Mochi 取消／删除接口。
 此处 projectId 指小说作品，不是 ProjectOps 项目 ID。全局资产使用独立 library container，/scopeId 固定为 library，不能伪造故事归属。
 跨分区操作不承诺原子性；两个 container 共享数据库吞吐，版本与采纳事务限定在同一分区，具体规则见首期实现契约。
 

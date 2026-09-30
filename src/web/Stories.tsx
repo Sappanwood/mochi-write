@@ -176,7 +176,28 @@ export function StoryReader({
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [adding, setAdding] = useState(false),
+    [deleting, setDeleting] = useState(false),
+    [deleteError, setDeleteError] = useState(""),
     [generation, setGeneration] = useState(0);
+  async function remove() {
+    if (!story || story.id !== id || deleting || loading) return;
+    if (
+      !confirm(
+        `删除故事「${story.content.name}」？故事及其章节、设定、大纲和快照将从书架、阅读与导出中移除。角色与世界观母版、会话记录保留。当前没有恢复入口。`,
+      )
+    )
+      return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await api(`/stories/${id}`, { revision: story.revision }, "DELETE");
+      navigate("stories");
+    } catch (e) {
+      setDeleteError(message(e));
+    } finally {
+      setDeleting(false);
+    }
+  }
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -235,13 +256,42 @@ export function StoryReader({
           <p className="eyebrow">故事阅读</p>
           <h1>{story?.content.name ?? "正在读取故事…"}</h1>
         </div>
-        <button
-          className="secondary"
-          onClick={() => navigate(`free/new/story/${id}`)}
-        >
-          带此故事新建会话
-        </button>
+        <div className="asset-actions">
+          <button
+            className="secondary"
+            onClick={() => navigate(`free/new/story/${id}`)}
+          >
+            带此故事新建会话
+          </button>
+          <details className="asset-more">
+            <summary>更多</summary>
+            <div className="asset-more-content">
+              <button
+                className="danger quiet"
+                disabled={deleting || loading || story?.id !== id}
+                onClick={() => void remove()}
+              >
+                {deleting ? "正在删除…" : "删除故事"}
+              </button>
+            </div>
+          </details>
+        </div>
       </header>
+      {deleteError && (
+        <div role="alert" className="error">
+          {deleteError}
+          <button
+            className="quiet"
+            disabled={deleting || loading}
+            onClick={() => {
+              setDeleteError("");
+              setGeneration((g) => g + 1);
+            }}
+          >
+            重新读取故事
+          </button>
+        </div>
+      )}
       <div className="reader-tools">
         <AssetCreativeEntry
           api={api}

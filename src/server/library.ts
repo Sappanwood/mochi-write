@@ -103,7 +103,7 @@ export class Library {
     requestId: string,
   ): Promise<Document> {
     const s = await this.store.get(story, story);
-    if (!s || s.kind !== "story" || s.status !== "ready")
+    if (!s || s.deleted || s.kind !== "story" || s.status !== "ready")
       throw new AppError(404, "故事不存在");
     const id = stableId(`${story}:${requestId}`);
     const previous = await this.store.get(id, story);

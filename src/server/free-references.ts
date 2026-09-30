@@ -32,6 +32,10 @@ export class FreeReferences {
     const prior = (await this.sources(conversationId)).some(
       (s) => freeDigest(s.ref) === freeDigest(ref),
     );
+    if (!prior && ref.story_id) {
+      const story = await this.content.get(ref.story_id, ref.story_id);
+      if (story?.deleted) throw new AppError(404, "reference_unavailable");
+    }
     const doc = prior
       ? await this.content.getVersion(
           ref.asset_id,

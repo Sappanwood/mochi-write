@@ -18,6 +18,7 @@ MWT-025–028 增量实现 `/api/creative/free` 本人 API、独立会话身份�
 资产引用为 `{type:"asset",kind,asset_id,story_id?,revision,version,content_hash}`。
 character/world 禁止 story_id；故事及其资料必须提供 story_id，story 本身 asset_id=story_id。
 新引用必须匹配未删除当前 head 的不透明 revision、逻辑 version 和完整 Content 的 canonical SHA-256。
+故事删除后，其章节、设定、大纲与快照同样不能作为新的资料引用；已有会话中记录的精确来源仍沿用历史读取规则。资产删除不删除会话或取消任务。
 已在本会话记录的旧来源允许读取不可变版本，软删除或编辑不替换旧内容；缺失或 hash 不一致明确不可取得。
 编辑目标另读当前 head，固定资料的旧版本不会自动成为新的保存 baseRevision；保存旧候选仍必须匹配候选冻结目标/版本，不自动 rebase。
 

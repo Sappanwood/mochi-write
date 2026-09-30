@@ -115,6 +115,13 @@ export async function resolveReference(
     selection.asset_id,
     selection.story_id ?? null,
   );
+  if (selection.story_id) {
+    const story = await free.content.get(
+      selection.story_id,
+      selection.story_id,
+    );
+    if (story?.deleted) throw new AppError(404, "reference_unavailable");
+  }
   if (!doc || doc.deleted) throw new AppError(404, "reference_unavailable");
   if (
     doc.kind !== selection.kind ||

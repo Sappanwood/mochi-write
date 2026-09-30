@@ -122,6 +122,85 @@ test("browse, filter and persist an asset edit across refresh", async ({
     (await store.get(asset.id, null))?.content.sourceMetadata.custom_field,
   ).toEqual({ color: "蓝" });
 });
+for (const kind of ["story", "character", "world"] as const) {
+  test(`delete ${kind} from details with cancellation, failure retry and refresh`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const doc = (await store.list({ kind })).items[0]!;
+    const label = { story: "故事", character: "角色", world: "世界观" }[kind];
+    await page.goto(
+      `${address}/#${kind === "story" ? `story/${doc.id}/chapter` : `asset/${doc.id}`}`,
+    );
+    await page
+      .locator(".asset-more > summary, .character-more > summary")
+      .click();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const remove = page.getByRole("button", {
+      name: `删除${label}`,
+      exact: true,
+    });
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain(doc.content.name);
+      await dialog.dismiss();
+    });
+    await remove.click();
+    expect((await store.get(doc.id, doc.projectId))?.deleted).not.toBe(true);
+    store.failNext = true;
+    page.once("dialog", (dialog) => dialog.accept());
+    await remove.click();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "保存失败" }),
+    ).toBeVisible();
+    await expect(remove).toBeEnabled();
+    page.once("dialog", (dialog) => dialog.accept());
+    await remove.click();
+    await expect(page).toHaveURL(
+      new RegExp(kind === "story" ? "#stories$" : `#library/${kind}$`),
+    );
+    await page.reload();
+    await expect(
+      page.getByText(
+        kind === "story" ? "书架上还没有故事。" : `还没有${label}`,
+        { exact: true },
+      ),
+    ).toBeVisible();
+    expect((await store.get(doc.id, doc.projectId))?.deleted).toBe(true);
+  });
+}
+test("story deletion requires renewed confirmation after another window changes its revision", async ({
+  page,
+}) => {
+  const story = (await store.list({ kind: "story" })).items[0]!;
+  await page.goto(`${address}/#story/${story.id}/chapter`);
+  await page.locator(".asset-more > summary").click();
+  const updated = await store.commit(
+    {
+      ...story,
+      guidance: "新的写作指引",
+      currentVersion: story.currentVersion + 1,
+    },
+    story.revision,
+  );
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "删除故事", exact: true }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "故事版本已变化" }),
+  ).toBeVisible();
+  expect(await store.get(story.id, story.id)).toEqual(updated);
+  await page.getByRole("button", { name: "重新读取故事", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "删除故事", exact: true }),
+  ).toBeEnabled();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "删除故事", exact: true }).click();
+  await expect(page).toHaveURL(/#stories$/);
+  expect((await store.get(story.id, story.id))?.deleted).toBe(true);
+});
 test("failed saves and real stale revisions retain the draft", async ({
   page,
 }) => {

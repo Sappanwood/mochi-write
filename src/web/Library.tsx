@@ -319,8 +319,16 @@ export function AssetEditor({
     }
   }
   async function remove() {
-    if (!base || !confirm("删除此母版？已有故事快照会保留。")) return;
+    if (
+      !base ||
+      busy ||
+      !confirm(
+        `删除${base.kind === "character" ? "角色" : "世界观"}「${base.content.name}」？已有故事快照和会话记录会保留。当前没有恢复入口。`,
+      )
+    )
+      return;
     setBusy(true);
+    setError("");
     try {
       await api(`/library/${base.id}`, { revision: base.revision }, "DELETE");
       setDraft(base.id);
@@ -418,16 +426,32 @@ export function AssetEditor({
                 : "母版的变化不会影响已有故事。"}
             </p>
           </div>
-          {!editing &&
-            (formalRead && draft ? (
-              <button onClick={() => navigate(`asset/${id}`)}>
-                继续未保存编辑
-              </button>
-            ) : (
-              <button onClick={() => setEditing(true)}>
-                {isCharacter ? "编辑资料" : "编辑资产"}
-              </button>
-            ))}
+          <div className="asset-actions">
+            {!editing &&
+              (formalRead && draft ? (
+                <button onClick={() => navigate(`asset/${id}`)}>
+                  继续未保存编辑
+                </button>
+              ) : (
+                <button onClick={() => setEditing(true)}>
+                  {isCharacter ? "编辑资料" : "编辑资产"}
+                </button>
+              ))}
+            {!isCharacter && base && !editing && (
+              <details className="asset-more">
+                <summary>更多</summary>
+                <div className="asset-more-content">
+                  <button
+                    className="danger quiet"
+                    disabled={busy}
+                    onClick={() => void remove()}
+                  >
+                    删除世界观
+                  </button>
+                </div>
+              </details>
+            )}
+          </div>
         </header>
       )}
       {formalRead && draft && !editing && (
@@ -585,15 +609,6 @@ export function AssetEditor({
           <div className={isCharacter ? "character-reading" : undefined}>
             <ContentReading content={content} showMetadata={!isCharacter} />
           </div>
-          {!isCharacter && (
-            <button
-              className="danger quiet"
-              disabled={busy}
-              onClick={() => void remove()}
-            >
-              删除母版
-            </button>
-          )}
         </>
       )}
     </div>

@@ -200,7 +200,8 @@ world/name 两种世界观名称字段均接受；章节默认从 chNN.md 取正
 当前对象 head 带 `recordType=head`，ID 为业务 UUID。版本文档使用 `version:<entityId>:<version>`，
 `kind=version`、entityId、version、content 保存该版本完整对象，使用 Create-only。
 Cosmos 事务以 head 的 IfMatch etag 保护更新；409/412 映射为 API 409，其他存储失败返回 503。
-删除资产产生带 deleted 的新版本，不级联。building → ready 是初始化发布元数据变更，仅条件更新 head，不改内容版本。
+删除角色、世界观或故事产生带 deleted 的新版本，不级联。故事删除要求 ready head 与原 revision；其章节、资料与历史版本留存，但普通故事读取、快照添加、新引用及导出排除已删除故事。
+删除成功返回 204；缺失或已删除为 404，版本冲突为 409，存储失败为 503。building → ready 是初始化发布元数据变更，仅条件更新 head，不改内容版本。
 旧导入以批次标识和源路径确定 UUID，library 内 `kind=import` 文档冻结批次输入摘要；改动输入时拒绝复用旧批次。
 有 manifest 的重导入以原 ID、版本和内容核对，不需要同一批次标识。不同批次的旧素材可以产生不同 ID，不承诺跨批次内容去重。
 
@@ -220,6 +221,7 @@ Web 目录选择仅上传相对路径与文本，不向后端授予本地路径�
 | PUT /api/library/:id | `{revision,content}`，保存新版本 |
 | DELETE /api/library/:id | `{revision}`，创建删除版本 |
 | GET /api/stories、/api/stories/:id | 分页故事列表、ready 故事信息 |
+| DELETE /api/stories/:id | `{revision}`，创建故事删除版本，不级联母版、会话或物理清理故事分区 |
 | GET /api/stories/:id/documents | kind=setting/outline/snapshot/chapter，限定故事分区 |
 | GET /api/stories/:id/documents/:documentId | 校验故事与文档归属后读取 |
 | POST /api/stories/:id/snapshots | `{assetId,requestId}`，幂等复制母版当时版本 |

@@ -89,6 +89,25 @@ export function registerBusiness(
   app.get("/api/stories/:id", async (request) =>
     story(idParams.parse(request.params).id),
   );
+  app.delete("/api/stories/:id", async (request, reply) => {
+    const body = z
+      .object({ revision: z.string().min(1) })
+      .strict()
+      .parse(request.body);
+    const current = await story(idParams.parse(request.params).id);
+    if (current.revision !== body.revision)
+      throw new AppError(409, "故事版本已变化，请重新读取后确认删除");
+    await store.commit(
+      {
+        ...clean(current),
+        deleted: true,
+        currentVersion: current.currentVersion + 1,
+        updatedAt: new Date().toISOString(),
+      },
+      body.revision,
+    );
+    return reply.code(204).send();
+  });
   app.put("/api/stories/:id/guidance", async (request) => {
     const body = z
       .object({
