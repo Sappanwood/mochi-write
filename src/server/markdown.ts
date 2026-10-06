@@ -4,6 +4,8 @@ import {
 } from "../shared/bundle-limits.js";
 import { posix } from "node:path";
 import { parseDocument } from "yaml";
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { SKIP, visit } from "unist-util-visit";
 import {
   AppError,
   contentSchema,
@@ -97,7 +99,33 @@ export function resolveReference(from: string, ref: string) {
   return safePath(resolved);
 }
 export function references(file: BundleFile) {
-  return [
-    ...file.text.matchAll(/(?:\.\.\/|library\/|snapshots\/)[^\s`|)<>"']+\.md/g),
-  ].map((m) => resolveReference(file.path, m[0]));
+  const refs: string[] = [];
+  visit(fromMarkdown(file.text), (node) => {
+    if (
+      node.type === "link" ||
+      node.type === "image" ||
+      node.type === "definition"
+    ) {
+      const target = node.url.split(/[?#]/, 1)[0]!;
+      if (
+        target.endsWith(".md") &&
+        !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target)
+      )
+        refs.push(resolveReference(file.path, target));
+      return SKIP;
+    }
+    if (node.type === "linkReference" || node.type === "imageReference")
+      return SKIP;
+    if (
+      node.type === "text" ||
+      node.type === "inlineCode" ||
+      node.type === "code"
+    ) {
+      for (const match of node.value.matchAll(
+        /(?:\.\.\/|library\/|snapshots\/)[^\s`|()[\]<>"']+\.md/g,
+      ))
+        refs.push(resolveReference(file.path, match[0]));
+    }
+  });
+  return refs;
 }

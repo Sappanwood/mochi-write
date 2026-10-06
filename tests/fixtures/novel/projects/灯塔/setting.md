@@ -8,13 +8,13 @@ custom_setting: 保留
 
 ## 世界路由
 
-- `../../library/worlds/雾海.md`
+- [library/worlds/雾海.md](../../library/worlds/雾海.md)
 
 ## 角色路由
 
 | 角色 | 母版卡                           | 快照              |
 | ---- | -------------------------------- | ----------------- |
-| 林舟 | ../../library/characters/林舟.md | snapshots/林舟.md |
+| 林舟 | [library/characters/林舟.md](../../library/characters/林舟.md) | [snapshots/林舟.md](snapshots/林舟.md) |
 
 ## 人物关系
 
